@@ -35,8 +35,9 @@ hu_ll <- st_read(here::here("data-raw", "spatial", "mpatt_hu_10.gdb"),
 
 # Look at the context of the MPA network with commercial longline
 ggplot(data = comm_ll |> rotate_a(a = 0)) +
-  geom_sf(data = hu_ll |> rotate_a(a = 0), fill = "grey90") +
-  geom_sf(aes(fill = activity_allowance_label), alpha = 0.8) +
+  geom_sf(data = hu_ll |> rotate_a(a = 0), fill = "grey90", colour = "grey80") +
+  geom_sf(data = pacea::bc_coast, fill = "grey99") +
+  geom_sf(aes(fill = activity_allowance_label), alpha = 0.7) +
   coord_sf(xlim = c(-134, -124), ylim = c(48.5, 54.5), crs = 4326) +
   labs(fill = "Commercial longline") +
   theme(legend.position = "top") +
