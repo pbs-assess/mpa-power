@@ -23,20 +23,3 @@ get_model_years <- function(fit) {
 get_model_pars <- function(fit) {
   bind_rows(tidy(fit), tidy(fit, "ran_pars"))
 }
-
-prepare_sim_data <- function(dat, pred_grid, survey = c("HBLL"), cutoff = 10) {
-  survey <- match.arg(survey)
-
-  # Filter prediction grid to match survey and years
-  pred_grid <- dplyr::filter(pred_grid, survey_abbrev %in% unique(dat$survey_abbrev))
-
-  # Create mesh
-  mesh <- make_mesh(dat, xy_cols = c("X", "Y"), cutoff = cutoff)
-
-  # Return formatted data and mesh
-  list(
-    data = dat,
-    mesh = mesh,
-    pred_grid = pred_grid
-  )
-}
