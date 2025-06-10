@@ -62,35 +62,17 @@ sp_dat <- filter(sp_dat0, stringr::str_detect(survey_abbrev, "HBLL")) |>
 fit_ins <- fit_hbll(dat = sp_dat, survey_type = "HBLL INS",
                     species = "yelloweye-rockfish",
                     fit_dir = fit_dir)
-fit_out1 <- fit_hbll(dat = sp_dat, survey_type = "HBLL OUT",
+fit_out <- fit_hbll(dat = sp_dat, survey_type = "HBLL OUT",
                     species = "yelloweye-rockfish",
                     fit_dir = fit_dir)
-# Was trying to understand why this plot looked so different from gfsynopsis
-# I think it's because it's plotted on link scale, and I was plotting on response scale
-fit_out2 <- fit_hbll(dat = sp_dat, survey_type = "HBLL OUT S",
-                    species = "yelloweye-rockfish",
-                    fit_dir = fit_dir,
-                    tag = "gfsynopsis",
-                    formula = catch_count ~ 0 + as.factor(year) + depth_scaled + depth_scaled2,
-                    spatial = "on",
-                    spatiotemporal = "off")
 
 # get predictions
 pred_ins <- predict_hbll(fit_ins, hbll_grid, re_form = NULL)
-
-pred_out1 <- predict_hbll(fit_out1, hbll_grid, re_form = NULL)
-pred_out2 <- predict_hbll(fit_out2,
-  grid = hbll_grid |>
-    filter(str_detect(survey_abbrev, "HBLL OUT S")),
-  re_form = NULL)
+pred_out <- predict_hbll(fit_out, hbll_grid, re_form = NULL)
 
 # plot predictions
 plot_hbll_predictions(pred_ins |> filter(year %in% 2024),
-  rotation = 90, type = "link") + facet_wrap(~ year)
-plot_hbll_predictions(pred_out1 |> filter(year %in% 2022), rotation = 90) + facet_wrap(~ year)
-plot_hbll_predictions(pred_out2 |> filter(year %in% 2022), rotation = 90,
-  type = "link")
-plot_hbll_predictions(pred_out2 |> filter(year %in% 2022), rotation = 90,
-  type = "response")
+  rotation = 90) + facet_wrap(~ year)
+plot_hbll_predictions(pred_out |> filter(year %in% 2022), rotation = 90) + facet_wrap(~ year)
 
 # run simulation
