@@ -9,6 +9,8 @@
 data-raw/
 data-cache/
 data-generated/
+memory-bank/
+draft-figures/
 *.rds
 *.RData
 
@@ -31,6 +33,7 @@ data-generated/
 .env
 .Renviron
 .vscode/
+*.code-workspace
 
 # OS
 .DS_Store
