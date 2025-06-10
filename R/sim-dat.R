@@ -11,18 +11,21 @@ theme_set(ggsidekick::theme_sleek())
 
 # - Approach:
 #     1. fit geostatistical models to observed data
-#     1. use parameters from that model to simulate new data with observations at the actual historically observed locations
-#     1. when simulating, simulate recovery at some rate within closed areas and a stationary abundance/density outside of closed areas
+#     2. use parameters from that model to simulate new data with observations at the actual historically observed locations
+#     3. when simulating, simulate recovery at some rate within closed areas and a stationary abundance/density outside of closed areas
 
 # - Dimensions that will likely affect the answer:
 #     1. species (therefore estimated spatial and spatiotemporal SD, spatial correlation range, observation error)
-#     1. rate of 'recovery'
-#     1. number of years observed
-#     1. whether one assesses all restricted areas together or individually
+#     2. rate of 'recovery'
+#     3. number of years observed
+#     4. whether one assesses all restricted areas together or individually
+#     5. **level of fishing (or activity of concern) that occurred before management actions taken**
+#     6. size of restricted area?
 
-# sizes of restricted areas
-# how much sampling within restricted areas
-#
+# Notes:
+# - to start no depth because I think there is a lot of uncertainty in the grid depth
+#   - TODO: add depth to prediction grid (part of gfdata updates I have going)
+
 
 source(here::here("R", "00-fit-predict-plot.R"))
 
