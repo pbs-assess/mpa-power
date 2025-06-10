@@ -50,14 +50,14 @@ sp_dat <- filter(sp_dat0, stringr::str_detect(survey_abbrev, "HBLL")) |>
   rename(ssid = "survey_series_id.x") |>
   left_join(bait_counts, by = c("year", "fishing_event_id", "ssid")) |>
   mutate(count_bait_only = replace(count_bait_only, which(count_bait_only == 0), 1),
-         prop_bait_hooks = count_bait_only / hook_count,
-         hook_adjust_factor = -log(prop_bait_hooks) / (1 - prop_bait_hooks),
-         prop_removed = 1 - prop_bait_hooks,
-         offset = log(hook_count / hook_adjust_factor),
-         depth_mean = mean(log(depth_m), na.rm = TRUE),
-         depth_sd = sd(log(depth_m), na.rm = TRUE),
-         depth_scaled = (log(depth_m) - depth_mean[1]) / depth_sd[1],
-         depth_scaled2 = depth_scaled^2
+    prop_bait_hooks = count_bait_only / hook_count,
+    hook_adjust_factor = -log(prop_bait_hooks) / (1 - prop_bait_hooks),
+    prop_removed = 1 - prop_bait_hooks,
+    offset = log(hook_count / hook_adjust_factor),
+    depth_mean = mean(log(depth_m), na.rm = TRUE),
+    depth_sd = sd(log(depth_m), na.rm = TRUE),
+    depth_scaled = (log(depth_m) - depth_mean[1]) / depth_sd[1],
+    depth_scaled2 = depth_scaled^2
   ) |>
   sdmTMB::add_utm_columns()
 
