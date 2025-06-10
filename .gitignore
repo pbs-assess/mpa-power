@@ -1,0 +1,68 @@
+# R specific
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+.Rapp.history
+
+# Data directories and files
+data-raw/
+data-cache/
+data-generated/
+*.rds
+*.RData
+
+*.csv
+*.xlsx
+*.xls
+*.txt
+
+*.nc
+*.tif
+*.tiff
+*.shp
+*.shx
+*.dbf
+*.prj
+
+*.dat
+
+# Environment and IDE
+.env
+.Renviron
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Session Data files
+.RDataTmp
+
+# Example code in package build process
+*-Ex.R
+
+# Output files from R CMD build
+/*.tar.gz
+/*.zip
+
+# Output files from R CMD check
+/*.Rcheck/
+
+# produced by knitr
+*-figure*.png
+*-figure*.pdf
+
+# OAuth2 token files
+.httr-oauth
+
+# knitr and R markdown default cache directories
+*_cache/
+/cache/
+
+# Temporary files created by R markdown
+*.utf8.md
+*.knit.md
+
+# Shiny token
+*.rds
