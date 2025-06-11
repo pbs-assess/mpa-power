@@ -42,6 +42,7 @@ fit_hbll <- function(dat, survey_type, species, fit_dir, mesh_cutoff = 10,
     time,
     offset,
     anisotropy,
+    packageVersion("sdmTMB"),
     list(...)
   )
   current_hash <- digest::digest(model_state)
