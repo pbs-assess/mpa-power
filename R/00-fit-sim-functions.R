@@ -1,3 +1,20 @@
+prep_hbll_data <- function(dat, bait_counts) {
+  dat |>
+    rename(ssid = "survey_series_id.x") |>
+    left_join(bait_counts, by = c("year", "fishing_event_id", "ssid")) |>
+    mutate(count_bait_only = replace(count_bait_only, which(count_bait_only == 0), 1),
+      prop_bait_hooks = count_bait_only / hook_count,
+      hook_adjust_factor = -log(prop_bait_hooks) / (1 - prop_bait_hooks),
+      prop_removed = 1 - prop_bait_hooks,
+      offset = log(hook_count / hook_adjust_factor),
+      depth_mean = mean(log(depth_m), na.rm = TRUE),
+      depth_sd = sd(log(depth_m), na.rm = TRUE),
+      depth_scaled = (log(depth_m) - depth_mean[1]) / depth_sd[1],
+      depth_scaled2 = depth_scaled^2
+    ) |>
+    sdmTMB::add_utm_columns()
+}
+
 #' Fit sdmTMB model to HBLL survey data
 #'
 #' @param dat Data frame containing survey data
@@ -131,8 +148,11 @@ plot_hbll_predictions <- function(pred,
                                   xlim = NULL,
                                   ylim = NULL,
                                   rotation = NULL,
+                                  crs = 4326,
                                   buffer = 40000,
                                   type = c("link", "response")) {
+
+  if (buffer <= 0) buffer <- 1
 
   type <- match.arg(type)
 
@@ -144,10 +164,20 @@ plot_hbll_predictions <- function(pred,
     mutate(lon = 1000 * X, lat = 1000 * Y) |>
     st_as_sf(coords = c("lon", "lat"), crs = 3156)
 
-  bbox <- pred_sf |>
-    st_buffer(dist = buffer) |>
-    rotate_a(a = rotation) |>
-    st_bbox(pred_sf)
+  if (is.null(rotation)) {
+    bbox <- pred_sf |>
+      st_buffer(dist = buffer) |>
+      st_bbox(pred_sf) |>
+      st_transform(crs = crs)
+
+    pred_sf <- st_transform(pred_sf, crs = crs)
+  } else {
+    pred_sf <- pred_sf |> rotate_a(a = rotation)
+
+    bbox <- pred_sf |>
+      st_buffer(dist = buffer) |>
+      st_bbox(pred_sf)
+  }
 
   if (is.null(xlim)) xlim <- bbox[c("xmin", "xmax")]
   if (is.null(ylim)) ylim <- bbox[c("ymin", "ymax")]
@@ -155,98 +185,9 @@ plot_hbll_predictions <- function(pred,
   # Create plot
   ggplot() +
     geom_sf(data = pacea::bc_coast |> rotate_a(a = rotation), fill = "grey90") +
-    geom_sf(data = pred_sf |> rotate_a(a = rotation), aes(colour = pred_value)) +
+    geom_sf(data = pred_sf, aes(colour = pred_value)) +
     viridis::scale_colour_viridis(option = "plasma") +
     theme_light() +
-    coord_sf(xlim = xlim, ylim = ylim) +
+    coord_sf(xlim = xlim, ylim = ylim, crs = st_crs(pred_sf)) +
     labs(colour = if (type == "link") "est" else "exp(est)")
-}
-
-#' Convert coordinates to longitude/latitude
-#'
-#' @param data Data frame containing coordinate columns
-#' @param x_col Name of X coordinate column (default: "X")
-#' @param y_col Name of Y coordinate column (default: "Y")
-#' @param mult Multiplier for coordinates (default: 1000)
-#' @param to_sf Convert to sf object (default: TRUE)
-#' @param crs_from Source coordinate reference system (default: 3156)
-#' @param crs_to Target coordinate reference system (default: 4326)
-#'
-#' @return Data frame with lon/lat columns, optionally as sf object
-#' @export
-make_lonlat <- function(data, x_col = "X", y_col = "Y",
-                         mult = 1000,
-                         to_sf = TRUE,
-                         crs_from = 3156, crs_to = 4326) {
-  df <- data |>
-    dplyr::mutate(
-      lon = .data[[x_col]] * mult,
-      lat = .data[[y_col]] * mult
-    )
-
-  if (to_sf) {
-    df <- df |>
-      sf::st_as_sf(coords = c("lon", "lat"), crs = crs_from) |>
-      sf::st_transform(crs = crs_to)
-  }
-}
-
-#' Rotate spatial features while maintaining appropriate coordinate reference system
-#'
-#' @param sf_obj An sf object to rotate
-#' @param a Angle in degrees to rotate (default: 90)
-#'
-#' @return Rotated sf object in oblique Mercator projection
-#' @export
-rotate_a <- function(sf_obj, a = 90){
-  rotated_crs <- paste0("+proj=omerc +lat_0=0 +lonc=-9 +gamma=", -a)
-  sf_obj <- sf_obj |> st_transform(rotated_crs)
-}
-
-# Fix me: - edit this documentation and double check how the centroids and coords are calculated
-  # - add a function to convert from km to m?
-  # - double check if the polygons for HBLL account for coastline - I think they do not...
-  # this means that the points might fall on land - this is problematic if using
-  # to get depths or matching with other oceanographic data.
-
-#' Load survey block data (polygon, point, or coordinate table)
-#'
-#' Returns the built-in `survey_blocks` dataset as either polygons, centroids, or
-#' a data frame with coordinates (X, Y) in kilometres.
-#' Uses `sf::st_points_on_surface()` to use points that fall within the polygon,
-#' rather than using `sf::st_centroid()` which could lead to points that fall
-#' outside of irregularly shaped polygons.
-#'
-#' @param type Character string specifying the output format. One of:
-#'   - `"polygon"` (default): returns an `sf` object with polygon geometries.
-#'   - `"centroid"`: returns an `sf` object with the centroid point for each block.
-#'   - `"coords"`: returns a `tibble` with columns `X` and `Y` (in kilometres),
-#'     representing point-on-surface coordinates extracted from each polygon.
-#'
-#' @return Either an `sf` object or a `tbl` depending on `type`.
-#' @export
-#'
-#' @examples
-#' survey_blocks_data("polygon") |> plot()
-#' survey_blocks_data("centroid")
-#' survey_blocks_data("coords")
-load_survey_blocks <- function(type = c("polygon", "centroid", "coords")) {
-  type <- match.arg(type)
-  dat <- gfdata::survey_blocks
-
-  if (type == "centroid") {
-    return(sf::st_point_on_surface(dat)) # sf points
-  }
-
-  if (type == "coords") {
-    pts <- sf::st_point_on_surface(dat)
-    coords <- sf::st_coordinates(pts) / 1000  # convert metres to km
-    df <- sf::st_drop_geometry(pts)
-    df$X <- coords[, 1]
-    df$Y <- coords[, 2]
-    df <- dplyr::as_tibble(df)
-    return(df)
-  }
-
-  return(dat)  # default: polygon sf
 }

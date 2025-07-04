@@ -4,6 +4,8 @@ library(stringr)
 library(ggplot2)
 library(sf)
 library(purrr)
+library(furrr)
+library(progress)
 theme_set(ggsidekick::theme_sleek())
 
 
@@ -38,30 +40,19 @@ fit_dir <- here::here("data-generated", "fits")
 dir.create(fit_dir, recursive = TRUE, showWarnings = FALSE)
 
 hbll_grid <- load_survey_blocks(type = "coords") |>
-  filter(stringr::str_detect(survey_abbrev, "HBLL")) |>
-  filter(depth_m > 0) |>
-  mutate(depth_mean = mean(log(depth_m), na.rm = TRUE),
-         depth_sd = sd(log(depth_m), na.rm = TRUE),
-         depth_scaled = (log(depth_m) - depth_mean[1]) / depth_sd[1],
-         depth_scaled2 = depth_scaled^2)
+  filter(stringr::str_detect(survey_abbrev, "HBLL")) #|>
+  # depth not currently used in sim - I think I need to fix the depth data before including
+  # filter(depth_m > 0) |>
+  # mutate(depth_mean = mean(log(depth_m), na.rm = TRUE),
+  #        depth_sd = sd(log(depth_m), na.rm = TRUE),
+  #        depth_scaled = (log(depth_m) - depth_mean[1]) / depth_sd[1],
+        #  depth_scaled2 = depth_scaled^2)
 
 bait_counts <- readRDS(file.path(synopsis_cache, "bait-counts.rds"))
 sp_dat0 <- readRDS(file.path(synopsis_cache, "yelloweye-rockfish.rds"))$survey_sets
 
 sp_dat <- filter(sp_dat0, stringr::str_detect(survey_abbrev, "HBLL")) |>
-  rename(ssid = "survey_series_id.x") |>
-  left_join(bait_counts, by = c("year", "fishing_event_id", "ssid")) |>
-  mutate(count_bait_only = replace(count_bait_only, which(count_bait_only == 0), 1),
-    prop_bait_hooks = count_bait_only / hook_count,
-    hook_adjust_factor = -log(prop_bait_hooks) / (1 - prop_bait_hooks),
-    prop_removed = 1 - prop_bait_hooks,
-    offset = log(hook_count / hook_adjust_factor),
-    depth_mean = mean(log(depth_m), na.rm = TRUE),
-    depth_sd = sd(log(depth_m), na.rm = TRUE),
-    depth_scaled = (log(depth_m) - depth_mean[1]) / depth_sd[1],
-    depth_scaled2 = depth_scaled^2
-  ) |>
-  sdmTMB::add_utm_columns()
+  prep_hbll_data(bait_counts = bait_counts)
 
 # fit conditioning model
 fit_ins <- fit_hbll(dat = sp_dat, survey_type = "HBLL INS",
@@ -75,10 +66,17 @@ fit_out <- fit_hbll(dat = sp_dat, survey_type = "HBLL OUT",
 pred_ins <- predict_hbll(fit_ins, hbll_grid, re_form = NULL)
 pred_out <- predict_hbll(fit_out, hbll_grid, re_form = NULL)
 
-plot predictions
+# plot predictions
 plot_hbll_predictions(pred_ins |> filter(year %in% 2024),
   rotation = 90) + facet_wrap(~ year)
-plot_hbll_predictions(pred_out |> filter(year %in% 2022), rotation = 90) + facet_wrap(~ year)
+plot_hbll_predictions(pred_out |> filter(year %in% 2022), rotation = NULL) + facet_wrap(~ year)
+
+pred_p <- bind_rows(pred_ins, pred_out) |>
+  filter(year == 2024) |>
+  plot_hbll_predictions(rotation = NULL, crs = 4326, buffer = 0) +
+  ggtitle("Yelloweye rockfish HBLL predictions 2024")
+pred_p
+ggsave(here::here("draft-figures", "yelloweye-rockfish-hbll-predictions.pdf"), width = 10, height = 10)
 
 # run simulation
 # ------------------------------------------------------------
@@ -88,11 +86,9 @@ plot_hbll_predictions(pred_out |> filter(year %in% 2022), rotation = 90) + facet
 # - outside survey only
 
 # Start with outside:
-
-fit <- fit_hbll(dat = sp_dat, survey_type = "HBLL INS",
+fit <- fit_hbll(dat = sp_dat, survey_type = "HBLL OUT",
                     species = "yelloweye-rockfish",
                     fit_dir = fit_dir)
-
 
 # get the model parameters
 b <- get_model_pars(fit)
@@ -109,15 +105,6 @@ epsilon_st_sd <- b$estimate[b$term == "sigma_E"]
 
 # input df to simulate with
 year_covariate <- get_model_years(fit) - min(get_model_years(fit))
-# dat <- sdmTMB::replicate_df(
-#   hbll_grid |>
-#     filter(survey_abbrev %in% unique(fit$data$survey_abbrev)) |>
-#     mutate(survey_abbrev = "HBLL OUT") |>
-#     distinct(),
-#   time_name = "year_covariate",
-#   time_values = year_covariate) |>
-#   mutate(year = year_covariate)
-
 
 dat <- fit$data
 attr(dat, "version") <- NULL
@@ -127,7 +114,7 @@ input_dat <- dat |> select(X, Y) |>
   sdmTMB::replicate_df(
     time_name = "year_covariate",
     time_values = year_covariate) |>
-  mutate(year = year_covariate)
+  mutate(year = year_covariate) # Question - if I don't do this, I get year_covariate showing twice in the sim_dat
 input_mesh <- make_mesh(input_dat, xy_cols = c("X", "Y"), cutoff = 10) # find way to get cutoff value from fit
 
 .seed = 714
@@ -138,7 +125,7 @@ sim_dat <- sdmTMB::sdmTMB_simulate(
   mesh = input_mesh,
   family = nbinom2(),
   time = "year",
-  # rho = 2 * plogis(m$model$par[['ar1_phi']]) - 1, # TODO!?
+  # rho = 2 * plogis(m$model$par[['ar1_phi']]) - 1, # ?
   rho = NULL,
   sigma_O = b$estimate[b$term == "sigma_O"], # Question - is this just ignored if fixed_re omega_s is set?
   sigma_E = b$estimate[b$term == "sigma_E"],
@@ -153,7 +140,7 @@ sim_dat <- sdmTMB::sdmTMB_simulate(
 sim_dat |> glimpse()
 
 ggplot(sim_dat) +
-  geom_point(aes(x = X, y = Y, color = omega_s)) +
+  geom_point(aes(x = X, y = Y, color = omega_s)) + # static spatial field
   scale_color_viridis_c() +
   facet_wrap(~ year_covariate)
 
