@@ -2,6 +2,7 @@ prep_hbll_data <- function(dat, bait_counts) {
   dat |>
     rename(ssid = "survey_series_id.x") |>
     left_join(bait_counts, by = c("year", "fishing_event_id", "ssid")) |>
+    distinct(ssid, fishing_event_id, year, .keep_all = TRUE) |>
     mutate(count_bait_only = replace(count_bait_only, which(count_bait_only == 0), 1),
       prop_bait_hooks = count_bait_only / hook_count,
       hook_adjust_factor = -log(prop_bait_hooks) / (1 - prop_bait_hooks),
@@ -10,7 +11,8 @@ prep_hbll_data <- function(dat, bait_counts) {
       depth_mean = mean(log(depth_m), na.rm = TRUE),
       depth_sd = sd(log(depth_m), na.rm = TRUE),
       depth_scaled = (log(depth_m) - depth_mean[1]) / depth_sd[1],
-      depth_scaled2 = depth_scaled^2
+      depth_scaled2 = depth_scaled^2,
+      fyear = as.factor(year)
     ) |>
     sdmTMB::add_utm_columns()
 }
@@ -33,7 +35,8 @@ fit_hbll <- function(dat, survey_type, species, fit_dir, mesh_cutoff = 10,
                         formula = catch_count ~ 1,
                         family = sdmTMB::nbinom2(link = "log"),
                         spatial = "on",
-                        spatiotemporal = "rw",
+                        spatiotemporal = "iid",
+                        use_extra_time = FALSE,
                         extra_time = NULL,
                         offset = 'offset',
                         time = "year",
@@ -56,6 +59,7 @@ fit_hbll <- function(dat, survey_type, species, fit_dir, mesh_cutoff = 10,
     family,
     spatial,
     spatiotemporal,
+    use_extra_time,
     time,
     offset,
     anisotropy,
@@ -79,9 +83,11 @@ fit_hbll <- function(dat, survey_type, species, fit_dir, mesh_cutoff = 10,
 
   mesh <- sdmTMB::make_mesh(dat, xy_cols = c("X", "Y"), cutoff = mesh_cutoff)
 
-  if (any(spatiotemporal != "off")) {
+  if (any(spatiotemporal != "off") && use_extra_time) {
     message("Spatiotemporal = ", spatiotemporal, ". Finding missing years.")
     extra_time <- sdmTMB:::find_missing_time(dat$year)
+  } else {
+    message("Spatiotemporal = ", spatiotemporal, ". No extra time used.")
   }
 
   fit <- sdmTMB::sdmTMB(
@@ -89,11 +95,11 @@ fit_hbll <- function(dat, survey_type, species, fit_dir, mesh_cutoff = 10,
     data = dat,
     mesh = mesh,
     family = sdmTMB::nbinom2(link = "log"),
-    spatial = "on",
-    spatiotemporal = "rw",
+    spatial = spatial,
+    spatiotemporal = spatiotemporal,
     extra_time = extra_time,
-    offset = 'offset',
-    time = "year",
+    offset = offset,
+    time = time,
     anisotropy = TRUE,
     ...
   )
