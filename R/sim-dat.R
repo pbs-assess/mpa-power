@@ -159,11 +159,12 @@ meep()
 sim_IN <- simulate_hbll(fit_IN, restricted_df,
   formula = ~ 1 + restricted * year_covariate,
   seed = 42,
-  year_covariate = seq(from = 0, to = 20, by = 2),
+  year_covariate = seq(from = 1, to = 21, by = 2),
   mpa_trend = log(1.05),
   fixed_spatial_re = TRUE,
   fixed_spatiotemporal_re = FALSE
-)
+) |>
+  mutate(survey_abbrev = "HBLL INS N")
 
 sim_ON <- simulate_hbll(fit_ON, restricted_df,
   formula = ~ 1 + restricted * year_covariate,
@@ -172,16 +173,22 @@ sim_ON <- simulate_hbll(fit_ON, restricted_df,
   mpa_trend = log(1.05),
   fixed_spatial_re = TRUE,
   fixed_spatiotemporal_re = FALSE
-)
+) |>
+  mutate(survey_abbrev = "HBLL OUT N")
 
 sim_OS <- simulate_hbll(fit_OS, restricted_df,
   formula = ~ 1 + restricted * year_covariate,
   seed = 42,
-  year_covariate = seq(from = 0, to = 20, by = 2),
+  year_covariate = seq(from = 1, to = 21, by = 2),
   mpa_trend = log(1.05),
   fixed_spatial_re = TRUE,
   fixed_spatiotemporal_re = FALSE
-)
+) |>
+  mutate(survey_abbrev = "HBLL OUT S")
+
+sim_dat <- bind_rows(sim_IN, sim_ON, sim_OS) |>
+  left_join(hbll_grid |> select(X, Y, cell_id))
+sim_dat_sf <- XY_to_sf(sim_dat)
 
 # TODO: Add deviations from trend (need if we want to simulate more years than sampled no?)
 # - Simulate future years with a linear effect of time.
@@ -190,10 +197,6 @@ sim_OS <- simulate_hbll(fit_OS, restricted_df,
 # - Having deviations from a mean trend would be most realistic
 #   but adds more variables to pick like the level of autocorrelation and SD of
 #   those deviations.
-
-sim_dat <- bind_rows(sim_IN, sim_ON, sim_OS) |>
-  left_join(hbll_grid |> select(X, Y, cell_id))
-sim_dat_sf <- XY_to_sf(sim_dat)
 
 ggplot(data = sim_dat_sf) +
   geom_sf(aes(colour = eta)) +
@@ -228,7 +231,7 @@ p1 <- left_join(hbll_grid_poly, diff_df, by = "cell_id")  |>
     theme(legend.position = "inside",
           legend.position.inside = c(0.9, 0.2)) +
     facet_wrap(~ year, nrow = 3) +
-    plot_limits
+    plot_limits_combined
 # p1
 p1 %+% (left_join(hbll_grid_poly, diff_df, by = "cell_id") |> filter(year == 20)) +
   theme(legend.position.inside = c(0.1, 0.2))
@@ -236,29 +239,26 @@ p1 %+% (left_join(hbll_grid_poly, diff_df, by = "cell_id") |> filter(year == 20)
 # Status quo sampling effort
 # ------------------------------------------------------------
 # - random sampling of blocks from year to year
+sampling_effort <- sp_dat |>
+  filter(survey_abbrev %in% c("HBLL OUT N", "HBLL OUT S", "HBLL INS N")) |>
+  group_by(survey_abbrev, year) |>
+  summarise(n = n()) |>
+  group_by(survey_abbrev) |>
+  summarise(n_samps = round(mean(n)))
 
-# So few actual fish observed is this right??
-sampled_sim_dat <- sim_dat |>
-  group_by(year) |>
-  sample_n(size = sampling_effort, replace = FALSE)
+sampled_sim_dat <- sample_by_plan(sim_dat, sampling_effort,
+  grouping_vars = c("survey_abbrev", "year"))
+
+# # So few actual fish observed is this right??
+# sampled_sim_dat <- sim_dat |>
+#   left_join(sampling_effort, by = "survey_abbrev") |> glimpse()
+#   group_by(year) |>
+#   sample_n(size = sampling_effort, replace = FALSE)
 
 n_mpa_samps <- sampled_sim_dat |>
   filter(restricted == 1) |>
   group_by(year) |>
   summarise(n = n())
-
-test <- sim_dat |>
-  group_by(year, restricted) |>
-
-
-do_sample <- function(sim_dat, sampling_effort) {
-  sim_dat |>
-    group_by(year) |>
-    sample_n(size = sampling_effort, replace = FALSE)
-}
-
-
-
 
 # plot_limits <- get_plot_limits(XY_to_sf(sampled_sim_dat), buffer = 5000)
 ggplot() +
@@ -274,7 +274,7 @@ ggplot() +
   geom_sf(data = sampled_sim_dat |> XY_to_sf(), aes(colour = eta, shape = factor(restricted))) +
   scale_shape_manual(values = c(`0` = 21, `1` = 19)) +
   scale_colour_viridis_c(option = "A", end = 0.8) +
-  facet_wrap(~ year) +
+  facet_wrap(~ year, nrow = 3) +
   plot_limits_combined +
   theme(legend.position = "top") +
   geom_sf_text(data = n_mpa_samps |> mutate(X = -126, Y = 54) |>
@@ -292,7 +292,7 @@ sim_fit <- sdmTMB::sdmTMB(
   time = "year",
   spatial = "on",
   spatiotemporal = "iid",
-  offset = NULL, # Question: Does the offset matter for sampling of the simulated data???
+  offset = NULL, # Question: Does the offset matter for sampling of the simulated data?
   anisotropy = TRUE
 )
 meep()

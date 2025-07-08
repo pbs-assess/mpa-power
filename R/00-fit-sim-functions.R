@@ -316,7 +316,8 @@ simulate_hbll <- function(fit,
     B = B,
     seed = seed,
     ...
-  ) |> as_tibble()
+  ) |>
+    as_tibble()
 
   sim_dat
 }
@@ -329,3 +330,49 @@ simulate_hbll <- function(fit,
 #   mpa_trend = log(1.05),  # 5% increase per year
 #   seed = 714
 # )
+
+
+#' Sample simulated data according to a sampling plan
+#'
+#' This function samples simulated data based on a specified sampling effort plan.
+#' It groups the data by specified variables and samples the appropriate number
+#' of observations from each group according to the sampling effort specifications.
+#'
+#' @param sim_dat A data frame containing the simulated data to be sampled.
+#'   Must contain columns that match the grouping variables and join keys
+#'   for the sampling effort data frame.
+#' @param sampling_effort A data frame containing sampling effort specifications.
+#'   Must have a column `n_samps` indicating the number of samples to take
+#'   from each group, and columns that can be joined with `sim_dat` (typically
+#'   survey identifiers like `survey_abbrev`).
+#' @param grouping_vars A character vector of column names to group by for sampling.
+#'   Common grouping variables include `c("survey_abbrev", "year")` to sample
+#'   separately for each survey and year combination. If `NULL`, no grouping
+#'   is applied and sampling is done across the entire dataset.
+#'
+#' @return A data frame containing the sampled observations. The structure
+#'   matches the input `sim_dat` but with fewer rows based on the sampling
+#'   effort specifications.
+#'
+#' @details
+#' The function works by:
+#' 1. Joining the simulated data with the sampling effort specifications
+#' 2. Grouping the data by the specified grouping variables
+#' 3. For each group, sampling the number of observations specified in `n_samps`
+#' 4. Combining all sampled groups back into a single data frame
+#'
+#' This is particularly useful for simulating survey sampling scenarios where
+#' different areas or time periods may have different sampling intensities.
+#'
+sample_by_plan <- function(sim_dat, sampling_effort, grouping_vars = NULL) {
+  group_list <- sim_dat |>
+    left_join(sampling_effort) |>
+    group_by(!!!syms(grouping_vars)) |>
+    group_split()
+
+  sampled_list <- map(group_list, function(g) {
+    n_samps <- unique(g$n_samps)
+    slice_sample(g, n = n_samps, replace = FALSE)
+  })
+  bind_rows(sampled_list)
+}
