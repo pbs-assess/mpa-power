@@ -197,3 +197,135 @@ plot_hbll_predictions <- function(pred,
     coord_sf(xlim = xlim, ylim = ylim, crs = st_crs(pred_sf)) +
     labs(colour = if (type == "link") "est" else "exp(est)")
 }
+
+#' Draw a single sample from the posterior (but not posterior??) distribution of random effects
+#' #question - what do I call the not posterior?
+#'
+#' @param object A fitted sdmTMB model object
+#' @param use_names Logical. Return named vector. (default: TRUE)
+#'
+#' @return A numeric vector containing parameter values with random effects sampled from
+#'   their posterior distribution and fixed effects at their MLE values.
+#'
+#' @details
+#' TMB `MC()` to draw a single sample from the posterior distribution of random
+#' effects while keeping fixed effects at their maximum likelihood estimates.
+#'
+#' See: https://github.com/pbs-assess/sdmTMB/blob/228363611f891462b6cb9b50fd19afb5eab5d5e0/R/residuals.R#L491-L501
+#'
+one_sample_posterior <- function(object, use_names = TRUE) {
+  tmp <- object$tmb_obj$env$MC(n = 1L, keep = TRUE, antithetic = FALSE)
+  re_samp <- as.vector(attr(tmp, "samples"))
+  lp <- object$tmb_obj$env$last.par.best
+  p <- numeric(length(lp))
+  fe <- object$tmb_obj$env$lfixed()
+  re <- object$tmb_obj$env$lrandom()
+  p[re] <- re_samp
+  p[fe] <- lp[fe]
+  if (use_names) names(p) <- names(lp)
+  p
+}
+
+#' Simulate data from fitted sdmTMB model with MPA recovery trends
+#'
+#'
+#' @param fit Fitted sdmTMB model object
+#' @param restricted_df Data frame containing spatial grid with restricted area indicators
+#' @param year_covariate Vector of time values for simulation (default: seq(0, 20, 2))
+#' @param mpa_trend Log-scale trend in restricted areas (default: log(1.05) for 5% increase/year)
+#' @param seed Random seed for reproducibility
+#' @param formula Simulation formula (default: ~ 1 + restricted * year_covariate)
+#' @param family Distribution family (default: nbinom2(link = "log"))
+#' @param fixed_spatial_re Use fixed spatial random effects or use spatial sd (default: TRUE)
+#' @param fixed_spatiotemporal_re Use fixed spatiotemporal random effects or use spatiotemporal sd (default: FALSE)
+#' @param ... Additional arguments passed to sdmTMB::sdmTMB_simulate
+#'
+#' @return Data frame of simulated data
+#'
+simulate_hbll <- function(fit,
+                          restricted_df,
+                          year_covariate = seq(from = 0, to = 20, by = 2),
+                          mpa_trend = log(1.05), # 5% increase per year
+                          seed = NULL,
+                          formula = ~ 1 + restricted * year_covariate,
+                          family = nbinom2(link = "log"),
+                          fixed_spatial_re = TRUE,
+                          fixed_spatiotemporal_re = FALSE,
+                          ...) {
+
+  # Get the model parameters
+  b <- get_model_pars(fit)
+
+  # Fixed random effects (get single draw from rf distributions)
+  osp <- one_sample_posterior(fit)
+  omega_s <- if (fixed_spatial_re) {
+    osp[grepl("omega_s", names(osp))] |> matrix()
+  } else {
+    NULL
+  }
+
+  # Random effect SDs
+  omega_s_sd <- b$estimate[b$term == "sigma_O"]
+  epsilon_st_sd <- b$estimate[b$term == "sigma_E"]
+  if (fit$spatiotemporal == "off") epsilon_st_sd <- 0
+
+  # Prepare input data for simulation
+  input_dat <- restricted_df |>
+    filter(survey_abbrev %in% unique(fit$data$survey_abbrev)) |>
+    select(X, Y, restricted) |>
+    sdmTMB::replicate_df(
+      time_name = "year_covariate",
+      time_values = year_covariate
+    ) |>
+    mutate(
+      restricted = restricted,
+      year = as.numeric(year_covariate)
+    )
+
+  input_mesh <- make_mesh(input_dat, xy_cols = c("X", "Y"), mesh = fit$spde$mesh)
+
+  # Prepare fixed random effects list
+  fixed_re <- list(
+    omega_s = omega_s,
+    epsilon_st = NULL,
+    zeta_s = NULL
+  )
+
+  # Calculate intercept from year effects (if using year as factor)
+  intercept_value <- if (any(grepl("year", b$term))) {
+    mean(b[grep("year", b$term), "estimate"])
+  } else {
+    b$estimate[b$term == "(Intercept)"]
+  }
+
+  # Coefficient vector: (Intercept), restrictedTRUE, year_covariate, restrictedTRUE:year_covariate
+  B <- c(intercept_value, 0, 0, mpa_trend)
+
+  # Simulate data
+  sim_dat <- sdmTMB::sdmTMB_simulate(
+    formula = formula,
+    data = input_dat,
+    mesh = input_mesh,
+    family = family,
+    time = "year",
+    # rho = rho,
+    sigma_E = if (fixed_spatiotemporal_re) epsilon_st_sd else 0,
+    phi = b$estimate[b$term == "phi"],
+    range = b$estimate[b$term == "range"],
+    fixed_re = fixed_re,
+    B = B,
+    seed = seed,
+    ...
+  ) |> as_tibble()
+
+  sim_dat
+}
+
+# Example usage:
+# sim_dat <- simulate_mpa_data(
+#   fit = fit_IN,
+#   restricted_df = restricted_df,
+#   year_covariate = seq(0, 20, 2),
+#   mpa_trend = log(1.05),  # 5% increase per year
+#   seed = 714
+# )
