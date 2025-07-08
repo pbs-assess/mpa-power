@@ -23,7 +23,7 @@ comm_ll_allowance <- shape |>
     category_detailed, category_simple) |>
   left_join(activity_allowance_lu,
     by = c("hu_commercial_harvest_bottom_longline_demersal_hookand_line" = "activity_allowance")) |>
-  sf::st_cast("MULTIPOLYGON") |>
+  sf::st_cast("MULTIPOLYGON") %>%
   mutate(mpa_id = row_number(),
          mpa_area = st_area(.))
 
@@ -56,31 +56,31 @@ synopsis_cache <- "~/R_DFO/gfsynopsis-2024-data/report/data-cache-2025-03"
 # Bathymetric data (in progress and maybe not needed)
 # -----------------------------------------------------------------------------
 # Load the DEM in R
-library(terra)
-library(tidyterra)
+# library(terra)
+# library(tidyterra)
 
-# st_layers("~/R_DFO/gfdata/scratch/canada_west_coast_DEM_original.gdb")
-# dem <- st_read("~/R_DFO/gfdata/scratch/canada_west_coast_DEM_original.gdb", layer = "WEST_COAST_DEM") |>
-#   janitor::clean_names()
-# dem <- terra::classify(dem0, rcl = cbind(0, Inf, NA))
-# dem <- terra::mask(dem0, dem0 <= 0)
-# writeRaster(dem, here::here("data-generated/spatial/dem_excluded_land.tif"), overwrite = TRUE)
-dem <- terra::rast(here::here("data-generated/spatial/dem_excluded_land.tif"))
-
-
-ggplot() +
-  geom_sf(data = dem, aes(fill = depth))
+# # st_layers("~/R_DFO/gfdata/scratch/canada_west_coast_DEM_original.gdb")
+# # dem <- st_read("~/R_DFO/gfdata/scratch/canada_west_coast_DEM_original.gdb", layer = "WEST_COAST_DEM") |>
+# #   janitor::clean_names()
+# # dem <- terra::classify(dem0, rcl = cbind(0, Inf, NA))
+# # dem <- terra::mask(dem0, dem0 <= 0)
+# # writeRaster(dem, here::here("data-generated/spatial/dem_excluded_land.tif"), overwrite = TRUE)
+# dem <- terra::rast(here::here("data-generated/spatial/dem_excluded_land.tif"))
 
 
+# ggplot() +
+#   geom_sf(data = dem, aes(fill = depth))
 
-# benchmark test:
-mb_results <- microbenchmark(
-  classify = {
-    dem_classify <- terra::classify(dem0, rcl = cbind(0, Inf, NA))
-  },
-  mask = {
-    dem_incorrect <- terra::mask(dem0, dem0 <= 0)
-  },
-  times = 1
-)
-beepr::beep()
+
+
+# # benchmark test:
+# mb_results <- microbenchmark(
+#   classify = {
+#     dem_classify <- terra::classify(dem0, rcl = cbind(0, Inf, NA))
+#   },
+#   mask = {
+#     dem_incorrect <- terra::mask(dem0, dem0 <= 0)
+#   },
+#   times = 1
+# )
+# beepr::beep()
