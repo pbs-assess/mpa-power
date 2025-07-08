@@ -63,6 +63,7 @@ comm_ll_allowance <- readRDS(here::here("data-generated", "spatial", "comm_ll_al
 mpa_shape_simplified <- comm_ll_allowance |> st_simplify(dTolerance = 100)
 
 sp_dat <- filter(sp_dat0, stringr::str_detect(survey_abbrev, "HBLL")) |>
+  filter(survey_abbrev != "HBLL INS S") |> # may as well remove this up here
   prep_hbll_data(bait_counts = bait_counts) |>
   mutate(x = X * 1000, y = Y * 1000) |>
   st_as_sf(coords = c("x", "y"), crs = 3156) |>
@@ -239,14 +240,17 @@ p1 %+% (left_join(hbll_grid_poly, diff_df, by = "cell_id") |> filter(year == 20)
 # Status quo sampling effort
 # ------------------------------------------------------------
 # - random sampling of blocks from year to year
-sampling_effort <- sp_dat |>
+samp1 <- sp_dat |>
   filter(survey_abbrev %in% c("HBLL OUT N", "HBLL OUT S", "HBLL INS N")) |>
   group_by(survey_abbrev, year) |>
   summarise(n = n()) |>
   group_by(survey_abbrev) |>
-  summarise(n_samps = round(mean(n)))
+  summarise(n_samps = round(mean(n))) |>
+  mutate(plan = "status quo")
 
-sampled_sim_dat <- sample_by_plan(sim_dat, sampling_effort,
+samp2 <-
+
+sampled_sim_dat <- sample_by_plan(sim_dat, samp1,
   grouping_vars = c("survey_abbrev", "year"))
 
 # # So few actual fish observed is this right??
@@ -298,8 +302,17 @@ sim_fit <- sdmTMB::sdmTMB(
 meep()
 summary(sim_fit)
 
-test <- lm(observed ~ 1 + year * restricted, data = sampled_sim_dat)
+test <- glm_fit <- MASS::glm.nb(
+  formula = observed ~ 1 + as.factor(year) * restricted,
+  data = sampled_sim_dat,
+  link = "log"
+)
 summary(test)
+
+glm(est ~ type*year, data = ind, family = Gamma(link = "log"))
+
+glm(observed ~ 1 + year * restricted, data = sampled_sim_dat) |> summary()
+
 # Compare estimates to simulated data
 
 
