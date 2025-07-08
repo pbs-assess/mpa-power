@@ -35,10 +35,12 @@ survey_locations_sf <- readRDS(file.path(cache_dir, "yelloweye-rockfish.rds"))$s
   st_as_sf(coords = c("longitude", "latitude"), crs = 4326) |>
   st_transform(st_crs(hbll_blocks))
 
-sampled_blocks <- st_join(hbll_blocks, survey_locations_sf) |>
+sampled_blocks_sf <- st_join(hbll_blocks, survey_locations_sf) |>
   filter(!is.na(fishing_event_id))
-unsampled_blocks <- st_join(hbll_blocks, survey_locations_sf) |>
+sampled_blocks <- sampled_blocks_sf |> st_drop_geometry() |> as_tibble()
+unsampled_blocks_sf <- st_join(hbll_blocks, survey_locations_sf) |>
   filter(is.na(fishing_event_id))
+unsampled_blocks <- unsampled_blocks_sf |> st_drop_geometry() |> as_tibble()
 
 # MPAs
 shape <- st_read(here::here("data-raw", "spatial", "Spatial_Q.gdb"),
@@ -75,18 +77,25 @@ summarise_cpue_by_grid <- function(cpue_sf, grid_sf, source) {
   ref_bbox <- st_bbox(grid_sf)
   cell_size <- 2000 # Width of one cell
 
+  combined_extent <- st_union(st_as_sfc(st_bbox(cpue_sf)), st_as_sfc(st_bbox(grid_sf)))
+
   matching_grid_sf <- st_make_grid(
-    x = cpue_sf,      # Use points to define the full extent
+    x = combined_extent,      # Use points to define the full extent
     cellsize = cell_size,   # Use the same cell size as the reference grid
     offset = c(ref_bbox$xmin, ref_bbox$ymin), # Use the same origin
     square = TRUE           # Ensure it's a square grid
   ) %>%
     st_sf(grid_id = 1:length(.), geometry = .)
 
-  ll_in_grid <- st_join(cpue_sf, matching_grid_sf)
+  grid_with_block_id <- st_join(matching_grid_sf, st_centroid(grid_sf)) |>
+    st_drop_geometry() |>
+    select(survey_abbrev,grid_id, block_id) |>
+    as_tibble()
+
+  points_in_grid <- st_join(cpue_sf, matching_grid_sf)
 
   # Group by grid cell, summarize data, and add the privacy flag
-  aggregated_grid_sf <- ll_in_grid |>
+  aggregated_grid_sf <- points_in_grid |>
     filter(!is.na(cpue)) |>
     st_drop_geometry() |> # faster to calculate without geometry
     group_by(grid_id) |>
@@ -101,6 +110,8 @@ summarise_cpue_by_grid <- function(cpue_sf, grid_sf, source) {
     right_join(matching_grid_sf, by = "grid_id") |>
     filter(!is.na(geo_mean_cpue)) |>
     st_as_sf()
+
+  left_join(aggregated_grid_sf, grid_with_block_id)
 }
 
 ye_ll_cpue_grid <- summarise_cpue_by_grid(ye_ll_sf, hbll_blocks, "longline")
@@ -117,7 +128,7 @@ ggplot() +
   scale_fill_viridis_c(trans = "log10", na.value = "grey90") +
   geom_sf(data = hu_ll, fill = "grey90", colour = "grey80", alpha = 0.5) +
   geom_sf(data = hbll_blocks, fill = "NA", colour = "red", linewidth = 0.05) +
-  geom_sf(data = sampled_blocks, colour = "black", fill = NA, linewidth = 0.05) +
+  geom_sf(data = sampled_blocks_sf, colour = "black", fill = NA, linewidth = 0.05) +
   geom_sf(data = comm_ll_allowance, aes(colour = activity_allowance_label), fill = NA) +
   scale_colour_manual(name = "activity_allowance_label", values = c("allowed" = "#0072B2",
     "not allowed" = "#D55E00", "conditional" = "#F0E442",
@@ -140,13 +151,13 @@ ggplot() +
 
 # Existing HBLL blocks
 if (!file.exists(here::here("data-generated", "spatial", "hbll_mpa_overlap.rds"))) {
-hbll_mpa_overlap <- st_intersection(
-    hbll_blocks |> st_transform(st_crs(comm_ll_allowance)),
-    comm_ll_allowance) %>%
+hbll_mpa_overlap <- hbll_blocks |>
+  st_transform(st_crs(comm_ll_allowance)) |>
+  st_intersection(comm_ll_allowance) %>%
   mutate(hbll_mpa_area = st_area(.))
 
 sampled_mpa_overlap <- st_intersection(
-    sampled_blocks |> st_transform(st_crs(comm_ll_allowance)),
+    sampled_blocks_sf |> st_transform(st_crs(comm_ll_allowance)),
     comm_ll_allowance) %>%
   mutate(sampled_mpa_area = st_area(.))
 
@@ -160,10 +171,10 @@ saveRDS(ll_mpa_overlap, here::here("data-generated", "spatial", "ll-mpa-overlap-
 }
 
 if (!file.exists(here::here("data-generated", "spatial", "sampled-cpue-mpa-overlap-yelloweye.rds"))) {
-  sampled_cpue_mpa_overlap <- st_intersection(
-      ye_ll_cpue_grid |> st_transform(st_crs(comm_ll_allowance)),
-      comm_ll_allowance) |>
-      st_intersection(sampled_blocks |> st_transform(st_crs(comm_ll_allowance))) %>%
+  sampled_cpue_mpa_overlap <- ye_ll_cpue_grid |>
+    right_join(sampled_blocks |> distinct(block_id, survey_abbrev)) |>
+    st_transform(st_crs(comm_ll_allowance)) |>
+    st_intersection(comm_ll_allowance) %>%
     mutate(sampled_cpue_area = st_area(.))
   saveRDS(sampled_cpue_mpa_overlap, here::here("data-generated", "spatial", "sampled-cpue-mpa-overlap-yelloweye.rds"))
 } else {
@@ -173,10 +184,10 @@ if (!file.exists(here::here("data-generated", "spatial", "sampled-cpue-mpa-overl
 # Question - I think it isn't too late to add more baseline sampling so maybe
 # this is the best combination to look at for a start?
 if (!file.exists(here::here("data-generated", "spatial", "hbll-cpue-mpa-overlap-yelloweye.rds"))) {
-  hbll_cpue_mpa_overlap <- st_intersection(
-      ye_ll_cpue_grid |> st_transform(st_crs(comm_ll_allowance)),
-      comm_ll_allowance) |>
-      st_intersection(hbll_blocks |> st_transform(st_crs(comm_ll_allowance))) %>%
+  hbll_cpue_mpa_overlap <- ye_ll_cpue_grid |>
+    st_transform(st_crs(comm_ll_allowance)) |>
+    st_intersection(comm_ll_allowance) |>
+    filter(!is.na(block_id)) %>%
     mutate(hbll_cpue_area = st_area(.))
 
   saveRDS(hbll_cpue_mpa_overlap, here::here("data-generated", "spatial", "hbll-cpue-mpa-overlap-yelloweye.rds"))
