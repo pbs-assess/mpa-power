@@ -5,29 +5,36 @@ library(sf)
 # Prepare spatial data (MPA polygons and human use layers)
 dir.create(file.path("data-generated", "spatial"), recursive = TRUE, showWarnings = FALSE)
 
-# Look up table for activity allowance (from carrie but will double check for analysis)
-activity_allowance_lu <- tibble::enframe(c(O = "allowed",
-  X = "not allowed",
-  AC = "conditional",
+# Look up table for activity status
+activity_status_lu <- tibble::enframe(c(
+  X = "currently restricted",
+  AC = "identified as concern",
+  O = "not identified as concern",
   na = "not applicable")) |>
-  rename(activity_allowance = name, activity_allowance_label = value)
-saveRDS(activity_allowance_lu, file.path("data-generated", "spatial", "activity_allowance_lu.rds"))
+  rename(activity_status = name, activity_status_label = value)
+saveRDS(activity_status_lu, file.path("data-generated", "spatial", "activity_status_lu.rds"))
 
 # MPA polygons (double check what layer to use - I am assuming the most up to date one)
-shape <- st_read(here::here("data-raw", "spatial", "Spatial_Q.gdb"),
+Q1 <- st_read(here::here("data-raw", "spatial", "Spatial_Q.gdb"),
   layer = "Q1_FULL_March2023") |>
   janitor::clean_names()
 
-comm_ll_allowance <- shape |>
+Q2 <- st_read(here::here("data-raw", "spatial", "All_Network_boundaries_Q2_2024.gdb"),
+  layer = "All_Network_boundaries_Q2_2024") |>
+  janitor::clean_names()
+
+shape <- Q1
+
+comm_ll_activity_status <- shape |>
   select(hu_commercial_harvest_bottom_longline_demersal_hookand_line,
     category_detailed, category_simple) |>
-  left_join(activity_allowance_lu,
-    by = c("hu_commercial_harvest_bottom_longline_demersal_hookand_line" = "activity_allowance")) |>
+  left_join(activity_status_lu,
+    by = c("hu_commercial_harvest_bottom_longline_demersal_hookand_line" = "activity_status")) |>
   sf::st_cast("MULTIPOLYGON") %>%
   mutate(mpa_id = row_number(),
          mpa_area = st_area(.))
 
-saveRDS(comm_ll_allowance, file.path("data-generated", "spatial", "comm_ll_allowance.rds"))
+saveRDS(comm_ll_activity_status, file.path("data-generated", "spatial", "comm-ll-draft-activity-status.rds"))
 
 # Human use layers
 # human_layers <- st_layers(here::here("data-raw", "spatial", "mpatt_hu_10.gdb"))

@@ -24,7 +24,7 @@ plot_limits <- coord_sf(xlim = c(-134, -124), ylim = c(50, 54.5), crs = 4326)
 cache_dir <- "~/R_DFO/gfsynopsis-2024-data/report/data-cache-2025-03"
 
 # HBLL survey blocks
-sb <- load_survey_blocks(type = "polygon")
+sb <- gfdata::load_survey_blocks(type = "polygon")
 hbll_blocks <- sb |>
   filter(str_detect(survey_abbrev, "HBLL"))
 syn_blocks <- sb |>
@@ -43,13 +43,19 @@ unsampled_blocks_sf <- st_join(hbll_blocks, survey_locations_sf) |>
 unsampled_blocks <- unsampled_blocks_sf |> st_drop_geometry() |> as_tibble()
 
 # MPAs
-shape <- st_read(here::here("data-raw", "spatial", "Spatial_Q.gdb"),
+Q1 <- st_read(here::here("data-raw", "spatial", "Spatial_Q.gdb"),
   layer = "Q1_FULL_March2023") |>
   janitor::clean_names()
-# Commercial longline
-comm_ll_allowance <- readRDS(here::here("data-generated", "spatial", "comm_ll_allowance.rds"))
+Q2 <- st_read(here::here("data-raw", "spatial", "All_Network_boundaries_Q2_2024.gdb"),
+  layer = "All_Network_boundaries_Q2_2024") |>
+  janitor::clean_names()
 
-comm_ll_allowance_simplified <- comm_ll_allowance |>
+shape <- Q1
+
+# Commercial longline - activity of concern
+comm_ll_activity_status <- readRDS(here::here("data-generated", "spatial", "comm-ll-draft-activity-status.rds"))
+
+comm_ll_activity_status_simplified <- comm_ll_activity_status |>
   st_simplify(dTolerance = 200)
 
 # old layer
@@ -61,67 +67,76 @@ hu_ll <- st_read(here::here("data-raw", "spatial", "hu.gdb"),
   layer = "hu_co_demersalfishing_bottomlongline_d")
 
 # Yelloweye commercial longline CPUE
-ye_dat <- readRDS(file.path(cache_dir, "yelloweye-rockfish.rds"))
-ye_ll_cpue <- ye_dat$cpue_spatial_ll
-ye_trawl_cpue <- ye_dat$cpue_spatial
 
-#
-ye_ll_sf <- st_as_sf(ye_ll_cpue, coords = c("lon", "lat"), crs = 4326) |>
-  st_transform(st_crs(hbll_blocks))
+if (!file.exists(here::here("data-generated", "spatial", "ye-ll-cpue-grid.rds")) ||
+    !file.exists(here::here("data-generated", "spatial", "ye-trawl-cpue-grid.rds"))) {
+  ye_dat <- readRDS(file.path(cache_dir, "yelloweye-rockfish.rds"))
+  ye_ll_cpue <- ye_dat$cpue_spatial_ll
+  ye_trawl_cpue <- ye_dat$cpue_spatial
 
-ye_trawl_sf <- st_as_sf(ye_trawl_cpue, coords = c("lon", "lat"), crs = 4326) |>
-  st_transform(st_crs(hbll_blocks))
+  #
+  ye_ll_sf <- st_as_sf(ye_ll_cpue, coords = c("lon", "lat"), crs = 4326) |>
+    st_transform(st_crs(hbll_blocks))
 
-# Make grid that matches the hbll blocks
-summarise_cpue_by_grid <- function(cpue_sf, grid_sf, source) {
-  ref_bbox <- st_bbox(grid_sf)
-  cell_size <- 2000 # Width of one cell
+  ye_trawl_sf <- st_as_sf(ye_trawl_cpue, coords = c("lon", "lat"), crs = 4326) |>
+    st_transform(st_crs(hbll_blocks))
 
-  combined_extent <- st_union(st_as_sfc(st_bbox(cpue_sf)), st_as_sfc(st_bbox(grid_sf)))
+  # Make grid that matches the hbll blocks
+  summarise_cpue_by_grid <- function(cpue_sf, grid_sf, source) {
+    ref_bbox <- st_bbox(grid_sf)
+    cell_size <- 2000 # Width of one cell
 
-  matching_grid_sf <- st_make_grid(
-    x = combined_extent,      # Use points to define the full extent
-    cellsize = cell_size,   # Use the same cell size as the reference grid
-    offset = c(ref_bbox$xmin, ref_bbox$ymin), # Use the same origin
-    square = TRUE           # Ensure it's a square grid
-  ) %>%
-    st_sf(grid_id = 1:length(.), geometry = .)
+    combined_extent <- st_union(st_as_sfc(st_bbox(cpue_sf)), st_as_sfc(st_bbox(grid_sf)))
 
-  grid_with_block_id <- st_join(matching_grid_sf, st_centroid(grid_sf)) |>
-    st_drop_geometry() |>
-    select(survey_abbrev,grid_id, block_id) |>
-    as_tibble()
+    matching_grid_sf <- st_make_grid(
+      x = combined_extent,      # Use points to define the full extent
+      cellsize = cell_size,   # Use the same cell size as the reference grid
+      offset = c(ref_bbox$xmin, ref_bbox$ymin), # Use the same origin
+      square = TRUE           # Ensure it's a square grid
+    ) %>%
+      st_sf(grid_id = 1:length(.), geometry = .)
 
-  points_in_grid <- st_join(cpue_sf, matching_grid_sf)
+    grid_with_block_id <- st_join(matching_grid_sf, st_centroid(grid_sf)) |>
+      st_drop_geometry() |>
+      select(survey_abbrev,grid_id, block_id) |>
+      as_tibble()
 
-  # Group by grid cell, summarize data, and add the privacy flag
-  aggregated_grid_sf <- points_in_grid |>
-    filter(!is.na(cpue)) |>
-    st_drop_geometry() |> # faster to calculate without geometry
-    group_by(grid_id) |>
-    summarise(
-      n_points = n(),
-      total_cpue = sum(cpue, na.rm = TRUE),
-      geo_mean_cpue = exp(mean(log(cpue), na.rm = FALSE))  # geometric mean
-    ) |>
-    ungroup() |>
-    mutate(is_private = n_points < 3,
-      source = source) |>
-    right_join(matching_grid_sf, by = "grid_id") |>
-    filter(!is.na(geo_mean_cpue)) |>
-    st_as_sf()
+    points_in_grid <- st_join(cpue_sf, matching_grid_sf)
 
-  left_join(aggregated_grid_sf, grid_with_block_id)
+    # Group by grid cell, summarize data, and add the privacy flag
+    aggregated_grid_sf <- points_in_grid |>
+      filter(!is.na(cpue)) |>
+      st_drop_geometry() |> # faster to calculate without geometry
+      group_by(grid_id) |>
+      summarise(
+        n_points = n(),
+        total_cpue = sum(cpue, na.rm = TRUE),
+        geo_mean_cpue = exp(mean(log(cpue), na.rm = FALSE))  # geometric mean
+      ) |>
+      ungroup() |>
+      mutate(is_private = n_points < 3,
+        source = source) |>
+      right_join(matching_grid_sf, by = "grid_id") |>
+      filter(!is.na(geo_mean_cpue)) |>
+      st_as_sf()
+
+    left_join(aggregated_grid_sf, grid_with_block_id)
+  }
+
+  ye_ll_cpue_grid <- summarise_cpue_by_grid(ye_ll_sf, hbll_blocks, "longline")
+  ye_trawl_cpue_grid <- summarise_cpue_by_grid(ye_trawl_sf, syn_blocks, "trawl")
+  saveRDS(ye_ll_cpue_grid, here::here("data-generated", "spatial", "ye-ll-cpue-grid.rds"))
+  saveRDS(ye_trawl_cpue_grid, here::here("data-generated", "spatial", "ye-trawl-cpue-grid.rds"))
+} else {
+  ye_ll_cpue_grid <- readRDS(here::here("data-generated", "spatial", "ye-ll-cpue-grid.rds"))
+  ye_trawl_cpue_grid <- readRDS(here::here("data-generated", "spatial", "ye-trawl-cpue-grid.rds"))
 }
 
-ye_ll_cpue_grid <- summarise_cpue_by_grid(ye_ll_sf, hbll_blocks, "longline")
-ye_trawl_cpue_grid <- summarise_cpue_by_grid(ye_trawl_sf, syn_blocks, "trawl")
-
 ggplot() +
-  geom_sf(data = comm_ll_allowance, aes(fill = activity_allowance_label), alpha = 0.7) +
+  geom_sf(data = comm_ll_activity_status, aes(fill = activity_status_label), alpha = 0.7) +
   geom_sf(data = pacea::bc_coast, fill = "grey99") +
-  scale_fill_manual(name = "activity_allowance_label", values = c("allowed" = "#0072B2",
-    "not allowed" = "#D55E00", "conditional" = "#F0E442",
+  scale_fill_manual(name = "Activity concern", values = c("not identified as concern" = "#0072B2",
+    "currently restricted" = "#D55E00", "identified as concern" = "#F0E442",
     "not applicable" = "#999999"), na.value = "grey90") +
   ggnewscale::new_scale_fill() +
   geom_sf(data = ye_ll_cpue_grid |> filter(is_private), aes(fill = geo_mean_cpue), colour = NA) +
@@ -129,17 +144,17 @@ ggplot() +
   geom_sf(data = hu_ll, fill = "grey90", colour = "grey80", alpha = 0.5) +
   geom_sf(data = hbll_blocks, fill = "NA", colour = "red", linewidth = 0.05) +
   geom_sf(data = sampled_blocks_sf, colour = "black", fill = NA, linewidth = 0.05) +
-  geom_sf(data = comm_ll_allowance, aes(colour = activity_allowance_label), fill = NA) +
-  scale_colour_manual(name = "activity_allowance_label", values = c("allowed" = "#0072B2",
-    "not allowed" = "#D55E00", "conditional" = "#F0E442",
+  geom_sf(data = comm_ll_activity_status, aes(colour = activity_status_label), fill = NA) +
+  scale_colour_manual(name = "Activity concern", values = c("not identified as concern" = "#0072B2",
+    "currently restricted" = "#D55E00", "identified as concern" = "#F0E442",
     "not applicable" = "#999999"), na.value = "grey90") +
   plot_limits
 ggsave(here::here("draft-figures", "static-plot3.png"), width = 19, height = 11.5)
 
 ggplot() +
-  geom_sf(data = comm_ll_allowance, aes(fill = activity_allowance_label), colour = NA,alpha = 0.3) +
-  scale_fill_manual(name = "activity_allowance_label", values = c("allowed" = "#0072B2",
-    "not allowed" = "#D55E00", "conditional" = "#F0E442",
+  geom_sf(data = comm_ll_activity_status, aes(fill = activity_status_label), colour = NA,alpha = 0.3) +
+  scale_fill_manual(name = "Activity concern", values = c("not identified as concern" = "#0072B2",
+    "currently restricted" = "#D55E00", "identified as concern" = "#F0E442",
     "not applicable" = "#999999"), na.value = "grey90") +
   ggnewscale::new_scale_fill() +
   geom_sf(data = hbll_blocks, aes(fill = survey_abbrev), colour = NA, linewidth = 0.05, alpha = 0.4) +
@@ -148,33 +163,35 @@ ggplot() +
 
 # -----------------------------------------------------------------------------
 # Proportion of MPA zone overlap with various layers
+update_cached_spatial <- FALSE # Need to update if we change to Q2
+# update_cached_spatial <- TRUE
 
 # Existing HBLL blocks
-if (!file.exists(here::here("data-generated", "spatial", "hbll_mpa_overlap.rds"))) {
 hbll_mpa_overlap <- hbll_blocks |>
-  st_transform(st_crs(comm_ll_allowance)) |>
-  st_intersection(comm_ll_allowance) %>%
+  st_transform(st_crs(comm_ll_activity_status)) |>
+  st_intersection(comm_ll_activity_status) %>%
   mutate(hbll_mpa_area = st_area(.))
 
 sampled_mpa_overlap <- st_intersection(
-    sampled_blocks_sf |> st_transform(st_crs(comm_ll_allowance)),
-    comm_ll_allowance) %>%
+    sampled_blocks_sf |> st_transform(st_crs(comm_ll_activity_status)),
+    comm_ll_activity_status) %>%
   mutate(sampled_mpa_area = st_area(.))
 
+if (!file.exists(here::here("data-generated", "spatial", "ll-mpa-overlap-yelloweye.rds")) || update_cached_spatial) {
 ll_mpa_overlap <- st_intersection(
-    ye_ll_cpue_grid |> st_transform(st_crs(comm_ll_allowance)),
-    comm_ll_allowance) %>%
+    ye_ll_cpue_grid |> st_transform(st_crs(comm_ll_activity_status)),
+    comm_ll_activity_status) %>%
   mutate(cpue_mpa_area = st_area(.))
 saveRDS(ll_mpa_overlap, here::here("data-generated", "spatial", "ll-mpa-overlap-yelloweye.rds"))
 } else {
   ll_mpa_overlap <- readRDS(here::here("data-generated", "spatial", "ll-mpa-overlap-yelloweye.rds"))
 }
 
-if (!file.exists(here::here("data-generated", "spatial", "sampled-cpue-mpa-overlap-yelloweye.rds"))) {
+if (!file.exists(here::here("data-generated", "spatial", "sampled-cpue-mpa-overlap-yelloweye.rds")) || update_cached_spatial) {
   sampled_cpue_mpa_overlap <- ye_ll_cpue_grid |>
     right_join(sampled_blocks |> distinct(block_id, survey_abbrev)) |>
-    st_transform(st_crs(comm_ll_allowance)) |>
-    st_intersection(comm_ll_allowance) %>%
+    st_transform(st_crs(comm_ll_activity_status)) |>
+    st_intersection(comm_ll_activity_status) %>%
     mutate(sampled_cpue_area = st_area(.))
   saveRDS(sampled_cpue_mpa_overlap, here::here("data-generated", "spatial", "sampled-cpue-mpa-overlap-yelloweye.rds"))
 } else {
@@ -183,10 +200,10 @@ if (!file.exists(here::here("data-generated", "spatial", "sampled-cpue-mpa-overl
 
 # Question - I think it isn't too late to add more baseline sampling so maybe
 # this is the best combination to look at for a start?
-if (!file.exists(here::here("data-generated", "spatial", "hbll-cpue-mpa-overlap-yelloweye.rds"))) {
+if (!file.exists(here::here("data-generated", "spatial", "hbll-cpue-mpa-overlap-yelloweye.rds")) || update_cached_spatial) {
   hbll_cpue_mpa_overlap <- ye_ll_cpue_grid |>
-    st_transform(st_crs(comm_ll_allowance)) |>
-    st_intersection(comm_ll_allowance) |>
+    st_transform(st_crs(comm_ll_activity_status)) |>
+    st_intersection(comm_ll_activity_status) |>
     filter(!is.na(block_id)) %>%
     mutate(hbll_cpue_area = st_area(.))
 
@@ -197,11 +214,11 @@ if (!file.exists(here::here("data-generated", "spatial", "hbll-cpue-mpa-overlap-
 
 # Plotting overlaps
 p1 <- ggplot(data = hbll_mpa_overlap) +
-  geom_sf(data = comm_ll_allowance, aes(fill = activity_allowance_label), alpha = 0.4, colour = NA) +
-  geom_sf(aes(fill = activity_allowance_label)) +
+  geom_sf(data = comm_ll_activity_status, aes(fill = activity_status_label), alpha = 0.4, colour = NA) +
+  geom_sf(aes(fill = activity_status_label)) +
   geom_sf(data = pacea::bc_coast, fill = "grey99") +
-  scale_fill_manual(name = "Proposed Longline Allowance", values = c("allowed" = "#0072B2",
-    "not allowed" = "#D55E00", "conditional" = "#F0E442",
+  scale_fill_manual(name = "Activity concern", values = c("not identified as concern" = "#0072B2",
+    "currently restricted" = "#D55E00", "identified as concern" = "#F0E442",
     "not applicable" = "#999999"), na.value = "grey90") +
   plot_limits +
   theme(
@@ -218,6 +235,7 @@ p3 <- p1 %+% ll_mpa_overlap +
 
 p1 / p2 / p3
 ggsave(here::here("draft-figures", "mpa-overlap-hbll-cpue.pdf"), width = 9.5, height = 16.5)
+ggsave(here::here("draft-figures", "mpa-overlap-hbll-cpue.png"), width = 9.5, height = 16.5)
 
 p4 <- p1 %+% sampled_cpue_mpa_overlap +
   ggtitle("MPA - CPUE - sampled overlap ")
@@ -229,6 +247,7 @@ p5
 
 p4 / p5
 ggsave(here::here("draft-figures", "combined-overlap.pdf"), width = 9.5, height = 12.5)
+ggsave(here::here("draft-figures", "combined-overlap.png"), width = 9.5, height = 12.5)
 
 
 # p5 %+% geom_sf(data = ye_trawl_cpue_grid, fill = "grey80", colour = NA, linewidth = 0.05) +
