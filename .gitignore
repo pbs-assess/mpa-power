@@ -6,6 +6,7 @@
 .Rapp.history
 
 # Data directories and files
+background-reading/
 data-raw/
 data-cache/
 data-generated/
