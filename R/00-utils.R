@@ -92,54 +92,6 @@ rotate_a <- function(sf_obj, a = 90){
   sf_obj <- sf_obj |> st_transform(rotated_crs)
 }
 
-#' Load survey block data (polygon, point, or coordinate table)
-#'
-#' Returns the built-in `survey_blocks` dataset as either polygons, centroids, or
-#' coordinates. Survey blocks are 2x2 km square grids that may overlap with land.
-#' Note that centroid and coordinate outputs may fall on land rather than in the ocean.
-#' While suitable for visualization and basic modeling, these points should not be used
-#' directly for extracting oceanographic covariates - instead use `polygon` and extract
-#' as appropriate.
-#'
-#' @param type Character string specifying the output format. One of:
-#'   - `"polygon"` (default): returns an `sf` object with polygon geometries.
-#'   - `"centroid"`: returns an `sf` object with the centroid point for each block.
-#'   - `"coords"`: returns a `tibble` with columns `X` and `Y` (in kilometres),
-#'     representing point-on-surface coordinates extracted from each polygon.
-#'
-#' @param active Logical. If TRUE (default), only returns active survey blocks.
-#'
-#' @return Either an `sf` object or a `tbl` depending on `type`.
-#' @export
-#'
-#' @examples
-#' survey_blocks_data("polygon") |> plot()
-#' survey_blocks_data("centroid")
-#' survey_blocks_data("coords")
-load_survey_blocks <- function(type = c("polygon", "centroid", "coords"), active = TRUE) {
-  type <- match.arg(type)
-  dat <- gfdata::survey_blocks
-
-  if (active) dat <- dat |> filter(active_block)
-
-  if (type == "centroid") {
-    return(sf::st_point_on_surface(dat)) # sf points
-  }
-
-  if (type == "coords") {
-    pts <- sf::st_point_on_surface(dat)
-    coords <- sf::st_coordinates(pts) / 1000  # convert metres to km
-    df <- sf::st_drop_geometry(pts)
-    df$X <- coords[, 1]
-    df$Y <- coords[, 2]
-    df <- dplyr::as_tibble(df)
-    return(df)
-  }
-
-  return(dat)  # default: polygon sf
-}
-
-
 #' Beep only for a specific user.
 #'
 #' @param target_user The username to check for.
