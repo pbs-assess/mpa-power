@@ -228,9 +228,10 @@ one_sample_posterior <- function(object, use_names = TRUE) {
 
 #' Simulate data from fitted sdmTMB model with MPA recovery trends
 #'
-#'
 #' @param fit Fitted sdmTMB model object
 #' @param restricted_df Data frame containing spatial grid with restricted area indicators
+#' @param sim_dir Directory to save simulated data (default: "data-generated/sim-dat")
+#' @param check_cache Check for cached simulation (default: TRUE)
 #' @param year_covariate Vector of time values for simulation (default: seq(0, 20, 2))
 #' @param mpa_trend Log-scale trend in restricted areas (default: log(1.05) for 5% increase/year)
 #' @param seed Random seed for reproducibility
@@ -238,12 +239,15 @@ one_sample_posterior <- function(object, use_names = TRUE) {
 #' @param family Distribution family (default: nbinom2(link = "log"))
 #' @param fixed_spatial_re Use fixed spatial random effects or use spatial sd (default: TRUE)
 #' @param fixed_spatiotemporal_re Use fixed spatiotemporal random effects or use spatiotemporal sd (default: FALSE)
+#' @param tag Optional tag for file naming
 #' @param ... Additional arguments passed to sdmTMB::sdmTMB_simulate
 #'
 #' @return Data frame of simulated data
 #'
 simulate_hbll <- function(fit,
                           restricted_df,
+                          sim_dir = "data-generated/sim-dat",
+                          check_cache = TRUE,
                           year_covariate = seq(from = 0, to = 20, by = 2),
                           mpa_trend = log(1.05), # 5% increase per year
                           seed = NULL,
@@ -251,7 +255,51 @@ simulate_hbll <- function(fit,
                           family = nbinom2(link = "log"),
                           fixed_spatial_re = TRUE,
                           fixed_spatiotemporal_re = FALSE,
+                          tag = NULL,
                           ...) {
+
+  # Create directory for simulated data
+  dir.create(sim_dir, showWarnings = FALSE, recursive = TRUE)
+
+  # Generate filename based on fit and parameters
+  survey_type <- unique(fit$data$survey_abbrev)
+  species <- unique(fit$data$species_common_name)
+
+  fname <- paste(c(species, survey_type, "sim", tag), collapse = "-") |>
+    gsub("[^a-zA-Z0-9_.-]", "-", x = _)
+  rds_file <- file.path(sim_dir, paste0(fname, ".rds"))
+  hash_file <- file.path(sim_dir, paste0(fname, ".hash"))
+
+  # Create sim state for hashing (similar to fit_hbll)
+  sim_state <- list(
+    fit$data,  # Original data used for fitting
+    restricted_df,
+    year_covariate,
+    mpa_trend,
+    seed,
+    formula,
+    family,
+    fixed_spatial_re,
+    fixed_spatiotemporal_re,
+    fit$spde$mesh,  # Mesh from fitted model
+    packageVersion("sdmTMB"),
+    list(...)
+  )
+  current_hash <- digest::digest(sim_state)
+
+  # Check cache
+  if (check_cache && file.exists(rds_file) && file.exists(hash_file)) {
+    cached_hash <- readLines(hash_file, warn = FALSE)
+    if (identical(cached_hash, current_hash)) {
+      message("Cache hit. Loading simulation from: ", rds_file)
+      return(readRDS(rds_file))
+    }
+  }
+
+  message(
+    "Cache missing or invalid. Running simulation for: ", fname,
+    "\nCache file will be saved to: ", rds_file
+  )
 
   # Get the model parameters
   b <- get_model_pars(fit)
@@ -319,7 +367,11 @@ simulate_hbll <- function(fit,
   ) |>
     as_tibble()
 
-  sim_dat
+  # Save to cache
+  saveRDS(sim_dat, file = rds_file)
+  writeLines(current_hash, con = hash_file)
+
+  return(sim_dat)
 }
 
 # Example usage:

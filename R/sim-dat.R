@@ -158,32 +158,41 @@ meep()
 # Simulate data on HBLL grid for all three surveys
 # ------------------------------------------------------------
 sim_IN <- simulate_hbll(fit_IN, restricted_df,
+  sim_dir = "data-generated/sim-dat",
+  check_cache = TRUE,
   formula = ~ 1 + restricted * year_covariate,
   seed = 42,
   year_covariate = seq(from = 1, to = 21, by = 2),
   mpa_trend = log(1.05),
   fixed_spatial_re = TRUE,
-  fixed_spatiotemporal_re = FALSE
+  fixed_spatiotemporal_re = FALSE,
+  tag = "ins-n"
 ) |>
   mutate(survey_abbrev = "HBLL INS N")
 
 sim_ON <- simulate_hbll(fit_ON, restricted_df,
+  sim_dir = "data-generated/sim-dat",
+  check_cache = TRUE,
   formula = ~ 1 + restricted * year_covariate,
   seed = 42,
   year_covariate = seq(from = 0, to = 20, by = 2),
   mpa_trend = log(1.05),
   fixed_spatial_re = TRUE,
-  fixed_spatiotemporal_re = FALSE
+  fixed_spatiotemporal_re = FALSE,
+  tag = "out-n"
 ) |>
   mutate(survey_abbrev = "HBLL OUT N")
 
 sim_OS <- simulate_hbll(fit_OS, restricted_df,
+  sim_dir = "data-generated/sim-dat",
+  check_cache = TRUE,
   formula = ~ 1 + restricted * year_covariate,
   seed = 42,
   year_covariate = seq(from = 1, to = 21, by = 2),
   mpa_trend = log(1.05),
   fixed_spatial_re = TRUE,
-  fixed_spatiotemporal_re = FALSE
+  fixed_spatiotemporal_re = FALSE,
+  tag = "out-s"
 ) |>
   mutate(survey_abbrev = "HBLL OUT S")
 
