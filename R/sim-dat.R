@@ -31,16 +31,14 @@ theme_set(gfplot::theme_pbs())
 
 # Housekeeping
 # ------------------------------------------------------------
+source(here::here("R", "00-setup.R"))
 source(here::here("R", "00-fit-sim-functions.R"))
 source(here::here("R", "00-utils.R"))
-
-# Using data from synopsis cache
-if (Sys.info()['user'] == "jilliandunic") synopsis_cache <- "~/R_DFO/gfsynopsis-2024-data/report/data-cache-2025-03"
 
 fit_dir <- here::here("data-generated", "fits")
 dir.create(fit_dir, recursive = TRUE, showWarnings = FALSE)
 
-hbll_grid <- load_survey_blocks(type = "coords") |>
+hbll_grid <- gfdata::load_survey_blocks(type = "XY") |>
   filter(stringr::str_detect(survey_abbrev, "HBLL")) |>
   filter(survey_abbrev != "HBLL INS S") |>
   mutate(cell_id = row_number())
@@ -50,7 +48,7 @@ hbll_grid <- load_survey_blocks(type = "coords") |>
   #        depth_sd = sd(log(depth_m), na.rm = TRUE),
   #        depth_scaled = (log(depth_m) - depth_mean[1]) / depth_sd[1],
         #  depth_scaled2 = depth_scaled^2)
-hbll_grid_poly <- load_survey_blocks(type = "polygon") |>
+hbll_grid_poly <- gfdata::load_survey_blocks(type = "polygon") |>
   filter(stringr::str_detect(survey_abbrev, "HBLL")) |>
   filter(survey_abbrev != "HBLL INS S") |>
   mutate(cell_id = row_number())
@@ -64,13 +62,13 @@ mpa_shape_simplified <- comm_ll_activity_status |> st_simplify(dTolerance = 100)
 
 sp_dat <- filter(sp_dat0, stringr::str_detect(survey_abbrev, "HBLL")) |>
   filter(survey_abbrev != "HBLL INS S") |> # may as well remove this up here
-  prep_hbll_data(bait_counts = bait_counts) |>
-  mutate(x = X * 1000, y = Y * 1000) |>
-  st_as_sf(coords = c("x", "y"), crs = 3156) |>
-  st_join(comm_ll_allowance |> st_transform(crs = 3156), join = st_within) |>
-  mutate(activity_allowance_label = if_else(is.na(activity_allowance_label), "outside", activity_allowance_label)) |>
-  mutate(restricted = ifelse(activity_allowance_label %in% c("not allowed", "conditional"), 1, 0)) |>
-  st_drop_geometry()
+  prep_hbll_data(bait_counts = bait_counts) #|>
+  # mutate(x = X * 1000, y = Y * 1000) |>
+  # st_as_sf(coords = c("x", "y"), crs = 3156) |>
+  # st_join(comm_ll_activity_status |> st_transform(crs = 3156), join = st_within) |>
+  # mutate(activity_status_label = if_else(is.na(activity_status_label), "outside", activity_status_label)) |>
+  # mutate(restricted = ifelse(activity_status_label %in% c("not allowed", "conditional"), 1, 0)) |>
+  # st_drop_geometry()
 
 combined <- st_intersection(
     st_as_sfc(st_bbox(hbll_grid_poly |> st_transform(crs = st_crs(mpa_shape_simplified)))),
@@ -114,14 +112,19 @@ plot_limits_combined <- get_plot_limits(combined, buffer = 1000)
 
 # restricted_df <- sp_dat_sf |> select(fishing_event_id, year, restricted)
 
+# TODO: make it easier to keep track of what should be restricted and what should be outside.
+# e.g., to allow quick switch to using national or existing as full protection status.
 restricted_df <- hbll_grid |>
   mutate(x = X * 1000, y = Y * 1000) |>
   st_as_sf(coords = c("x", "y"), crs = 3156) |>
   filter(stringr::str_detect(survey_abbrev, "HBLL")) %>%
-  st_join(., comm_ll_allowance |> st_transform(crs = st_crs(.)), join = st_within) |>
-  mutate(activity_allowance_label = ifelse(is.na(activity_allowance_label), "outside", activity_allowance_label)) |>
-  mutate(restricted = ifelse(activity_allowance_label %in% c("not allowed", "conditional"), 1, 0)) |>
-  select(survey_abbrev, restricted, X, Y) |>
+  st_join(., comm_ll_activity_status |> st_transform(crs = st_crs(.)), join = st_within) |>
+  mutate(activity_status_label = ifelse(is.na(activity_status_label), "outside", activity_status_label)) |>
+  mutate(restricted = ifelse(activity_status_label != "outside", 1, 0)) |>
+  # mutate(restricted = ifelse(activity_status_label %in% c("not allowed", "conditional"), 1, 0)) |>
+  # For now assume all restricted areas will be full protection
+  # mutate(restricted = ifelse(!is.na(activity_status_label), 1, 0)) |>
+  # select(survey_abbrev, grouping_code, restricted, X, Y) |>
   st_drop_geometry()
 
 fit_OS <- fit_hbll(dat = sp_dat,
@@ -197,7 +200,7 @@ sim_OS <- simulate_hbll(fit_OS, restricted_df,
   mutate(survey_abbrev = "HBLL OUT S")
 
 sim_dat <- bind_rows(sim_IN, sim_ON, sim_OS) |>
-  left_join(hbll_grid |> select(X, Y, cell_id))
+  left_join(hbll_grid |> select(X, Y, block_id, grouping_code))
 sim_dat_sf <- XY_to_sf(sim_dat)
 
 # TODO: Add deviations from trend (need if we want to simulate more years than sampled no?)
