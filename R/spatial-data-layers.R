@@ -50,7 +50,7 @@ Q2 <- st_read(here::here("data-raw", "spatial", "All_Network_boundaries_Q2_2024.
   layer = "All_Network_boundaries_Q2_2024") |>
   janitor::clean_names()
 
-shape <- Q1
+shape <- Q2
 
 # Commercial longline - activity of concern
 comm_ll_activity_status <- readRDS(here::here("data-generated", "spatial", "comm-ll-draft-activity-status.rds"))
@@ -58,13 +58,48 @@ comm_ll_activity_status <- readRDS(here::here("data-generated", "spatial", "comm
 comm_ll_activity_status_simplified <- comm_ll_activity_status |>
   st_simplify(dTolerance = 200)
 
-# old layer
-old_hu_ll <- st_read(here::here("data-raw", "spatial", "mpatt_hu_10.gdb"),
-  layer = "hu_co_demersalfishing_bottomlongline_d")
+# Human use layers - Load with error handling and simplification
+cat("Loading human use layers...\n")
 
-# Newest layer from Kevin
-hu_ll <- st_read(here::here("data-raw", "spatial", "hu.gdb"),
-  layer = "hu_co_demersalfishing_bottomlongline_d")
+# Try to load the old layer with error handling
+tryCatch({
+  old_hu_ll <- st_read(here::here("data-raw", "spatial", "mpatt_hu_10.gdb"),
+    layer = "hu_co_demersalfishing_bottomlongline_d")
+  cat("Successfully loaded old human use layer\n")
+}, error = function(e) {
+  cat("Error loading old human use layer:", e$message, "\n")
+  old_hu_ll <- NULL
+})
+
+# Try to load the new layer with error handling and simplification
+tryCatch({
+  hu_ll_raw <- st_read(here::here("data-raw", "spatial", "hu.gdb"),
+    layer = "hu_co_demersalfishing_bottomlongline_d")
+
+  # Simplify the geometry to reduce complexity
+  hu_ll <- hu_ll_raw |>
+    st_simplify(dTolerance = 100) |>
+    st_make_valid()
+
+  cat("Successfully loaded and simplified new human use layer\n")
+}, error = function(e) {
+  cat("Error loading new human use layer:", e$message, "\n")
+  # Try with GDAL options to skip problematic processing
+  tryCatch({
+    hu_ll_raw <- st_read(here::here("data-raw", "spatial", "hu.gdb"),
+      layer = "hu_co_demersalfishing_bottomlongline_d",
+      options = c("METHOD=SKIP"))
+
+    hu_ll <- hu_ll_raw |>
+      st_simplify(dTolerance = 100) |>
+      st_make_valid()
+
+    cat("Successfully loaded human use layer with METHOD=SKIP\n")
+  }, error = function(e2) {
+    cat("Failed to load human use layer even with METHOD=SKIP:", e2$message, "\n")
+    hu_ll <- NULL
+  })
+})
 
 # Yelloweye commercial longline CPUE
 
@@ -163,37 +198,67 @@ ggplot() +
 
 # -----------------------------------------------------------------------------
 # Proportion of MPA zone overlap with various layers
-update_cached_spatial <- FALSE # Need to update if we change to Q2
-# update_cached_spatial <- TRUE
+# update_cached_spatial <- FALSE # Need to update if we change to Q2
+update_cached_spatial <- TRUE
+
+# Fix geometries before intersection operations
+cat("Fixing geometries for intersection operations...\n")
+
+# Fix HBLL blocks
+hbll_blocks_fixed <- hbll_blocks |>
+  st_make_valid() |>
+  st_set_precision(1e-6)
+
+# Fix MPA activity status
+comm_ll_activity_status_fixed <- comm_ll_activity_status |>
+  st_make_valid() |>
+  st_set_precision(1e-6)
+
+# Fix CPUE grid
+ye_ll_cpue_grid_fixed <- ye_ll_cpue_grid |>
+  st_make_valid() |>
+  st_set_precision(1e-6)
+
+# Fix sampled blocks
+sampled_blocks_sf_fixed <- sampled_blocks_sf |>
+  st_make_valid() |>
+  st_set_precision(1e-6)
+
+# Now perform intersection operations with fixed geometries
+cat("Performing intersection operations...\n")
 
 # Existing HBLL blocks
-hbll_mpa_overlap <- hbll_blocks |>
-  st_transform(st_crs(comm_ll_activity_status)) |>
-  st_intersection(comm_ll_activity_status) %>%
+hbll_mpa_overlap <- hbll_blocks_fixed |>
+  st_transform(st_crs(comm_ll_activity_status_fixed)) |>
+  st_intersection(comm_ll_activity_status_fixed) %>%
   mutate(hbll_mpa_area = st_area(.))
 
 sampled_mpa_overlap <- st_intersection(
-    sampled_blocks_sf |> st_transform(st_crs(comm_ll_activity_status)),
-    comm_ll_activity_status) %>%
+    sampled_blocks_sf_fixed |> st_transform(st_crs(comm_ll_activity_status_fixed)),
+    comm_ll_activity_status_fixed) %>%
   mutate(sampled_mpa_area = st_area(.))
+
+cat("Sampled-MPA intersection completed\n")
 
 if (!file.exists(here::here("data-generated", "spatial", "ll-mpa-overlap-yelloweye.rds")) || update_cached_spatial) {
 ll_mpa_overlap <- st_intersection(
-    ye_ll_cpue_grid |> st_transform(st_crs(comm_ll_activity_status)),
-    comm_ll_activity_status) %>%
+    ye_ll_cpue_grid_fixed |> st_transform(st_crs(comm_ll_activity_status_fixed)),
+    comm_ll_activity_status_fixed) %>%
   mutate(cpue_mpa_area = st_area(.))
 saveRDS(ll_mpa_overlap, here::here("data-generated", "spatial", "ll-mpa-overlap-yelloweye.rds"))
+cat("LL-MPA intersection completed and saved\n")
 } else {
   ll_mpa_overlap <- readRDS(here::here("data-generated", "spatial", "ll-mpa-overlap-yelloweye.rds"))
 }
 
 if (!file.exists(here::here("data-generated", "spatial", "sampled-cpue-mpa-overlap-yelloweye.rds")) || update_cached_spatial) {
-  sampled_cpue_mpa_overlap <- ye_ll_cpue_grid |>
+  sampled_cpue_mpa_overlap <- ye_ll_cpue_grid_fixed |>
     right_join(sampled_blocks |> distinct(block_id, survey_abbrev)) |>
-    st_transform(st_crs(comm_ll_activity_status)) |>
-    st_intersection(comm_ll_activity_status) %>%
+    st_transform(st_crs(comm_ll_activity_status_fixed)) |>
+    st_intersection(comm_ll_activity_status_fixed) %>%
     mutate(sampled_cpue_area = st_area(.))
   saveRDS(sampled_cpue_mpa_overlap, here::here("data-generated", "spatial", "sampled-cpue-mpa-overlap-yelloweye.rds"))
+  cat("Sampled CPUE-MPA intersection completed and saved\n")
 } else {
   sampled_cpue_mpa_overlap <- readRDS(here::here("data-generated", "spatial", "sampled-cpue-mpa-overlap-yelloweye.rds"))
 }
@@ -201,16 +266,19 @@ if (!file.exists(here::here("data-generated", "spatial", "sampled-cpue-mpa-overl
 # Question - I think it isn't too late to add more baseline sampling so maybe
 # this is the best combination to look at for a start?
 if (!file.exists(here::here("data-generated", "spatial", "hbll-cpue-mpa-overlap-yelloweye.rds")) || update_cached_spatial) {
-  hbll_cpue_mpa_overlap <- ye_ll_cpue_grid |>
-    st_transform(st_crs(comm_ll_activity_status)) |>
-    st_intersection(comm_ll_activity_status) |>
+  hbll_cpue_mpa_overlap <- ye_ll_cpue_grid_fixed |>
+    st_transform(st_crs(comm_ll_activity_status_fixed)) |>
+    st_intersection(comm_ll_activity_status_fixed) |>
     filter(!is.na(block_id)) %>%
     mutate(hbll_cpue_area = st_area(.))
 
   saveRDS(hbll_cpue_mpa_overlap, here::here("data-generated", "spatial", "hbll-cpue-mpa-overlap-yelloweye.rds"))
+  cat("HBLL CPUE-MPA intersection completed and saved\n")
 } else {
   hbll_cpue_mpa_overlap <- readRDS(here::here("data-generated", "spatial", "hbll-cpue-mpa-overlap-yelloweye.rds"))
 }
+
+cat("All intersection operations completed successfully!\n")
 
 # Plotting overlaps
 p1 <- ggplot(data = hbll_mpa_overlap) +

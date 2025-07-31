@@ -23,7 +23,7 @@ Q2 <- st_read(here::here("data-raw", "spatial", "All_Network_boundaries_Q2_2024.
   layer = "All_Network_boundaries_Q2_2024") |>
   janitor::clean_names()
 
-shape <- Q1
+shape <- Q2
 
 comm_ll_activity_status <- shape |>
   select(hu_commercial_harvest_bottom_longline_demersal_hookand_line,

@@ -58,9 +58,9 @@ hbll_grid_poly <- load_survey_blocks(type = "polygon") |>
 sp <- sp_to_hyphens("yelloweye rockfish")
 bait_counts <- readRDS(file.path(synopsis_cache, "bait-counts.rds"))
 sp_dat0 <- readRDS(file.path(synopsis_cache, paste0(sp, ".rds")))$survey_sets
-comm_ll_allowance <- readRDS(here::here("data-generated", "spatial", "comm_ll_allowance.rds"))
+comm_ll_activity_status <- readRDS(here::here("data-generated", "spatial", "comm-ll-draft-activity-status.rds"))
 
-mpa_shape_simplified <- comm_ll_allowance |> st_simplify(dTolerance = 100)
+mpa_shape_simplified <- comm_ll_activity_status |> st_simplify(dTolerance = 100)
 
 sp_dat <- filter(sp_dat0, stringr::str_detect(survey_abbrev, "HBLL")) |>
   filter(survey_abbrev != "HBLL INS S") |> # may as well remove this up here
@@ -216,51 +216,107 @@ ggplot(data = sim_dat_sf) +
   get_plot_limits(sim_dat_sf, buffer = 5000)
 
 # Look at diff between years
-diff_df <- sim_dat |>
-  group_by(X, Y, cell_id) |>
-  arrange(year, .by_group = TRUE) |>
-  mutate(
-    mu_diff = mu - lag(mu),
-    eta_diff = eta - lag(eta),
-    percent_change = (exp(eta_diff) - 1) * 100,
-    observed_diff = observed - lag(observed)
-  ) |>
-  ungroup()
+# diff_df <- sim_dat |>
+#   group_by(X, Y, cell_id) |>
+#   arrange(year, .by_group = TRUE) |>
+#   mutate(
+#     mu_diff = mu - lag(mu),
+#     eta_diff = eta - lag(eta),
+#     percent_change = (exp(eta_diff) - 1) * 100,
+#     observed_diff = observed - lag(observed)
+#   ) |>
+#   ungroup()
 
-p1 <- left_join(hbll_grid_poly, diff_df, by = "cell_id")  |>
-  ggplot(data = _) +
-    geom_sf(data = pacea::bc_coast, fill = "grey90", colour = "grey90") +
-    geom_sf(data = mpa_shape_simplified, aes(fill = activity_allowance_label),
-      colour = NA, alpha = 0.8) +
-    scale_fill_manual(name = "activity_allowance_label",
-      values = c("allowed" = "#0072B2",
-        "not allowed" = "#D55E00", "conditional" = "#F0E442",
-        "not applicable" = "#999999"), na.value = "grey90") +
-    geom_sf(aes(colour = percent_change), alpha = 0.5) +
-    scale_colour_viridis_c(end = 0.8) +
-    theme(legend.position = "inside",
-          legend.position.inside = c(0.9, 0.2)) +
-    facet_wrap(~ year, nrow = 3) +
-    plot_limits_combined
-# p1
-p1 %+% (left_join(hbll_grid_poly, diff_df, by = "cell_id") |> filter(year == 20)) +
-  theme(legend.position.inside = c(0.1, 0.2))
+# p1 <- left_join(hbll_grid_poly, diff_df, by = "cell_id")  |>
+#   ggplot(data = _) +
+#     geom_sf(data = pacea::bc_coast, fill = "grey90", colour = "grey90") +
+#     geom_sf(data = mpa_shape_simplified, aes(fill = activity_allowance_label),
+#       colour = NA, alpha = 0.8) +
+#     scale_fill_manual(name = "activity_allowance_label",
+#       values = c("allowed" = "#0072B2",
+#         "not allowed" = "#D55E00", "conditional" = "#F0E442",
+#         "not applicable" = "#999999"), na.value = "grey90") +
+#     geom_sf(aes(colour = percent_change), alpha = 0.5) +
+#     scale_colour_viridis_c(end = 0.8) +
+#     theme(legend.position = "inside",
+#           legend.position.inside = c(0.9, 0.2)) +
+#     facet_wrap(~ year, nrow = 3) +
+#     plot_limits_combined
+# # p1
+# p1 %+% (left_join(hbll_grid_poly, diff_df, by = "cell_id") |> filter(year == 20)) +
+#   theme(legend.position.inside = c(0.1, 0.2))
 
 # Status quo sampling effort
 # ------------------------------------------------------------
+sampled_cpue_mpa_overlap <- readRDS(here::here("data-generated", "spatial", "sampled-cpue-mpa-overlap-yelloweye.rds"))
+ll_mpa_overlap <- readRDS(here::here("data-generated", "spatial", "ll-mpa-overlap-yelloweye.rds"))
+
+hbll_allocations <- readRDS(here::here("data-generated", "hbll-allocations.rds"))
+# NOTE: Need to group by ssid, pfma, and strata_depth because of the 5A4B shenanigans
+
+left_join(sim_dat, hbll_allocations, by = c("survey_abbrev", "grouping_code")) |>
+glimpse()
+
 # - random sampling of blocks from year to year
 samp1 <- sp_dat |>
-  filter(survey_abbrev %in% c("HBLL OUT N", "HBLL OUT S", "HBLL INS N")) |>
   group_by(survey_abbrev, year) |>
   summarise(n = n()) |>
   group_by(survey_abbrev) |>
   summarise(n_samps = round(mean(n))) |>
   mutate(plan = "status quo")
 
-samp2 <-
-
-sampled_sim_dat <- sample_by_plan(sim_dat, samp1,
+sampled_sim_dat1 <- sample_by_plan(sim_dat, samp1,
   grouping_vars = c("survey_abbrev", "year"))
+
+# - resample previously sampled MPA cells if sampling within MPA
+# - resample at current rate within MPAs
+
+samp2 <- sp_dat |>
+  group_by(survey_abbrev, year, restricted) |>
+  summarise(n = n()) |>
+  group_by(survey_abbrev, restricted) |>
+  summarise(n_samps = round(mean(n))) |>
+  mutate(plan = "resample MPA blocks at current rate")
+
+sampled_sim_dat2 <- sample_by_plan(sim_dat, samp2,
+  grouping_vars = c("survey_abbrev", "year", "restricted"))
+
+# - resample every previously sampled MPA cell every five years?
+# (this method probably doesn't make sense for every MPA site because some have
+# quite good coverage, so would need to come up with some kind of rule perhaps)
+all_mpa_blocks <- sp_dat |>
+  distinct(survey_abbrev, restricted, X, Y) |>
+  filter(restricted == 1) |>
+  mutate(plan = "resample every previously sampled MPA cell every five years")
+
+
+
+
+restricted_df |>
+  distinct(survey_abbrev, restricted) |>
+  mutate(schedule = ifelse(restricted == 1, year - (year %% 5)) |>
+  distinct(survey_abbrev, census_year, restricted)
+
+sp_dat |> distinct(survey_abbrev, restricted, block_id)
+samp3 <- sp_dat |>
+
+sp_dat |>
+distinct(survey_abbrev, year, restricted)
+
+census_schedule <- sim_dat |>
+  distinct(year, survey_abbrev) |>
+  arrange(year) |>
+  slice(2:4) |>
+  rename(first_census_year = year)
+
+test <- sample_by_plan2(sim_dat,
+  sampling_effort = samp3,
+  grouping_vars = c("survey_abbrev", "year", "restricted"),
+  mpa_schedule = 5
+)
+
+
+sampled_sim_dat <- bind_rows(sampled_sim_dat1, sampled_sim_dat2)
 
 # # So few actual fish observed is this right??
 # sampled_sim_dat <- sim_dat |>
@@ -268,32 +324,48 @@ sampled_sim_dat <- sample_by_plan(sim_dat, samp1,
 #   group_by(year) |>
 #   sample_n(size = sampling_effort, replace = FALSE)
 
+# sampling_plan <- "status quo"
+sampling_plan <- "resample MPA blocks at current rate"
+
 n_mpa_samps <- sampled_sim_dat |>
   filter(restricted == 1) |>
+  filter(plan == sampling_plan) |>
   group_by(year) |>
   summarise(n = n())
 
 # plot_limits <- get_plot_limits(XY_to_sf(sampled_sim_dat), buffer = 5000)
-ggplot() +
+plot_years <- c(0, 1, 5, 6, 10, 11, 15, 16, 20, 21)
+plot_dat <- sampled_sim_dat |>
+  filter(plan == sampling_plan) |>
+  XY_to_sf() |>
+  filter(year %in% plot_years)
+
+ggplot(data = plot_dat) +
   geom_sf(data = mpa_shape_simplified, aes(fill = activity_allowance_label),
     colour = NA, alpha = 0.3) +
-  scale_fill_manual(name = "activity_allowance_label",
+  scale_fill_manual(name = "MPA allowance",
     values = c("allowed" = "#0072B2",
       "not allowed" = "#D55E00", "conditional" = "#F0E442",
       "not applicable" = "#999999"), na.value = "grey90") +
   ggnewscale::new_scale_fill() +
   geom_sf(data = pacea::bc_coast, fill = "grey94", colour = "grey90") +
   ggnewscale::new_scale_fill() +
-  geom_sf(data = sampled_sim_dat |> XY_to_sf(), aes(colour = eta, shape = factor(restricted))) +
-  scale_shape_manual(values = c(`0` = 21, `1` = 19)) +
-  scale_colour_viridis_c(option = "A", end = 0.8) +
-  facet_wrap(~ year, nrow = 3) +
+  # geom_sf(data = plot_dat |> filter(restricted == 1), colour = "black", size = 1.1) +
+  geom_sf(aes(colour = eta, shape = factor(restricted)), size = 1.2) +
+  scale_shape_manual(name = "Restricted",values = c(`0` = 21, `1` = 19)) +
+  scale_colour_viridis_c(name = "eta", option = "A", end = 0.8) +
+  facet_wrap(~ year, nrow = 5) +
   plot_limits_combined +
-  theme(legend.position = "top") +
-  geom_sf_text(data = n_mpa_samps |> mutate(X = -126, Y = 54) |>
+  # theme(legend.position = "inside",
+  #   legend.position.inside = c(0.87, 0.1),
+  #   legend.box = "horizontal") +
+  geom_sf_text(data = n_mpa_samps |> mutate(X = -126, Y = 54) |> filter(year %in% plot_years) |>
     XY_to_sf(crs_from = 4326, crs_to = 4326),
-    aes(x = X, y = Y, label = paste0("n = ", n)), size = 3)
-ggsave(here::here("draft-figures", "sim-dat-status-quo.pdf"), width = 14.5, height = 12)
+    aes(x = X, y = Y, label = paste0("n = ", n)), size = 3) +
+  ggtitle(sampling_plan)
+# ggsave(here::here("draft-figures", paste0("sim-dat-", sampling_plan, ".pdf")), width = 14.5, height = 12)
+ggsave(here::here("draft-figures", paste0("sim-dat-", sampling_plan, ".pdf")), width = 9, height = 18)
+ggsave(here::here("draft-figures", paste0("sim-dat-", sampling_plan, ".png")), width = 9, height = 18)
 
 # Refit to detect change:
 sim_mesh <- make_mesh(sampled_sim_dat, xy_cols = c("X", "Y"), cutoff = 10)
