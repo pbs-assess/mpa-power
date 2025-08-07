@@ -1,0 +1,39 @@
+# Simulation methods notes
+
+### Ordered from most constrained to most generalizable (background on ways random fields can be parameterized)
+Conditional approach:
+* conditioned on the observed data from the conditioning model
+* constrains spatial field to be consistent/look similar to what was observed
+* "what spatial patterns are plausible given the observed data in the study area?"
+
+fixed_spatial_re = TRUE:
+  * conditional random effects (i.e., conditioned on the data from the conditioning model)
+  * specific omega_s values are passed to TMB and are not estimated
+
+  Empirical Bayes estimates:
+    * uses the single "best" estimate (Best Linear Unbiased Predictions; BLUPs) for each mesh vertex of the spatial random field from the conditioning model
+    * Implications/notes:
+      * would be fixed (identical) for every simulation (only one single best estimate based on conditioning model), therefore does not account for variation/uncertainty in the spatial field
+      * would have a more optimistic power estimate (lack of uncertainty)
+  
+  one_sample_posterior:
+    * uses a single draw/realization of the spatial field that was estimated from the conditioning model
+    * will vary with each simulation
+    * more realistic power estimate because it accounts for uncertainty in the random spatial field (not assuming perfect knowledge)
+
+Marginal Approach (simulated random field):
+  * marginalized over all possible spatial field realizations (i.e., all possible values of omega_s)
+  * uses only the estimated spatial parameters: sigma_O, range
+  * "what spatial patterns are possible given the estimated spatial process parameters?"
+  * better for:
+    - generalizing beyond specific study area/survey domain?
+    -  for cases where changing sampling domain? (or does this not help at all?), or if you think latent spatial processes could change over time (though maybe this is better to use spatiotemporal process for that?)
+
+fixed_spatial_re = FALSE:
+  * most conservative power estimates (accounts for more uncertainty in spatial random field than conditional approach)
+  * most generalizable (e.g., sensitivity to different spatial processes)
+
+### What we do in our simulation
+In our simulated data we use conditional spatial random fields, where each simulation replicate uses a spatial random field that is drawn from the posterior distribution of the spatial field.
+
+
