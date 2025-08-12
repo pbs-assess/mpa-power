@@ -1,6 +1,9 @@
 # Simulation methods notes
 
-### Ordered from most constrained to most generalizable (background on ways random fields can be parameterized)
+### Random field parameterization
+
+Ordered from most constrained to most generalizable (background on ways random fields can be parameterized)
+
 Conditional approach:
 * conditioned on the observed data from the conditioning model
 * constrains spatial field to be consistent/look similar to what was observed
@@ -33,7 +36,34 @@ fixed_spatial_re = FALSE:
   * most conservative power estimates (accounts for more uncertainty in spatial random field than conditional approach)
   * most generalizable (e.g., sensitivity to different spatial processes)
 
-### What we do in our simulation
-In our simulated data we use conditional spatial random fields, where each simulation replicate uses a spatial random field that is drawn from the posterior distribution of the spatial field.
+#### What we do in our simulation
+In our simulated data we 
+- use conditional spatial random fields, where each simulation replicate uses a spatial random field that is drawn from the posterior distribution of the spatial field.
+- use the best estimate of the range parameter from the conditioning model (but if fixed re, then range not actually used?)
+- phi; we use the dispersion parameter estimated from the conditioning model to add observation error each simulated observations, assuming a negative binomial distribution of the form: NB2(\mu,\phi), where Var(Y) = \mu + \mu^2/\phi
+mesh: we used the same mesh as was used in the conditioning model
 
+### AR(1) parameterization
 
+#### What we do in our simulation
+General notes as I try and really understand what we are doing and why:
+- stationary AR(1) deviations from trend, this means year to year deviations have a mean of 0 and a constant variance
+- marginal standard deviation used from conditioning model
+- notes for myself: \rho = correlation parameter, 
+
+- we fit a conditioning model using independent year-to-year spatial random effects; which should allow for the highest amount of temporal variability? (compared to RW or AR(1)? - because unconstrained?)
+- we use the sigma_E from the conditioning model and use this as the marginal standard deviation of the AR1 process. (do I need to remember that Var(epsilon_st) = sigma_E^2 for each year?)
+- we fit IID conditioning model, implications:
+  - Why not fit AR(1): 
+    * we are more likely to get a model that converges because we don't have to estimate the extra \rho parameter, already HBLL INS N yelloweye doesn't convert with st on
+    * IID provides more conservative estimates of temporal variation - because it assumes that spatiotemporal random effects are indedependt each year (i.e., no autocorrelation, which is highly unlikely, such that previous year latent effects, - environmental conditions, don't affect the next year)
+    * note: tried fitting AR(1) to HBLL OUT yelloweye, and they didn't converge.
+- Question: What should we do about choosing rho?
+- We use the model form `0 + as.factor(year_covariate) + restricted * year_covariate`, such that each year is the intercept from the conditioning model plus an innovation from the AR(1) process.
+
+An AR1 (first-order autoregressive) process follows: `X_t = ρ * X_{t-1} + ε_t * √(1-ρ²)`
+
+Where:
+- `ρ` is the correlation parameter (-1 to 1)
+- `ε_t ~ N(0, σ²)` are independent innovations
+- `√(1-ρ²)` ensures stationary variance

@@ -226,6 +226,52 @@ one_sample_posterior <- function(object, use_names = TRUE) {
   p
 }
 
+#' Simulate AR(1) deviations from trend
+#'
+#' Generates an AR(1) time series with specified correlation and marginal variance.
+#' The implementation follows TMB's AR1_t parameterization where innovations are
+#' scaled by sqrt(1-rho^2) to achieve the target marginal variance regardless of
+#' temporal correlation strength.
+#'
+#' See: https://kaskr.github.io/adcomp/classdensity_1_1AR1__t.html
+#'
+#' \deqn{x_0 \sim N(0, \sigma_E^2)}
+#' \deqn{x_1 = \rho x_0 + \sqrt{1-\rho^2} \varepsilon_1, \quad \varepsilon_1 \sim N(0, \sigma_E^2)}
+#' \deqn{x_i = \rho x_{i-1} + \sqrt{1-\rho^2} \varepsilon_i, \quad \varepsilon_i \sim N(0, \sigma_E^2)}
+#'
+#' where \eqn{\rho} is the AR(1) correlation parameter and \eqn{\sigma_E} is the
+#' marginal standard deviation of the process.
+#'
+#' @param rho AR(1) correlation parameter (-1 < \rho < 1)
+#' @param sigma_E Marginal standard deviation of the AR(1) process
+#' @param years Vector of years to simulate deviations for
+#'
+sim_ar1_deviations <- function(rho, sigma_E, years) {
+  n_years <- length(years)
+
+  # Get annual innovations/epsilon/deviations:
+  # innovations before applying sqrt(1-rho^2) scaling to get stationary variance; epsilon in TMB docs
+  epsilon <- rnorm(n_years) * sigma_E
+
+  # AR1 scaling factor:
+  # innovation scaling factor (NOT an sd); sigma in TMB documentation
+  # shrinks innovations such that the marginal sd = sigma_E
+  ar1_scale <- sqrt(1 - rho^2)
+
+  # Get annual deviations:
+  year_devs <- numeric(length = n_years)
+
+  # First year from stationary distribution (uses marginal SD)
+  year_devs[1] <- rnorm(1) * sigma_E
+
+  # Subsequent years from AR1 process with marginal SD scaled to appropriate innovation SD
+  for (i in seq(2, n_years)) {
+    year_devs[i] <- rho * year_devs[i - 1] + ar1_scale * epsilon[i]
+  }
+
+  return(year_devs)
+}
+
 #' Simulate data from fitted sdmTMB model with MPA recovery trends
 #'
 #' @param fit Fitted sdmTMB model object
@@ -239,6 +285,8 @@ one_sample_posterior <- function(object, use_names = TRUE) {
 #' @param family Distribution family (default: nbinom2(link = "log"))
 #' @param fixed_spatial_re Use fixed spatial random effects or use spatial sd (default: TRUE)
 #' @param fixed_spatiotemporal_re Use fixed spatiotemporal random effects or use spatiotemporal sd (default: FALSE)
+#' @param ar1_rho AR(1) correlation parameter. If NULL, no temporal AR(1) process is used (default: NULL)
+#' @param ar1_sigma_E Marginal standard deviation for AR(1) process. Required if ar1_rho is provided.
 #' @param tag Optional tag for file naming
 #' @param ... Additional arguments passed to sdmTMB::sdmTMB_simulate
 #'
@@ -255,6 +303,8 @@ simulate_hbll <- function(fit,
                           family = nbinom2(link = "log"),
                           fixed_spatial_re = TRUE,
                           fixed_spatiotemporal_re = FALSE,
+                          ar1_rho = NULL, # NULL = no AR1 deviations
+                          ar1_sigma_E = NULL,
                           tag = NULL,
                           ...) {
 
@@ -281,6 +331,8 @@ simulate_hbll <- function(fit,
     family,
     fixed_spatial_re,
     fixed_spatiotemporal_re,
+    ar1_rho, # NULL if not using AR1 deviations
+    ar1_sigma_E, # NULL if not provided
     fit$spde$mesh,  # Mesh from fitted model
     packageVersion("sdmTMB"),
     list(...)
@@ -345,9 +397,39 @@ simulate_hbll <- function(fit,
   } else {
     b$estimate[b$term == "(Intercept)"]
   }
+  # Build coefficient vector
+  X <- model.matrix(object = formula, data = input_dat)
+  n_coef <- ncol(X)
+  coef_names <- colnames(X)
 
-  # Coefficient vector: (Intercept), restrictedTRUE, year_covariate, restrictedTRUE:year_covariate
-  B <- c(intercept_value, 0, 0, mpa_trend)
+  B <- numeric(n_coef)
+  # Coefficients
+  B[grep("(Intercept)", coef_names)] <- intercept_value # Only if intercept in formula
+  B[grep("restrictedTRUE", coef_names)] <- 0
+  B[grep("year_covariate$", coef_names)] <- 0  # Main effect (not interaction)
+  B[grep("restricted:year_covariate", coef_names)] <- mpa_trend
+
+  if (!is.null(ar1_rho)) {
+    if (is.null(ar1_sigma_E)) stop("ar1_sigma_E must be provided if ar1_rho is provided")
+    message("Simulating with AR1 process: rho = ", round(ar1_rho, 2), ", sigma_E = ", round(ar1_sigma_E, 2))
+
+    # generate AR1 deviations
+    year_devs <- sim_ar1_deviations(rho = ar1_rho,
+      sigma_E = ar1_sigma_E,
+      years = year_covariate
+    )
+    year_indices <- grep("as.factor\\(year_covariate\\)", coef_names)
+
+    if (length(year_indices) > 0) {
+      message("- Using ", length(year_indices), " year factors")
+        if ("(Intercept)" %in% coef_names) {
+          stop("Don't use both intercept and factor years. Use either '~ 0 + as.factor(year_covariate) + ...' or '~ 1 + restricted * year_covariate'")
+        }
+      # Year coefficients (for each factor level)
+      B[year_indices] <- year_devs + intercept_value
+    }
+  }
+  message("- MPA trend: ", round(mpa_trend, 2) * 100, "%")
 
   # Simulate data
   sim_dat <- sdmTMB::sdmTMB_simulate(
@@ -356,7 +438,7 @@ simulate_hbll <- function(fit,
     mesh = input_mesh,
     family = family,
     time = "year",
-    # rho = rho,
+    # rho = ar1_rho, # affects AR1 deviations of the GMRF???
     sigma_E = if (fixed_spatiotemporal_re) epsilon_st_sd else 0,
     phi = b$estimate[b$term == "phi"],
     range = b$estimate[b$term == "range"],
@@ -416,7 +498,10 @@ simulate_hbll <- function(fit,
 #' This is particularly useful for simulating survey sampling scenarios where
 #' different areas or time periods may have different sampling intensities.
 #'
-sample_by_plan <- function(sim_dat, sampling_effort, grouping_vars = NULL) {
+sample_by_plan <- function(sim_dat,
+  sampling_effort,
+  grouping_vars = NULL,
+  ) {
   group_list <- sim_dat |>
     left_join(sampling_effort) |>
     group_by(!!!syms(grouping_vars)) |>
@@ -427,4 +512,48 @@ sample_by_plan <- function(sim_dat, sampling_effort, grouping_vars = NULL) {
     slice_sample(g, n = n_samps, replace = FALSE)
   })
   bind_rows(sampled_list)
+}
+
+#' Simple function to plot sampling plans
+#'
+#' @param sampled_data sampled `sim_dat`
+#' @param plan_name plot tite
+#'
+#' @return ggplot object
+#'
+plot_sampling_plan <- function(sampled_data, plan_name) {
+
+  # Create summary for text labels
+  samp_summary <- sampled_data |>
+    group_by(year, restricted) |>
+    summarise(n = n(), .groups = "drop") |>
+    filter(restricted == 1)
+
+  # Prepare plot data
+  plot_dat <- sampled_data |>
+    XY_to_sf()
+
+  # Create the plot
+  ggplot(data = plot_dat) +
+    geom_sf(data = mpa_shape_simplified, fill = "#0072B2",
+      colour = NA, alpha = 0.3) +
+    # scale_fill_manual(name = "MPA status",
+    #   values = c("not identified as concern" = "#0072B2",
+    #     "currently restricted" = "#D55E00", "identified as concern" = "#F0E442",
+    #     "not applicable" = "#999999"), na.value = "grey90") +
+    # ggnewscale::new_scale_fill() +
+    geom_sf(data = pacea::bc_coast, fill = "grey94", colour = "grey90") +
+    ggnewscale::new_scale_fill() +
+    geom_sf(aes(colour = eta, shape = factor(restricted)), size = 1.2) +
+    scale_shape_manual(name = "Restricted", values = c(`0` = 21, `1` = 19)) +
+    scale_colour_viridis_c(name = "eta", option = "A", end = 0.8) +
+    facet_wrap(~ year, nrow = 5) +
+    plot_limits_combined +
+    theme(legend.position = "bottom",
+      # legend.position.inside = c(0.87, 0.1),
+      legend.box = "horizontal") +
+    geom_sf_text(data = samp_summary |> mutate(X = -126, Y = 54) |>
+      XY_to_sf(crs_from = 4326, crs_to = 4326),
+      aes(x = X, y = Y, label = paste0("n = ", n)), size = 3) +
+    ggtitle(plan_name)
 }

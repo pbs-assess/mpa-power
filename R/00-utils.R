@@ -25,6 +25,14 @@ get_model_pars <- function(fit) {
   as.data.frame()
 }
 
+#' Get marginal standard deviation of the spatiotemporal random field
+#' @param fit Fitted model object
+#' @return Marginal standard deviation of the spatiotemporal random field
+get_marginal_sigma_E <- function(fit) {
+  get_model_pars(fit) |>
+    filter(term == "sigma_E") |> pull(estimate)
+}
+
 #' Convert sdmTMB XY (km) to sf object
 #'
 #' @param data Data frame containing coordinate columns
