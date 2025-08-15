@@ -500,7 +500,7 @@ simulate_hbll <- function(fit,
 #'
 sample_by_plan <- function(sim_dat,
   sampling_effort,
-  grouping_vars = NULL,
+  grouping_vars = NULL
   ) {
   group_list <- sim_dat |>
     left_join(sampling_effort) |>

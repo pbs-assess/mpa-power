@@ -7,6 +7,23 @@ library(dplyr)
 source('R/00-setup.R')
 source('R/00-utils.R')
 
+# Full grouping table
+gt <- readRDS(here::here("data-raw", "grouping-table.rds")) |>
+  select(-strata_depth_label) |>
+  mutate(max_depth_m = as.numeric(max_depth_m)) |>
+  mutate(strata_depth = case_when(
+    is.na(min_depth_m) & is.na(max_depth_m) ~ NA,
+    depth_operator == "> MIN_DEPTH_M and <= MAX_DEPTH_M" ~ paste0(min_depth_m + 1, "-", max_depth_m),
+    depth_operator == "> MIN_DEPTH_M and < MAX_DEPTH_M" ~ paste0(min_depth_m + 1, "-", max_depth_m - 1),
+    depth_operator == ">= MIN_DEPTH_M and < MAX_DEPTH_M" ~ paste0(min_depth_m, "-", max_depth_m - 1),
+    depth_operator == ">= MIN_DEPTH_M and <= MAX_DEPTH_M" ~ paste0(min_depth_m, "-", max_depth_m),
+    depth_operator == "> MIN_DEPTH_M" ~ paste0(min_depth_m + 1, "-", max_depth_m),
+    depth_operator == ">= MIN_DEPTH_M" ~ paste0(min_depth_m, "-", max_depth_m),
+    is.na(depth_operator) ~ paste0(min_depth_m, "-", max_depth_m),
+    TRUE ~ paste0(min_depth_m, "-", max_depth_m)  # fallback
+  ))
+saveRDS(gt, file.path("data-generated", "grouping-table-clean.rds"))
+
 # Load strata lookup data
 strata0 <- readRDS(here::here("data-raw", "strata-lookup.rds")) |>
   rename(strata_depth = strata_depth_label) # TODO - rename this in the draft gfdata function

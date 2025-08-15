@@ -1,5 +1,6 @@
 # Species data cache
 if (Sys.info()['user'] == "jilliandunic") synopsis_cache <- "~/R_DFO/gfsynopsis-2024-data/report/data-cache-2025-03"
+if (Sys.info()['user'] == "seananderson") message("Add your synopsis cache path in R/00-setup.R")
 
 hbll_ssids <- c(22, 36, 39, 40)
 syn_ssids <- c(1, 3, 4, 16)
