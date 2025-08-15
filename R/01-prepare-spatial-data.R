@@ -2,6 +2,8 @@ library(dplyr)
 library(ggplot2)
 library(sf)
 
+source(here::here("R", "00-setup.R"))
+
 # Prepare spatial data (MPA polygons and human use layers)
 dir.create(file.path("data-generated", "spatial"), recursive = TRUE, showWarnings = FALSE)
 
@@ -15,9 +17,9 @@ activity_status_lu <- tibble::enframe(c(
 saveRDS(activity_status_lu, file.path("data-generated", "spatial", "activity_status_lu.rds"))
 
 # MPA polygons (double check what layer to use - I am assuming the most up to date one)
-Q1 <- st_read(here::here("data-raw", "spatial", "Spatial_Q.gdb"),
-  layer = "Q1_FULL_March2023") |>
-  janitor::clean_names()
+# Q1 <- st_read(here::here("data-raw", "spatial", "Spatial_Q.gdb"),
+#   layer = "Q1_FULL_March2023") |>
+#   janitor::clean_names()
 
 Q2 <- st_read(here::here("data-raw", "spatial", "All_Network_boundaries_Q2_2024.gdb"),
   layer = "All_Network_boundaries_Q2_2024") |>
@@ -47,9 +49,6 @@ saveRDS(comm_ll_activity_status, file.path("data-generated", "spatial", "comm-ll
 # -----------------------------------------------------------------------------
 # Commercial longline data - raw
 # -----------------------------------------------------------------------------
-
-synopsis_cache <- "~/R_DFO/gfsynopsis-2024-data/report/data-cache-2025-03"
-
 # Load for all species - filter as necessary for now
 # NOT ANONYMISED YET
 # ll_spatial <- list.files(synopsis_cache) |>

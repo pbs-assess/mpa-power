@@ -222,4 +222,35 @@ South & 29 & 71-100 m & 4.29 & 3 \\
 
 *Table: Sampling allocation for HBLL Inside surveys by Pacific Fishery Management Area (PFMA) and depth strata. The North survey covers PFMAs 12-13 while the South survey covers PFMAs 14-19, 28-29. Each survey allocates 70 sampling blocks across depth strata (40-70 m and 71-100 m) based on relative area coverage. Modified from Tables 1 and 2 in @williams2022hbll.*
 
+## HBLL Outside Survey Allocation Reference
+
+| Survey | Area | Strata | Depth (m) | Area (km²) | Historical (%) | Area (%) | Optimal (%) |
+|--------|------|--------|-----------|------------|---------------|----------|-------------|
+| North | 5E | 1 | 20-70 | 808 | 6 | 7 | 7 |
+| North | 5E | 2 | 71-150 | 1124 | 9 | 9 | 19 |
+| North | 5E | 3 | 151-260 | 1032 | 9 | 8 | 27 |
+| North | 5D | 4 | 20-70 | 1104 | 8 | 9 | 2 |
+| North | 5D | 5 | 71-150 | 1520 | 13 | 12 | 8 |
+| North | 5D | 6 | 151-260 | 584 | 5 | 5 | 1 |
+| North | 5C | 7 | 20-70 | 1276 | 9 | 10 | 3 |
+| North | 5C | 8 | 71-150 | 2604 | 21 | 21 | 15 |
+| North | 5C | 9 | 151-260 | 1716 | 13 | 14 | 6 |
+| North | 5B | 10 | 20-70 | 96 | 1 | 1 | 2 |
+| North | 5B | 11 | 71-150 | 216 | 2 | 2 | 4 |
+| North | 5B | 12 | 151-260 | 340 | 3 | 3 | 7 |
+| South | 5B | 1 | 20-70 | 520 | 4 | 5 | 2 |
+| South | 5B | 2 | 71-150 | 1296 | 11 | 11 | 13 |
+| South | 5B | 3 | 151-260 | 496 | 5 | 4 | 7 |
+| South | 5A4B | 4 | 20-70 | 1132 | 9 | 10 | 4 |
+| South | 5A4B | 5 | 71-150 | 1832 | 16 | 16 | 19 |
+| South | 5A4B | 6 | 151-260 | 824 | 9 | 7 | 19 |
+| South | 3D | 7 | 20-70 | 1376 | 11 | 12 | 6 |
+| South | 3D | 8 | 71-150 | 1664 | 14 | 15 | 21 |
+| South | 3D | 9 | 151-260 | 528 | 6 | 5 | 7 |
+| South | 3C | 10 | 20-70 | 924 | 7 | 8 | 2 |
+| South | 3C | 11 | 71-150 | 704 | 6 | 6 | 1 |
+| South | 3C | 12 | 151-260 | 100 | 1 | 1 | 0 |
+
+*Table: Sampling allocation for HBLL Outside surveys by area and depth strata. The North survey covers areas 5E, 5D, 5C, and 5B while the South survey covers areas 5B, 5A4B, 3D, and 3C. Each area is divided into three depth strata (20-70 m, 71-150 m, 151-260 m). Historical allocation represents the original sampling design, Area allocation is based on proportional area coverage, and Optimal allocation is derived from statistical optimization. Data from Table 2.7 in @doherty2019phma.*
+
 

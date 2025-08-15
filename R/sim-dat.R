@@ -268,7 +268,9 @@ sim_OS <- simulate_hbll(fit_OS, restricted_df,
   mutate(survey_abbrev = "HBLL OUT S")
 
 sim_dat0 <- bind_rows(sim_IN, sim_ON, sim_OS) |>
-  left_join(hbll_grid |> select(X, Y, block_id, grouping_code))
+  left_join(hbll_grid |> select(X, Y, block_id, grouping_code)) |>
+  select(!contains("as.factor(year_covariate)")) |>
+  mutate(offset = 0) # Question: Yes??
 sim_dat_sf <- XY_to_sf(sim_dat0)
 
 ggplot(data = sim_dat_sf) +
@@ -309,18 +311,18 @@ ggplot(data = sim_dat_sf) +
 # p1 %+% (left_join(hbll_grid_poly, diff_df, by = "block_id") |> filter(year == 20)) +
 #   theme(legend.position.inside = c(0.1, 0.2))
 
+# -----------------------------------------------------------------------------
+# Sample simulated data to be used in monitoring models
+# -----------------------------------------------------------------------------
+sim_dir <- here::here("data-generated", "simulated-sampling-data")
+dir.create(sim_dir, showWarnings = FALSE)
+
 # Status quo sampling effort
-# ------------------------------------------------------------
-# FIXME - these are broken right now - they are empty files
-sampled_cpue_mpa_overlap <- readRDS(here::here("data-generated", "spatial", "sampled-cpue-mpa-overlap-yelloweye.rds"))
-ll_mpa_overlap <- readRDS(here::here("data-generated", "spatial", "ll-mpa-overlap-yelloweye.rds"))
-
-
+# --------------------------
 hbll_allocations <- readRDS(here::here("data-generated", "hbll-allocations.rds"))
 
 sim_dat <- left_join(sim_dat0, hbll_allocations, by = c("survey_abbrev", "grouping_code")) |>
   mutate(spatial_grouping_id = ifelse(pfma %in% c("5A", "4B"), "5A4B", pfma)) # Group 5A and 4B together for sampling purposes
-
 
 allocation_lu <- sim_dat |>
   distinct(survey_abbrev, spatial_grouping_id, strata_depth, allocation)
@@ -329,6 +331,11 @@ allocation_lu <- sim_dat |>
 # HBLL OUT N even years
 # HBLL INS S odd years
 sp_dat |> distinct(survey_abbrev, year)
+hbll_year_filter <- function(df) {
+  df |>
+  filter((survey_abbrev %in% c("HBLL INS N", "HBLL OUT N") & odd_even == "even") |
+        (survey_abbrev %in% c("HBLL OUT S") & odd_even == "odd"))
+}
 
 # Status quo sampling, based on historical allocations:
 # ------------------------------------------------------------
@@ -347,8 +354,7 @@ samp1 <- sample_by_plan(
   grouping_vars = c("survey_abbrev", "year", "spatial_grouping_id", "strata_depth")) |>
   mutate(odd_even = ifelse(year %% 2 == 0, "even", "odd")) |>
   # maybe it is simplest to sample every year and just filter out years we don't actually sample?
-  filter((survey_abbrev %in% c("HBLL INS N", "HBLL OUT N") & odd_even == "even") |
-        (survey_abbrev %in% c("HBLL OUT S") & odd_even == "odd")) |>
+  hbll_year_filter() |>
   mutate(plan = "status quo")
 # samp1_summary <- samp1 |>
 #   group_by(year, restricted) |>
@@ -359,6 +365,91 @@ samp1 <- sample_by_plan(
 plan_name <- "Status quo"
 p1 <- local(plot_sampling_plan(samp1, plan_name))
 ggsave(here::here("draft-figures", paste0("sim-dat-", plan_name, ".png")), width = 9, height = 18)
+
+# Test fit to monitoring data and see if we can recover the trends
+# -----------------------------------------------------------------------------
+# Function does not currently deal with multiple surveys at once, maybe it does just work but I haven't double checked
+fit_monitoring <- function(historical, simulated, .formula, mpa_start_year = 2026, ...) {
+  last_sampled_year <- max(historical$year)
+
+  d <- bind_rows(historical, simulated) |>
+    mutate(mpa_start_year = mpa_start_year,
+          last_sampled_year = last_sampled_year,
+          year = ifelse(is.na(year), last_sampled_year + year_covariate, year),
+          year_collapsed = ifelse(year < mpa_start_year,
+                                    year,
+                                    last_sampled_year),
+          year_since_mpa = ifelse(year < mpa_start_year, 0, year_covariate),
+          after_mpa = ifelse(year_since_mpa > 0, 1, 0))
+
+    mesh <- make_mesh(d, xy_cols = c("X", "Y"), cutoff = 10)
+    fm <- sdmTMB::sdmTMB(
+      formula = .formula,
+      data = d,
+      mesh = mesh,
+      family = nbinom2(link = "log"),
+      offset = d$offset,
+      ...
+    )
+}
+
+# Prep data for monitoring model
+historical <- sp_dat |>
+  mutate(x = X * 1000, y = Y * 1000) |>
+  st_as_sf(coords = c("x", "y"), crs = 3156) |>
+  st_join(comm_ll_activity_status |> st_transform(crs = 3156), join = st_within) |>
+  mutate(activity_status_label = if_else(is.na(activity_status_label), "outside", activity_status_label)) |>
+  mutate(restricted = ifelse(activity_status_label == "outside", 0, 1)) |>
+  st_drop_geometry() |>
+  select(ssid, survey_abbrev, year, fishing_event_id, latitude, longitude, X, Y,
+    depth_m, offset,
+    catch_count, restricted) |>
+  mutate(after = 0)
+
+simulated <- samp1 |>
+  mutate(offset = 0) |>
+  select(ssid = "survey_series_id", survey_abbrev, year_covariate, X, Y,
+    # depth_m,
+    offset,
+    catch_count = "observed", restricted)
+
+
+# Case 1 - fit historical with as.factor(year) and then use the last factor year
+# as the intercept for the simulated data
+test1 <- fit_monitoring(
+  historical = historical |> filter(survey_abbrev == "HBLL OUT S"),
+  simulated = simulated |> filter(survey_abbrev == "HBLL OUT S"),
+  .formula = catch_count ~ as.factor(year_collapsed) + restricted * year_since_mpa,
+  spatial = "on",
+  spatiotemporal = "iid",
+  time = "year_collapsed"
+)
+
+# Case 2 - use continuous time with breakpoint at stat of MPA
+test2 <- fit_monitoring(
+  historical = historical |> filter(survey_abbrev == "HBLL OUT S"),
+  simulated = simulated |> filter(survey_abbrev == "HBLL OUT S"),
+  .formula = catch_count ~ restricted * year_since_mpa,
+  spatial = "on",
+  spatiotemporal = "AR1",
+  time = "year"
+)
+
+# Case 3 - use AR1 only post-MPA --> this didn't work;
+test3 <- fit_monitoring(
+  historical = historical |> filter(survey_abbrev == "HBLL OUT S"),
+  simulated = simulated |> filter(survey_abbrev == "HBLL OUT S"),
+  .formula = catch_count ~ 0 + after_mpa + restricted * year_since_mpa,
+  spatial = "on",
+  spatiotemporal = "AR1",
+  time = "year",
+  time_varying = ~ after_mpa
+)
+
+meep()
+
+
+stop()
 
 # Strategy 2: status quo + 10% additional effort
 # ------------------------------------------------------------
@@ -374,3 +465,119 @@ samp2 <- sample_by_plan(
 
 plan_name_2 <- "Status quo + 10% effort"
 p2 <- local(plot_sampling_plan(samp2, plan_name_2))
+
+# Look at what we have for baseline data in MPAs
+# -----------------------------------------------------------------------------
+# One question - how many unique blocks have been sampled in an MPA over the years?
+# Welp, turns out that there are HBLL INS N locations that are not in the grid but
+# that have sampled within MPAs, so... for now I will work without these, but I
+# do think this is worth revisiting or at least making note of so that these
+# locations could be resampled or included in future resampling for the MPAs.
+# Most of the values that do not overlap the grid are the 47 and 48 grouping_code
+# values. The southern ones are for the most part ones that should be part of the
+# HBLL INS S grid.
+# I guess none of this really matters but should be aware that that these 47 and
+# and 48 are outside of the grid? Should we increase grid for the simulation?
+# I guess this matters depending on how much we care about being able to account
+# for the couple of relatively well-sampled MPA locations that fall outside of the
+# existing grid. We would need to expand the prediction grid to be able to
+# include these locations because right now we do not generate predictions at these
+# locations.
+
+# Side bar: showing previously sampled locations that are outside of the HBLL grid
+sp_dat |>
+  select(ssid, survey_abbrev, year, latitude, longitude, grouping_code) |>
+  # select(ssid, year, latitude, longitude, grouping_code) |>
+  XY_to_sf(x_col = "longitude", y_col = "latitude", mult = 1, crs_from = 4326, crs_to = 32609) |>
+  st_join(hbll_grid_poly, join = st_within) |>
+  st_drop_geometry() |>
+  # filter(is.na(block_id))
+  # distinct(ssid, grouping_code.x, grouping_code.y, block_id) |>
+  filter(is.na(block_id)) |>
+  # filter(grouping_code.x < 317) |>
+  XY_to_sf(x_col = "longitude", y_col = "latitude", mult = 1, crs_from = 4326, crs_to = 32609) |>
+  ggplot() +
+    geom_sf(data = pacea::bc_coast, fill = "grey94", colour = "grey90") +
+    geom_sf(data = hbll_grid_poly, aes(fill = survey_abbrev), colour = NA, alpha = 0.3) +
+    geom_sf(aes(colour = factor(grouping_code.x), shape = survey_abbrev.x), size = 2) +
+    geom_sf(data = mpa_shape_simplified, fill = "black", colour = "black", alpha = 0.1) +
+    geom_sf(data = mpa_shape_simplified |> filter(stringr::str_detect(category_simple, "RCA")), fill = "green", colour = "green", alpha = 0.1) +
+    scale_colour_viridis_d() +
+    # plot_limits_combined
+    get_plot_limits(XY_to_sf(sim_dat |> filter(survey_abbrev %in% c("HBLL INS N"))), buffer = 50000)
+ggsave(here::here("draft-figures", "hbll-ins-n-NA-grid-locations.pdf"), width = 10, height = 10)
+
+# Identify which sampled locations are inside/outside MPA polygons
+sp_dat_mpa_status <- sp_dat |>
+  select(ssid, survey_abbrev, year, latitude, longitude, grouping_code) |>
+  XY_to_sf(x_col = "longitude", y_col = "latitude", mult = 1, crs_from = 4326,
+    crs_to = st_crs(comm_ll_activity_status)) |>
+  st_join(comm_ll_activity_status, join = st_within) |>
+  mutate(
+    in_mpa = ifelse(is.na(activity_status_label), 0, 1),
+    activity_status_label = ifelse(is.na(activity_status_label), "outside", activity_status_label)
+  ) |>
+  st_drop_geometry()
+
+janitor::tabyl(sp_dat_mpa_status, year, in_mpa) |>
+  mutate(prop = round(`1` / (`1` + `0`), 2)) |>
+  reframe(prop = mean(prop), n = mean(`1`))
+
+sp_dat_mpa_status |>
+  XY_to_sf(x_col = "longitude", y_col = "latitude", mult = 1, crs_from = 4326, crs_to = 32609) |>
+  ggplot() +
+    geom_sf(data = pacea::bc_coast, fill = "grey94", colour = "grey90") +
+    geom_sf(data = mpa_shape_simplified, fill = "grey85", colour = "grey85") +
+    geom_sf(aes(colour = factor(in_mpa)), shape = 21, size = 2) +
+    # scale_shape_manual(name = "In MPA", values = c("0" = 21, "1" = 19)) +
+    scale_colour_manual(name = "In MPA", values = c("0" = "#1f77b4", "1" = "#ff7f0e"),
+                        labels = c("0" = "Outside", "1" = "Inside")) +
+    plot_limits_combined
+ggsave(here::here("draft-figures", "HBLL-sampled-inside-outside-mpa.pdf"), width = 10, height = 10)
+
+# Get unique MPA locations with grid information
+sampled_mpa_locations_with_grid <- sp_dat_mpa_status |>
+  # select(-survey_abbrev, -grouping_code) |> # simplest to remove from one or the other dataframes
+  XY_to_sf(x_col = "longitude", y_col = "latitude", mult = 1, crs_from = 4326, crs_to = 32609) |>
+  st_join(hbll_grid_poly, join = st_within)
+
+unique_samples_in_mpa <- bind_rows(
+  sampled_mpa_locations_with_grid |>
+    filter(!is.na(block_id)) |>
+    st_drop_geometry() |>
+    distinct(ssid, block_id, in_mpa, .keep_all = TRUE),
+  sampled_mpa_locations_with_grid |>
+    filter(is.na(block_id)) |>
+    st_drop_geometry() |>
+    distinct(ssid, in_mpa, .keep_all = TRUE)
+)
+
+unique_samples_in_mpa |>
+  janitor::tabyl(in_mpa) |>
+  filter(in_mpa == 1) |>
+  pull(n) %>%
+  cat("Number of unique samples in MPAs:", .)
+
+
+# Strategy 3: Status quo + n additional MPA samples every 5 years - this could result in bias?
+# ------------------------------------------------------------
+# Get previously sampled MPA sites from historical data
+historically_sampled_mpa_sites <- unique_samples_in_mpa |>
+  filter(in_mpa == 1) |>
+  # Because the strata information is in a messy state, let's make the strata for
+  # these based on the recorded depths:
+  mutate(strata_depth = case_when(depth_m >= 40 & depth_m < 70 ~ "40-70",
+                                  depth_m >= 70 & depth_m < 150 ~ "70-150",
+                                  depth_m >= 150 & depth_m < 259 ~ "150-259",
+                                  TRUE ~ NA))
+
+# Strategy 2:
+# What if we double the number of locations sampled in MPAs every 5 years:
+# * ~60 * 2 sites in MPAs every 5 years (almost equivalent to a whole doubling of HBLL survey effort)
+# * stratify the sampling by depth
+# * sample only in previously sampled locations
+# * will want to try out more stratification but let's start with this
+# * will want to probably target the MPAs likely to have full protection status
+# * will want to try targetting MPAs that are restricting the most pre-implementation
+#   fishing pressure
+

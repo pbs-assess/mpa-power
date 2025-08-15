@@ -12,6 +12,11 @@ survey_lu <- tibble::tibble(
   survey_series_id = c(1, 3, 4, 16, 22, 36, 39, 40)
 )
 
+if (!file.exists(here::here("data-generated", "spatial", "comm-ll-draft-activity-status.rds"))) {
+  source(here::here("R", "01-prepare-spatial-data.R"))
+} else {
+  message("REMINDER to JD - update/resend comm-ll-draft-activity-status.rds once final shapefile available")
+}
 # Something like this could be helpful to add later
 # make load data file - sean included this which was smart
 # dir.create("data-generated", showWarnings = FALSE)
@@ -20,3 +25,4 @@ survey_lu <- tibble::tibble(
 # if (Sys.info()[["user"]] != "seananderson") {
 #   stop("This file does not need to be run; all outputs have been cached and commited in Git.")
 # }
+
