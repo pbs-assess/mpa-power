@@ -444,7 +444,9 @@ test3 <- fit_monitoring(
   spatial = "on",
   spatiotemporal = "AR1",
   time = "year",
-  time_varying = ~ after_mpa
+  time_varying = ~ 0 + after_mpa,
+  # extra_time = seq(2007:2042),
+  time_varying_type = "ar1"
 )
 
 meep()
