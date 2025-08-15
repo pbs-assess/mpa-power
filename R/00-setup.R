@@ -1,6 +1,6 @@
 # Species data cache
 if (Sys.info()['user'] == "jilliandunic") synopsis_cache <- "~/R_DFO/gfsynopsis-2024-data/report/data-cache-2025-03"
-if (Sys.info()['user'] == "seananderson") synopsis_cache <- "../gfsynopsis-2024-data/report/data-cache-2025-03"
+if (Sys.info()['user'] == "seananderson") synopsis_cache <- "../gfsynopsis-2024/report/data-cache-2025-03"
 
 # so that there is a place to put some of the data dependencies
 dir.create(here::here("data-generated", "spatial"), recursive = TRUE, showWarnings = FALSE)
