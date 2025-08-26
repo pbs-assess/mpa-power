@@ -1,3 +1,14 @@
+# Core libraries
+library(sdmTMB)
+library(dplyr)
+library(ggplot2)
+library(here)
+library(sf)
+
+theme_set(gfplot::theme_pbs())
+
+source(here::here("R", "00-utils.R"))
+
 # Species data cache
 if (Sys.info()['user'] == "jilliandunic") synopsis_cache <- "~/R_DFO/gfsynopsis-2024-data/report/data-cache-2025-03"
 if (Sys.info()['user'] == "seananderson") message("Add your synopsis cache path in R/00-setup.R")
