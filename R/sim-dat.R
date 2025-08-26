@@ -3,9 +3,6 @@ library(dplyr)
 library(stringr)
 library(ggplot2)
 library(sf)
-library(purrr)
-library(furrr)
-library(progress)
 theme_set(gfplot::theme_pbs())
 
 
@@ -33,7 +30,6 @@ theme_set(gfplot::theme_pbs())
 # ------------------------------------------------------------
 source(here::here("R", "00-setup.R"))
 source(here::here("R", "00-fit-sim-functions.R"))
-source(here::here("R", "00-utils.R"))
 
 fit_dir <- here::here("data-generated", "fits")
 dir.create(fit_dir, recursive = TRUE, showWarnings = FALSE)
@@ -110,27 +106,15 @@ plot_limits_combined <- get_plot_limits(combined, buffer = 1000)
 
 # restricted_df <- sp_dat_sf |> select(fishing_event_id, year, restricted)
 
-# TODO: make it easier to keep track of what should be restricted and what should be outside.
-# e.g., to allow quick switch to using national or existing as full protection status.
-restricted_df <- hbll_grid |>
-  mutate(x = X * 1000, y = Y * 1000) |>
-  st_as_sf(coords = c("x", "y"), crs = 3156) |>
-  filter(stringr::str_detect(survey_abbrev, "HBLL")) %>%
-  st_join(., comm_ll_activity_status |> st_transform(crs = st_crs(.)), join = st_within) |>
-  mutate(activity_status_label = ifelse(is.na(activity_status_label), "outside", activity_status_label)) |>
-  mutate(restricted = ifelse(activity_status_label != "outside", 1, 0)) |>
-  # mutate(restricted = ifelse(activity_status_label %in% c("not allowed", "conditional"), 1, 0)) |>
-  # For now assume all restricted areas will be full protection
-  # mutate(restricted = ifelse(!is.na(activity_status_label), 1, 0)) |>
-  # select(survey_abbrev, grouping_code, restricted, X, Y) |>
-  st_drop_geometry()
-
+# Fit conditioning models
+# ------------------------------------------------------------
 fit_OS <- fit_hbll(dat = sp_dat,
   survey_type = "HBLL OUT S",
   formula = catch_count ~ 0 + fyear,
   species = sp,
   use_extra_time = FALSE,
   time = "year",
+  anisotropy = FALSE,
   fit_dir = fit_dir
 )
 fit_ON <- fit_hbll(dat = sp_dat,
@@ -154,28 +138,39 @@ fit_IN <- fit_hbll(dat = sp_dat, # didn't converge with spatiotemporal = "iid"
 meep()
 
 # Just want to see what rho looks like for AR1
-fit_OS_ar1 <- fit_hbll(dat = sp_dat,
-  survey_type = "HBLL OUT S",
-  formula = catch_count ~ 0 + fyear,
-  species = sp,
-  spatiotemporal = "ar1",
-  use_extra_time = TRUE,
-  time = "year",
-  fit_dir = fit_dir,
-  tag = "ar1"
-)
-fit_ON_ar1 <- fit_hbll(dat = sp_dat,
-  survey_type = "HBLL OUT N",
-  formula = catch_count ~ 0 + fyear,
-  species = sp,
-  spatiotemporal = "ar1",
-  use_extra_time = TRUE,
-  time = "year",
-  fit_dir = fit_dir,
-  tag = "ar1"
-)
+# fit_OS_ar1 <- fit_hbll(dat = sp_dat,
+#   survey_type = "HBLL OUT S",
+#   formula = catch_count ~ year,
+#   species = sp,
+#   spatiotemporal = "ar1",
+#   use_extra_time = TRUE,
+#   time = "year",
+#   fit_dir = fit_dir,
+#   tag = "ar1"
+# )
+# fit_ON_ar1 <- fit_hbll(dat = sp_dat,
+#   survey_type = "HBLL OUT N",
+#   formula = catch_count ~ year,
+#   species = sp,
+#   spatiotemporal = "ar1",
+#   use_extra_time = TRUE,
+#   time = "year",
+#   fit_dir = fit_dir,
+#   tag = "ar1"
+# )
 
 # TODO: evaluate and compare conditioning models: see - https://github.com/mis-assess/shrimp_surveydesign_csas/blob/794abdf0d4657dff5ed3316fe876b58afab0dd83/Reproducible_Examples/coastwide-density.R#L157
+fit <- fit_OS
+s_nb2 <- simulate(fit, nsim = 500, type = "mle-mvn")
+r_nb2 <- dharma_residuals(s_nb2, fit, return_DHARMa = TRUE)
+plot(r_nb2)
+DHARMa::testResiduals(r_nb2)
+sp_r <- DHARMa::recalculateResiduals(s_nb2, group = fit$data$fyear)
+DHARMa::testSpatialAutocorrelation(r_nb2,
+  x = fit$data$X,
+  y = fit$data$Y)
+DHARMa::testZeroInflation(r_nb2)
+
 
 # -----------------------------------------------------------------------------
 # Simulate data on HBLL grid for all three surveys
@@ -220,17 +215,30 @@ fit_ON_ar1 <- fit_hbll(dat = sp_dat,
 # # sd(d1)
 # # sd(d2)
 
-imputed_sigma_E <- max(c(get_marginal_sigma_E(fit_ON), get_marginal_sigma_E(fit_OS)))
+# Grid for data simulation
+restricted_df <- hbll_grid |>
+  mutate(x = X * 1000, y = Y * 1000) |>
+  st_as_sf(coords = c("x", "y"), crs = 3156) |>
+  filter(stringr::str_detect(survey_abbrev, "HBLL")) %>%
+  st_join(., comm_ll_activity_status |> st_transform(crs = st_crs(.)), join = st_within) |>
+  mutate(activity_status_label = ifelse(is.na(activity_status_label), "outside", activity_status_label)) |>
+  mutate(restricted = ifelse(activity_status_label != "outside", 1, 0)) |>
+  st_drop_geometry()
+
+# Start with no additional temporal noise to make
+rho_V <- 0
+sigma_V <- 0 # choose arbitrary values
+mpa_trend <- 1 # no trend to check simulation results
 
 sim_IN <- simulate_hbll(fit_IN, restricted_df,
   sim_dir = "data-generated/sim-dat",
   check_cache = TRUE,
-  formula = ~ 0 + as.factor(year_covariate) + restricted * year_covariate,
+  formula = ~ 0 + as.factor(year) + restricted * year_covariate,
   seed = 42,
   year_covariate = 1:20,
-  mpa_trend = log(1.05),
-  ar1_rho = 0.7,
-  ar1_sigma_E = imputed_sigma_E,
+  mpa_trend = log(mpa_trend),
+  rho_V = rho_V,
+  sigma_V = sigma_V,
   fixed_spatial_re = TRUE,
   fixed_spatiotemporal_re = FALSE,
   tag = "ins-n"
@@ -240,12 +248,12 @@ sim_IN <- simulate_hbll(fit_IN, restricted_df,
 sim_ON <- simulate_hbll(fit_ON, restricted_df,
   sim_dir = "data-generated/sim-dat",
   check_cache = TRUE,
-  formula = ~ 0 + as.factor(year_covariate) + restricted * year_covariate,
+  formula = ~ 0 + as.factor(year) + restricted * year_covariate,
   seed = 42,
   year_covariate = 1:20,
-  mpa_trend = log(1.05),
-  ar1_rho = 0.7,
-  ar1_sigma_E = get_marginal_sigma_E(fit_ON),
+  mpa_trend = log(mpa_trend),
+  rho_V = rho_V,
+  sigma_V = sigma_V,
   fixed_spatial_re = TRUE,
   fixed_spatiotemporal_re = FALSE,
   tag = "out-n"
@@ -255,30 +263,79 @@ sim_ON <- simulate_hbll(fit_ON, restricted_df,
 sim_OS <- simulate_hbll(fit_OS, restricted_df,
   sim_dir = "data-generated/sim-dat",
   check_cache = TRUE,
-  formula = ~ 0 + as.factor(year_covariate) + restricted * year_covariate,
+  formula = ~ 0 + as.factor(year) + restricted * year_covariate,
   seed = 42,
   year_covariate = 1:20,
-  mpa_trend = log(1.05),
-  ar1_rho = 0.7,
-  ar1_sigma_E = get_marginal_sigma_E(fit_OS),
+  mpa_trend = log(mpa_trend),
+  rho_V = rho_V,
+  sigma_V = sigma_V,
   fixed_spatial_re = TRUE,
   fixed_spatiotemporal_re = FALSE,
   tag = "out-s"
 ) |>
   mutate(survey_abbrev = "HBLL OUT S")
 
+# Make years calendar year
+hbll_last_sampled_year <- sp_dat |>
+  group_by(survey_abbrev) |>
+  summarise(last_sampled_year = max(year))
+
 sim_dat0 <- bind_rows(sim_IN, sim_ON, sim_OS) |>
   left_join(hbll_grid |> select(X, Y, block_id, grouping_code)) |>
-  select(!contains("as.factor(year_covariate)")) |>
-  mutate(offset = 0) # Question: Yes??
+  select(!contains("as.factor(year)")) |>
+  left_join(hbll_last_sampled_year, by = "survey_abbrev") |>
+  mutate(year = last_sampled_year + year,
+         hook_count = round(exp(offset)),
+         observed_capped = pmin(observed, hook_count)) # Cap values at hook count
 sim_dat_sf <- XY_to_sf(sim_dat0)
 
-ggplot(data = sim_dat_sf) +
-  geom_sf(aes(colour = eta)) +
-  geom_sf(data = pacea::bc_coast, fill = "grey94", colour = "grey90") +
-  scale_colour_viridis_c(option = "A") +
-  facet_wrap(~ year) +
-  get_plot_limits(sim_dat_sf, buffer = 5000)
+# Question about offset and observations of more fish than hooks..
+# I wouldn't mind better understanding is using the censored NB2 before april.
+# mean expectation = exp(eta + offset) = mu
+# eta = linear predictor (at location s, time t)
+# offset = mean log effort of historical data (incorporates hook adjustment corrected)
+# observed = NB2(mu, phi)
+
+
+sp_dat_block_id <- sp_dat |>
+  select(ssid, survey_abbrev, year, latitude, longitude, grouping_code, hook_count, catch_count) |>
+  XY_to_sf(x_col = "longitude", y_col = "latitude", mult = 1, crs_from = 4326, crs_to = 32609) |>
+  # XY_to_sf(crs_to = st_crs(hbll_grid_poly)) |>
+  st_join(hbll_grid_poly |>
+    rename(survey_abbrev_grid = survey_abbrev, grouping_code_grid = grouping_code),
+    join = st_within) |>
+  st_drop_geometry()
+
+
+# samp1 |>
+#   mutate(hook_count = round(exp(offset)),
+#          observed_capped = pmin(observed, hook_count)) |> # Cap values at hook count
+#   mutate(method = "samp") |>
+# ggplot(data = _) +
+#   geom_point(aes(x = block_id, y = observed), colour = "black", shape = 19, alpha = 0.6) +
+#   geom_point(aes(x = block_id, y = observed_capped), colour = "red", shape = 21, alpha = 0.6) +
+#   geom_point(data = sp_dat_block_id |> mutate(method = "raw"), aes(x = block_id, y = catch_count), colour = "blue", shape = 21, alpha = 0.6)  +
+#   facet_wrap(~ method)
+
+
+# # distribution of catch counts
+# bind_rows(
+#   sim_dat |> mutate(d = "simulated", catch_count = observed_hard_cap),
+#   sp_dat_block_id |> mutate(d = "historical", catch_count = catch_count)
+# ) |>
+#   ggplot(aes(x = catch_count, fill = d)) +
+#   geom_density(alpha = 0.7) +
+#   facet_wrap(~ d, scales = "free") +
+#   labs(title = "Distribution of catch counts by method",
+#        subtitle = "Compare simulation methods with historical data")
+
+
+# ggplot(data = sim_dat_sf) +
+#   geom_sf(aes(colour = eta, size = eta)) +
+#   geom_sf(data = pacea::bc_coast, fill = "grey94", colour = "grey90") +
+#   scale_colour_viridis_c(option = "A") +
+#   facet_wrap(~ year) +
+#   get_plot_limits(sim_dat_sf, buffer = 5000)
 
 # Look at diff between years
 # diff_df <- sim_dat |>
@@ -327,14 +384,18 @@ sim_dat <- left_join(sim_dat0, hbll_allocations, by = c("survey_abbrev", "groupi
 allocation_lu <- sim_dat |>
   distinct(survey_abbrev, spatial_grouping_id, strata_depth, allocation)
 
-# HBLL INS N even years
-# HBLL OUT N even years
-# HBLL INS S odd years
-sp_dat |> distinct(survey_abbrev, year)
-hbll_year_filter <- function(df) {
-  df |>
-  filter((survey_abbrev %in% c("HBLL INS N", "HBLL OUT N") & odd_even == "even") |
-        (survey_abbrev %in% c("HBLL OUT S") & odd_even == "odd"))
+# HBLL INS N odd years
+# HBLL OUT N odd years
+# HBLL OUT S even years
+sp_dat |>
+  group_by(survey_abbrev) |>
+  summarise(last_sampled_year = max(year)) |>
+  mutate(odd_even = ifelse(last_sampled_year %% 2 == 0, "even", "odd"))
+
+hbll_year_filter <- function(sim_df) {
+  sim_df |>
+  filter((survey_abbrev %in% c("HBLL INS N", "HBLL OUT N") & odd_even == "odd") |
+        (survey_abbrev %in% c("HBLL OUT S") & odd_even == "even"))
 }
 
 # Status quo sampling, based on historical allocations:
@@ -354,7 +415,8 @@ samp1 <- sample_by_plan(
   grouping_vars = c("survey_abbrev", "year", "spatial_grouping_id", "strata_depth")) |>
   mutate(odd_even = ifelse(year %% 2 == 0, "even", "odd")) |>
   # maybe it is simplest to sample every year and just filter out years we don't actually sample?
-  hbll_year_filter() |>
+  filter((survey_abbrev %in% c("HBLL INS N", "HBLL OUT N") & odd_even == "odd") |
+      (survey_abbrev %in% c("HBLL OUT S") & odd_even == "even")) |>
   mutate(plan = "status quo")
 # samp1_summary <- samp1 |>
 #   group_by(year, restricted) |>
@@ -393,7 +455,7 @@ fit_monitoring <- function(historical, simulated, .formula, mpa_start_year = 202
     )
 }
 
-# Prep data for monitoring model
+# Historical data
 historical <- sp_dat |>
   mutate(x = X * 1000, y = Y * 1000) |>
   st_as_sf(coords = c("x", "y"), crs = 3156) |>
@@ -407,13 +469,41 @@ historical <- sp_dat |>
   mutate(after = 0)
 
 simulated <- samp1 |>
-  mutate(offset = 0) |>
-  select(ssid = "survey_series_id", survey_abbrev, year_covariate, X, Y,
+  select(ssid = "survey_series_id", survey_abbrev, year, year_covariate, X, Y,
     # depth_m,
     offset,
     catch_count = "observed", restricted)
 
+# 'Posterior check' - compare simulated and historical data
+bind_rows(simulated, historical) |>
+  ggplot(aes(x = year, y = catch_count)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "gam", formula = y ~ s(x, bs = "cs")) +
+  facet_wrap(~ survey_abbrev, scale = "free_y")
 
+
+
+# Start calling sigma_E "marginal sd", sigma_V instead to stay consistent with
+# sdmTMB notation;
+# Start with easy model:
+# start with rho_V and sigma_V as 0, so no noise
+# make with NB2 phi is big (which makes variance low)
+  # (i.e., make observation error low - not too optimistic because then it could mess up the alignment with the historical data)
+# because we want to recover the 1.05 value
+# can start with high sample size
+# check that it is unbiased, if after fitting full monitoring data
+
+# things to check:
+# - record the summary stats on the estimated trend value; track estimate and uncertainty
+# - RMSE, sign error, coverage, ...
+
+# Then get into changing the dials to see how different scenarios perform
+
+#
+
+
+# Start with this one - because this is basically the perfect case that matches
+# how we simulated
 # Case 1 - fit historical with as.factor(year) and then use the last factor year
 # as the intercept for the simulated data
 test1 <- fit_monitoring(
@@ -426,6 +516,8 @@ test1 <- fit_monitoring(
 )
 
 # Case 2 - use continuous time with breakpoint at stat of MPA
+# This one assumes a constant mean in the before period; though the AR1 will
+# allow it to vary
 test2 <- fit_monitoring(
   historical = historical |> filter(survey_abbrev == "HBLL OUT S"),
   simulated = simulated |> filter(survey_abbrev == "HBLL OUT S"),
