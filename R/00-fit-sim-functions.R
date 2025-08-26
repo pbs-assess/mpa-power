@@ -8,10 +8,7 @@ prep_hbll_data <- function(dat, bait_counts) {
       hook_adjust_factor = -log(prop_bait_hooks) / (1 - prop_bait_hooks),
       prop_removed = 1 - prop_bait_hooks,
       offset = log(hook_count / hook_adjust_factor),
-      depth_mean = mean(log(depth_m), na.rm = TRUE),
-      depth_sd = sd(log(depth_m), na.rm = TRUE),
-      depth_scaled = (log(depth_m) - depth_mean[1]) / depth_sd[1],
-      depth_scaled2 = depth_scaled^2,
+      log_depth = log(depth_m),
       fyear = as.factor(year)
     ) |>
     sdmTMB::add_utm_columns()
@@ -50,7 +47,7 @@ fit_hbll <- function(dat, survey_type, species, fit_dir, mesh_cutoff = 10,
   rds_file <- file.path(fit_dir, paste0(fname, ".rds"))
   hash_file <- file.path(fit_dir, paste0(fname, ".hash"))
 
-  dat <- dat |> filter(str_detect(survey_abbrev, survey_type))
+  dat <- dat |> filter(stringr::str_detect(survey_abbrev, survey_type))
 
   model_state <- list(
     dat,
@@ -100,7 +97,7 @@ fit_hbll <- function(dat, survey_type, species, fit_dir, mesh_cutoff = 10,
     extra_time = extra_time,
     offset = offset,
     time = time,
-    anisotropy = TRUE,
+    anisotropy = anisotropy,
     ...
   )
 
@@ -243,26 +240,26 @@ one_sample_posterior <- function(object, use_names = TRUE) {
 #' marginal standard deviation of the process.
 #'
 #' @param rho AR(1) correlation parameter (-1 < \rho < 1)
-#' @param sigma_E Marginal standard deviation of the AR(1) process
+#' @param sigma Marginal standard deviation of the AR(1) process (sigma_V in sdmTMB documentation - #question correct?)
 #' @param years Vector of years to simulate deviations for
 #'
-sim_ar1_deviations <- function(rho, sigma_E, years) {
+sim_ar1_deviations <- function(rho, sigma, years) {
   n_years <- length(years)
 
   # Get annual innovations/epsilon/deviations:
   # innovations before applying sqrt(1-rho^2) scaling to get stationary variance; epsilon in TMB docs
-  epsilon <- rnorm(n_years) * sigma_E
+  epsilon <- rnorm(n_years) * sigma
 
   # AR1 scaling factor:
   # innovation scaling factor (NOT an sd); sigma in TMB documentation
-  # shrinks innovations such that the marginal sd = sigma_E
+  # shrinks innovations such that the marginal sd = sigma_V (sigma_V in sdmTMB documentation)
   ar1_scale <- sqrt(1 - rho^2)
 
   # Get annual deviations:
   year_devs <- numeric(length = n_years)
 
   # First year from stationary distribution (uses marginal SD)
-  year_devs[1] <- rnorm(1) * sigma_E
+  year_devs[1] <- rnorm(1) * sigma
 
   # Subsequent years from AR1 process with marginal SD scaled to appropriate innovation SD
   for (i in seq(2, n_years)) {
@@ -278,6 +275,7 @@ sim_ar1_deviations <- function(rho, sigma_E, years) {
 #' @param restricted_df Data frame containing spatial grid with restricted area indicators
 #' @param sim_dir Directory to save simulated data (default: "data-generated/sim-dat")
 #' @param check_cache Check for cached simulation (default: TRUE)
+#' @param save_sim Save simulated data to cache (default: TRUE)
 #' @param year_covariate Vector of time values for simulation (default: seq(0, 20, 2))
 #' @param mpa_trend Log-scale trend in restricted areas (default: log(1.05) for 5% increase/year)
 #' @param seed Random seed for reproducibility
@@ -285,8 +283,8 @@ sim_ar1_deviations <- function(rho, sigma_E, years) {
 #' @param family Distribution family (default: nbinom2(link = "log"))
 #' @param fixed_spatial_re Use fixed spatial random effects or use spatial sd (default: TRUE)
 #' @param fixed_spatiotemporal_re Use fixed spatiotemporal random effects or use spatiotemporal sd (default: FALSE)
-#' @param ar1_rho AR(1) correlation parameter. If NULL, no temporal AR(1) process is used (default: NULL)
-#' @param ar1_sigma_E Marginal standard deviation for AR(1) process. Required if ar1_rho is provided.
+#' @param rho_V AR(1) correlation parameter. If NULL, no temporal AR(1) process is used (default: NULL)
+#' @param sigma_V Marginal standard deviation for AR(1) process. Required if rho_V is provided.
 #' @param tag Optional tag for file naming
 #' @param ... Additional arguments passed to sdmTMB::sdmTMB_simulate
 #'
@@ -296,15 +294,17 @@ simulate_hbll <- function(fit,
                           restricted_df,
                           sim_dir = "data-generated/sim-dat",
                           check_cache = TRUE,
-                          year_covariate = seq(from = 0, to = 20, by = 2),
+                          save_sim = TRUE,
+                          year_covariate = 1,
                           mpa_trend = log(1.05), # 5% increase per year
                           seed = NULL,
                           formula = ~ 1 + restricted * year_covariate,
                           family = nbinom2(link = "log"),
                           fixed_spatial_re = TRUE,
                           fixed_spatiotemporal_re = FALSE,
-                          ar1_rho = NULL, # NULL = no AR1 deviations
-                          ar1_sigma_E = NULL,
+                          rho_V = NULL, # NULL = no AR1 deviations
+                          sigma_V = NULL,
+                          phi = NULL,
                           tag = NULL,
                           ...) {
 
@@ -331,9 +331,10 @@ simulate_hbll <- function(fit,
     family,
     fixed_spatial_re,
     fixed_spatiotemporal_re,
-    ar1_rho, # NULL if not using AR1 deviations
-    ar1_sigma_E, # NULL if not provided
+    rho_V, # NULL if not using AR1 deviations on mean
+    sigma_V, # NULL if not provided
     fit$spde$mesh,  # Mesh from fitted model
+    phi,
     packageVersion("sdmTMB"),
     list(...)
   )
@@ -350,7 +351,6 @@ simulate_hbll <- function(fit,
 
   message(
     "Cache missing or invalid. Running simulation for: ", fname,
-    "\nCache file will be saved to: ", rds_file
   )
 
   # Get the model parameters
@@ -365,14 +365,15 @@ simulate_hbll <- function(fit,
   }
 
   # Random effect SDs
-  omega_s_sd <- b$estimate[b$term == "sigma_O"]
-  epsilon_st_sd <- b$estimate[b$term == "sigma_E"]
-  if (fit$spatiotemporal == "off") epsilon_st_sd <- 0
+  omega_s_sd <- 0
+  epsilon_st_sd <- 0
+  if (fit$spatial != "off") omega_s_sd <- b$estimate[b$term == "sigma_O"]
+  if (fit$spatiotemporal != "off") epsilon_st_sd <- b$estimate[b$term == "sigma_E"]
 
   # Prepare input data for simulation
   input_dat <- restricted_df |>
     filter(survey_abbrev %in% unique(fit$data$survey_abbrev)) |>
-    select(X, Y, restricted) |>
+    # select(X, Y, restricted) |>
     sdmTMB::replicate_df(
       time_name = "year_covariate",
       time_values = year_covariate
@@ -381,6 +382,12 @@ simulate_hbll <- function(fit,
       restricted = restricted,
       year = as.numeric(year_covariate)
     )
+
+# TODO: make this more general
+  if (any(grepl("log_depth", formula))) {
+    input_dat <- input_dat |>
+      filter(!(is.na(log_depth) | is.infinite(log_depth)))
+  }
 
   input_mesh <- make_mesh(input_dat, xy_cols = c("X", "Y"), mesh = fit$spde$mesh)
 
@@ -401,7 +408,6 @@ simulate_hbll <- function(fit,
   X <- model.matrix(object = formula, data = input_dat)
   n_coef <- ncol(X)
   coef_names <- colnames(X)
-
   B <- numeric(n_coef)
   # Coefficients
   B[grep("(Intercept)", coef_names)] <- intercept_value # Only if intercept in formula
@@ -409,26 +415,40 @@ simulate_hbll <- function(fit,
   B[grep("year_covariate$", coef_names)] <- 0  # Main effect (not interaction)
   B[grep("restricted:year_covariate", coef_names)] <- mpa_trend
 
-  if (!is.null(ar1_rho)) {
-    if (is.null(ar1_sigma_E)) stop("ar1_sigma_E must be provided if ar1_rho is provided")
-    message("Simulating with AR1 process: rho = ", round(ar1_rho, 2), ", sigma_E = ", round(ar1_sigma_E, 2))
+  if (!is.null(rho_V)) {
+    if (is.null(sigma_V)) {
+      stop("sigma_V must be provided if rho_V is provided")
+    } else {
+      message("Simulating with AR1 process: rho = ", round(rho_V, 2), ", sigma_V = ", round(sigma_V, 2))
+    }
 
     # generate AR1 deviations
-    year_devs <- sim_ar1_deviations(rho = ar1_rho,
-      sigma_E = ar1_sigma_E,
+    message("- Generating AR1 deviations for ", length(year_covariate))
+    year_devs <- sim_ar1_deviations(rho = rho_V,
+      sigma = sigma_V,
       years = year_covariate
     )
-    year_indices <- grep("as.factor\\(year_covariate\\)", coef_names)
+    year_indices <- grep("as.factor\\(year\\)", coef_names)
 
     if (length(year_indices) > 0) {
       message("- Using ", length(year_indices), " year factors")
         if ("(Intercept)" %in% coef_names) {
-          stop("Don't use both intercept and factor years. Use either '~ 0 + as.factor(year_covariate) + ...' or '~ 1 + restricted * year_covariate'")
+          stop("Don't use both intercept and factor years. Use either '~ 0 + as.factor(year) + ...' or '~ 1 + restricted * year_covariate'")
         }
       # Year coefficients (for each factor level)
-      B[year_indices] <- year_devs + intercept_value
+      last_year_intercept <- b |>
+        filter(grepl("^fyear", term)) |>
+        mutate(year = as.numeric(gsub("fyear", "", term))) |>
+        filter(year == max(year))
+      B[year_indices] <- year_devs + last_year_intercept$estimate # add AR1 deviations starting from last year intercept
+    # test <- b |> filter(grepl("fyear", term)) |> pull(estimate)
+    # plot(c(test, B[year_indices]))
     }
   }
+
+  log_mean_offset <- log(mean(exp(fit$data$offset), na.rm = TRUE))
+  offset <- rep(log_mean_offset, nrow(input_dat))
+
   message("- MPA trend: ", round(mpa_trend, 2) * 100, "%")
 
   # Simulate data
@@ -438,20 +458,39 @@ simulate_hbll <- function(fit,
     mesh = input_mesh,
     family = family,
     time = "year",
-    # rho = ar1_rho, # affects AR1 deviations of the GMRF???
+    # rho = ar1_rho, # affects AR1 deviations of the GMRF
     sigma_E = if (fixed_spatiotemporal_re) epsilon_st_sd else 0,
-    phi = b$estimate[b$term == "phi"],
+    phi = if (is.null(phi)) b$estimate[b$term == "phi"] else phi,
     range = b$estimate[b$term == "range"],
     fixed_re = fixed_re,
     B = B,
+    offset = offset,
     seed = seed,
     ...
   ) |>
     as_tibble()
 
-  # Save to cache
-  saveRDS(sim_dat, file = rds_file)
-  writeLines(current_hash, con = hash_file)
+  sim_dat$offset <- log_mean_offset
+
+  # # Add simulation parameters as attributes for tracking
+  # attr(sim_dat, "simulation_params") <- list(
+  #   survey_abbrev = unique(fit$data$survey_abbrev),
+  #   B = B,
+  #   B_names = coef_names,
+  #   phi = if (is.null(phi)) b$estimate[b$term == "phi"] else phi,
+  #   range = b$estimate[b$term == "range"],
+  #   mpa_trend = mpa_trend,
+  #   rho_V = rho_V,
+  #   sigma_V = sigma_V,
+  #   seed = seed
+  # )
+
+  # Save to cache if save_sim is TRUE
+  if (save_sim) {
+    message("Cache file will be saved to: ", rds_file)
+    saveRDS(sim_dat, file = rds_file)
+    writeLines(current_hash, con = hash_file)
+  }
 
   return(sim_dat)
 }
@@ -507,7 +546,7 @@ sample_by_plan <- function(sim_dat,
     group_by(!!!syms(grouping_vars)) |>
     group_split()
 
-  sampled_list <- map(group_list, function(g) {
+  sampled_list <- purrr::map(group_list, function(g) {
     n_samps <- unique(g$n_samps)
     slice_sample(g, n = n_samps, replace = FALSE)
   })
