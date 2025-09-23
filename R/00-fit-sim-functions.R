@@ -81,8 +81,10 @@ predict_hbll <- function(fit, grid, re_form = NULL) {
     fit$fitted_time
   }
 
-  message("Predicting on ", paste(survey, collapse = ", "), " grid ",
-    ifelse(length(years) == length(c(fit$fitted_time, fit$extra_time)), "with", "without"), " extra time")
+  message(
+    "Predicting on ", paste(survey, collapse = ", "), " grid ",
+    ifelse(length(years) == length(c(fit$fitted_time, fit$extra_time)), "with", "without"), " extra time"
+  )
 
   nd <- sdmTMB::replicate_df(
     dat = pred_grid,
@@ -111,7 +113,6 @@ plot_hbll_predictions <- function(pred,
                                   crs = 4326,
                                   buffer = 40000,
                                   type = c("link", "response")) {
-
   if (buffer <= 0) buffer <- 1
 
   type <- match.arg(type)
