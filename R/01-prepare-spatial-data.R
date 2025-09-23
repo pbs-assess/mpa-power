@@ -1,6 +1,7 @@
 library(dplyr)
 library(ggplot2)
 library(sf)
+library(stringr)
 
 source(here::here("R", "00-setup.R"))
 
@@ -17,17 +18,16 @@ activity_status_lu <- tibble::enframe(c(
 saveRDS(activity_status_lu, file.path("data-generated", "spatial", "activity_status_lu.rds"))
 
 # MPA polygons (double check what layer to use - I am assuming the most up to date one)
-# Q1 <- st_read(here::here("data-raw", "spatial", "Spatial_Q.gdb"),
-#   layer = "Q1_FULL_March2023") |>
-#   janitor::clean_names()
-
-Q2 <- st_read(here::here("data-raw", "spatial", "All_Network_boundaries_Q2_2024.gdb"),
-  layer = "All_Network_boundaries_Q2_2024") |>
+# st_layers(here::here("data-raw", "spatial", "Public", "Spatial2025_Public_Network_footprint.gdb"))
+public_mpa <- st_read(here::here("data-raw", "spatial", "Public",
+  "Spatial2025_Public_Network_footprint.gdb"), layer = "Spatial2025_Public_Network_footprint") |>
   janitor::clean_names()
 
-shape <- Q2
+simple_mpa <- public_mpa |>
+  select(uid, map_label, common_site_name_site_profile, category_simple, name_2025)
+saveRDS(simple_mpa, file.path("data-generated", "spatial", "simple-mpa.rds"))
 
-comm_ll_activity_status <- shape |>
+comm_ll_activity_status <- public_mpa |>
   select(hu_commercial_harvest_bottom_longline_demersal_hookand_line,
     category_detailed, category_simple) |>
   left_join(activity_status_lu,
@@ -38,6 +38,7 @@ comm_ll_activity_status <- shape |>
 
 saveRDS(comm_ll_activity_status, file.path("data-generated", "spatial", "comm-ll-draft-activity-status.rds"))
 
+stop()
 # Human use layers
 # human_layers <- st_layers(here::here("data-raw", "spatial", "mpatt_hu_10.gdb"))
 # human_layers$name
