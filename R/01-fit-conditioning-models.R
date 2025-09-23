@@ -6,29 +6,23 @@
 source(here::here("R", "00-setup.R"))
 source(here::here("R", "00-fit-sim-functions.R"))
 
+devtools::load_all("~/R_DFO/sdmTMB") # need betabinomial branch
+
+library(tidyr)
+library(patchwork)
+library(digest)
+
+# TODO: remove? no figures needed in this script?
+# fig_dir <- here::here("draft-figures", "diagnostics")
+# dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
+
 # Setup directories
 fit_dir <- here::here("data-generated", "fits")
 dir.create(fit_dir, recursive = TRUE, showWarnings = FALSE)
 
-# From: https://github.com/pbs-assess/gfmpa/blob/9429210b9da5b5044f3afddcf6eaa9cffaec4d40/analysis/sim.Rmd
-# - Simulate recovery in restricted areas to assess whether current survey effort is sufficient to detect population recovery
-
-# - Approach:
-#     1. fit geostatistical models to observed data
-#     2. use parameters from that model to simulate new data with observations at the actual historically observed locations
-#     3. when simulating, simulate recovery at some rate within closed areas and a stationary abundance/density outside of closed areas
-
-# - Dimensions that will likely affect the answer:
-#     1. species (therefore estimated spatial and spatiotemporal SD, spatial correlation range, observation error)
-#     2. rate of 'recovery'
-#     3. number of years observed
-#     4. whether one assesses all restricted areas together or individually
-#     5. **level of fishing (or activity of concern) that occurred before management actions taken**
-#     6. size of restricted area?
-
-# Notes:
-# - to start no depth because I think there is a lot of uncertainty in the grid depth
-#   - TODO: add depth to prediction grid (part of gfdata updates I have going)
+# TODO: Move to sim script
+# sim_cache <- here::here("data-generated", "sim-cache")
+# dir.create(sim_cache, recursive = TRUE, showWarnings = FALSE)
 
 # -----------------------------------------------------------------------------
 # Prepare data
@@ -46,129 +40,151 @@ hbll_grid_poly <- gfdata::load_survey_blocks(type = "polygon") |>
   filter(stringr::str_detect(survey_abbrev, "HBLL")) |>
   filter(survey_abbrev != "HBLL INS S")
 
-# HBLL species data
-sp <- sp_to_hyphens("yelloweye rockfish")
+hbll_allocations <- readRDS(here::here("data-generated", "hbll-allocations.rds"))
 bait_counts <- readRDS(file.path(synopsis_cache, "bait-counts.rds"))
-sp_dat0 <- readRDS(file.path(synopsis_cache, paste0(sp, ".rds")))$survey_sets
 comm_ll_activity_status <- readRDS(here::here("data-generated", "spatial", "comm-ll-draft-activity-status.rds"))
+# mpa_shape_simplified <- comm_ll_activity_status |> st_simplify(dTolerance = 100)
 
-mpa_shape_simplified <- comm_ll_activity_status |> st_simplify(dTolerance = 100)
+# HBLL species data
+# sp <- sp_to_hyphens("north pacific spiny dogfish")
+# sp <- sp_to_hyphens("lingcod")
+# sp <- sp_to_hyphens("quillback rockfish")
+sp <- sp_to_hyphens("yelloweye rockfish")
+
+# sp_list <- c("yelloweye rockfish", "north pacific spiny dogfish", "lingcod", "quillback rockfish")
+# for (sp in sp_to_hyphens(sp_list)) {
+message(paste0("Fitting conditioning models for ", sp))
+sp_dat0 <- readRDS(file.path(synopsis_cache, paste0(sp, ".rds")))$survey_sets
 
 sp_dat <- filter(sp_dat0, stringr::str_detect(survey_abbrev, "HBLL")) |>
   filter(survey_abbrev != "HBLL INS S") |> # may as well remove this up here
   prep_hbll_data(bait_counts = bait_counts) |>
-  mutate(log_depth = log(depth_m))
+  mutate(
+    obs_id = factor(row_number()),
+    catch_prop = catch_count / hook_count,
+    log_depth = log(depth_m)
+  )
 
-sp_dat |> pull(depth_m) |> summary()
+historical <- sp_dat |>
+  mutate(x = X * 1000, y = Y * 1000) |>
+  st_as_sf(coords = c("x", "y"), crs = 3156) |>
+  st_join(comm_ll_activity_status |> st_transform(crs = 3156), join = st_within) |>
+  mutate(activity_status_label = if_else(is.na(activity_status_label), "outside", activity_status_label)) |>
+  mutate(restricted = ifelse(activity_status_label == "outside", 0, 1)) |>
+  st_join(hbll_grid_poly |> select(block_id, grouping_code) |> st_transform(crs = 3156), join = st_within) |>
+  st_drop_geometry() |>
+  select(ssid, survey_abbrev, year, species_common_name, fishing_event_id, latitude, longitude, X, Y,
+    block_id, fe_grouping_code = grouping_code.x, grouping_code = grouping_code.y,
+    depth_m, offset, hook_count,
+    catch_count, restricted) |>
+  mutate(after = 0) |>
+  left_join(hbll_allocations, by = c("survey_abbrev", "grouping_code", "ssid" = "survey_series_id"))
 
-combined <- st_intersection(
-    st_as_sfc(st_bbox(hbll_grid_poly |> st_transform(crs = st_crs(mpa_shape_simplified)))),
-    st_as_sfc(st_bbox(mpa_shape_simplified))
-  ) |>
-  st_as_sf()
+# Prepare data and meshes
+d_IN <- sp_dat |> filter(survey_abbrev == "HBLL INS N")
+d_IN$weights <- d_IN$hook_count / mean(d_IN$hook_count)
+mesh_IN <- local(make_mesh(d_IN, xy_cols = c("X", "Y"), cutoff = 10))
+d_OS <- sp_dat |> filter(survey_abbrev == "HBLL OUT S")
+d_OS$weights <- d_OS$hook_count / mean(d_OS$hook_count)
+mesh_OS <- local(make_mesh(d_OS, xy_cols = c("X", "Y"), cutoff = 10))
+d_ON <- sp_dat |> filter(survey_abbrev == "HBLL OUT N")
+d_ON$weights <- d_ON$hook_count / mean(d_ON$hook_count)
+mesh_ON <- local(make_mesh(d_ON, xy_cols = c("X", "Y"), cutoff = 10))
 
-plot_limits_combined <- get_plot_limits(combined, buffer = 1000)
+check_cache <- TRUE
+silent <- FALSE
 
-# Fit conditioning models
-# ------------------------------------------------------------
-{
-  .formula <- catch_count ~ 0 + fyear
-  .tag <- NULL
-  .family <- nbinom2(link = "log")
-  .check_cache <- TRUE
+# TODO: deal with random fields that collapse to 0
+
+# Beta binomial ----------------------------------------------------------------
+sprf <- "on"
+strf <- "iid"
+fit_ON <- fit_cached_sdmTMB(
+  model_tag = paste0(sp, "-HBLL-OUT-N-betabinomial-", sprf, "-", strf),
+  fit_dir = fit_dir,
+  data = d_ON,
+  formula = catch_prop ~ 0 + fyear,
+  mesh = mesh_ON,
+  family = betabinomial(link = "cloglog"),
+  spatial = sprf,
+  spatiotemporal = strf,
+  time = "year",
+  anisotropy = FALSE,
+  weights = d_ON$hook_count,
+  check_cache = check_cache,
+  silent = silent
+)
+
+fit_OS <- fit_cached_sdmTMB(
+  model_tag = paste0(sp, "-HBLL-OUT-S-betabinomial-", sprf, "-", strf),
+  fit_dir = fit_dir,
+  data = d_OS,
+  formula = catch_prop ~ 0 + fyear,
+  mesh = mesh_OS,
+  family = betabinomial(link = "cloglog"),
+  spatial = sprf,
+  spatiotemporal = strf,
+  time = "year",
+  anisotropy = FALSE,
+  weights = d_OS$hook_count,
+  check_cache = check_cache,
+  silent = silent
+)
+
+fit_IN <- fit_cached_sdmTMB(
+  model_tag = paste0(sp, "-HBLL-INS-N-betabinomial-", sprf, "-", strf),
+  fit_dir = fit_dir,
+  data = d_IN,
+  formula = catch_prop ~ 0 + fyear,
+  mesh = mesh_IN,
+  family = betabinomial(link = "cloglog"),
+  spatial = sprf,
+  spatiotemporal = strf,
+  time = "year",
+  anisotropy = FALSE,
+  weights = d_IN$hook_count,
+  check_cache = check_cache,
+  silent = silent
+)
+
+# TODO: turn of random fields that fail - currently this just turns off spatiotemporal
+# and then spatial field sequentially if sanity checks keep failing.
+# Function to check sanity and refit if needed
+refit_if_failed <- function(fit, survey_name, sp, fit_dir) {
+  # Use model-specific values, not global ones
+  current_sprf <- fit$spatial
+  current_strf <- fit$spatiotemporal
+
+  sanity_check <- all(unlist(sdmTMB::sanity(fit)))
+  if (!sanity_check) {
+    current_strf <- "off"
+    message(paste0("Sanity check failed for ", survey_name, ", refitting with spatiotemporal = 'off'"))
+    fit <- fit_cached_sdmTMB(
+      model_tag = paste0(sp, "-", survey_name, "-betabinomial-", current_sprf, "-", current_strf),
+      fit_dir = fit_dir,
+      update_from = fit,
+      spatiotemporal = current_strf
+    )
+
+    sanity_check2 <- all(unlist(sdmTMB::sanity(fit)))
+    if (!sanity_check2) {
+      current_sprf <- "off"
+      message(paste0("Second sanity check failed for", survey_name, ", refitting with spatial = 'off'"))
+      fit <- fit_cached_sdmTMB(
+        model_tag = paste0(sp, "-", survey_name, "-betabinomial-", current_sprf, "-", current_strf),
+        fit_dir = fit_dir,
+        update_from = fit,
+        spatial = current_sprf
+      )
+    }
+  }
+
+  return(fit)
 }
-# {
-# .formula <- catch_count ~ 0 + fyear + poly(log_depth, 2) # poly() creates orthogonal polynomials (uncorrelated terms) vs raw polynomials
-# .check_cache <- TRUE
-# .tag <- "depth"
-# .family <- nbinom2(link = "log")
-# .spatiotemporal <- "off"
-# # .family <- tweedie(link = "log")
-# # .tag <- "depth-tweedie"
-# }
 
-# {
-#   .formula <- catch_count ~ 0 + fyear
-#   .tag <- "nb2mixed"
-# }
+# Apply sanity checks and refitting to all models
+fit_ON <- refit_if_failed(fit_ON, "HBLL-OUT-N", sp, fit_dir)
+fit_OS <- refit_if_failed(fit_OS, "HBLL-OUT-S", sp, fit_dir)
+fit_IN <- refit_if_failed(fit_IN, "HBLL-INS-N", sp, fit_dir)
 
-fit_OS <- fit_hbll(dat = sp_dat,
-  survey_type = "HBLL OUT S",
-  formula = .formula,
-  family = .family,
-  species = sp,
-  spatiotemporal = "iid",
-  use_extra_time = FALSE,
-  time = "year",
-  fit_dir = fit_dir,
-  tag = .tag,
-  check_cache = .check_cache
-)
-fit_ON <- fit_hbll(dat = sp_dat,
-  survey_type = "HBLL OUT N",
-  formula = .formula,
-  family = .family,
-  species = sp,
-  spatiotemporal = "iid",
-  use_extra_time = FALSE,
-  time = "year",
-  fit_dir = fit_dir,
-  tag = .tag,
-  check_cache = .check_cache
-)
-fit_IN <- fit_hbll(dat = sp_dat, # didn't converge with spatiotemporal = "iid"
-  survey_type = "HBLL INS N",
-  formula = .formula,
-  family = .family,
-  species = sp,
-  spatiotemporal = "off",
-  use_extra_time = FALSE,
-  time = "year",
-  fit_dir = fit_dir,
-  tag = .tag,
-  check_cache = .check_cache
-)
 meep()
-
-stop()
-# TODO: add sanity checks
-# TODO: evaluate and compare conditioning models: see - https://github.com/mis-assess/shrimp_surveydesign_csas/blob/794abdf0d4657dff5ed3316fe876b58afab0dd83/Reproducible_Examples/coastwide-density.R#L157
-# fit <- fit_OS
-fit <- readRDS(here::here(fit_dir, "yelloweye-rockfish-HBLL-OUT-S.rds"))
-s_nb2 <- simulate(fit, nsim = 500, type = "mle-mvn")
-r_nb2 <- dharma_residuals(s_nb2, fit, return_DHARMa = TRUE)
-dev.set(2)
-plot(r_nb2, title = "no depth")
-
-
-
-model_name <- "HBLL-OUT-N-depth"
-model_name <- "HBLL-OUT-S-depth"
-model_name <- "HBLL-INS-N-depth"
-fit <- readRDS(here::here(fit_dir, paste0("yelloweye-rockfish-", model_name, ".rds")))
-s_nb2 <- simulate(fit, nsim = 500, type = "mle-mvn")
-r_nb2 <- dharma_residuals(s_nb2, fit, return_DHARMa = TRUE)
-# dev.set(3)
-plot(r_nb2, title = model_name)
-
-fit <- readRDS(here::here(fit_dir, "yelloweye-rockfish-HBLL-OUT-S-depth.rds"))
-s_nb2 <- simulate(fit, nsim = 500, type = "mle-mvn")
-r_nb2 <- dharma_residuals(s_nb2, fit, return_DHARMa = TRUE)
-dev.set(3)
-plot(r_nb2, title = "depth")
-
-
-
-
-fit <- readRDS(here::here(fit_dir, "yelloweye-rockfish-HBLL-OUT-S-nb2mixed.rds"))
-s_nb2 <- simulate(fit, nsim = 500, type = "mle-mvn")
-r_nb2 <- dharma_residuals(s_nb2, fit, return_DHARMa = TRUE)
-dev.set(3)
-plot(r_nb2, title = "depth")
-
-# DHARMa::testResiduals(r_nb2)
-# sp_r <- DHARMa::recalculateResiduals(s_nb2, group = fit$data$fyear)
-# DHARMa::testSpatialAutocorrelation(r_nb2,
-#   x = fit$data$X,
-#   y = fit$data$Y)
-# DHARMa::testZeroInflation(r_nb2)
