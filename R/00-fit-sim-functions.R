@@ -3,7 +3,9 @@ prep_hbll_data <- function(dat, bait_counts) {
     rename(ssid = "survey_series_id.x") |>
     left_join(bait_counts, by = c("year", "fishing_event_id", "ssid")) |>
     distinct(ssid, fishing_event_id, year, .keep_all = TRUE) |>
-    mutate(count_bait_only = replace(count_bait_only, which(count_bait_only == 0), 1),
+    mutate(
+      present = ifelse(catch_count > 0, 1, 0),
+      count_bait_only = replace(count_bait_only, which(count_bait_only == 0), 1),
       prop_bait_hooks = count_bait_only / hook_count,
       hook_adjust_factor = -log(prop_bait_hooks) / (1 - prop_bait_hooks),
       prop_removed = 1 - prop_bait_hooks,
