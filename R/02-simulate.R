@@ -2,8 +2,8 @@ source(here::here("R", "01-fit-conditioning-models.R"))
 source(here::here("R", "00-fit-sim-functions.R"))
 
 sp_dat_block_id <- sp_dat |>
-  select(ssid, survey_abbrev, year, latitude, longitude, grouping_code, hook_count, catch_count) |>
-  XY_to_sf(x_col = "longitude", y_col = "latitude", mult = 1, crs_from = 4326, crs_to = 32609) |>
+  select(ssid, survey_abbrev, year, latitude, longitude, grouping_code, hook_count, catch_count, fishing_event_id) |>
+  XY_to_sf(coords = c("longitude", "latitude"), mult = 1, crs_from = 4326, crs_to = 32609) |>
   # XY_to_sf(crs_to = st_crs(hbll_grid_poly)) |>
   st_join(hbll_grid_poly |>
     rename(survey_abbrev_grid = survey_abbrev, grouping_code_grid = grouping_code),
@@ -22,8 +22,9 @@ restricted_df <- hbll_grid |>
   mutate(log_depth = log(depth_m))
 
 # formula = ~ 0 + as.factor(year) + restricted * year_covariate
-update_sim_dat <- function(formula = ~ 0 + as.factor(year) + restricted * year_covariate,
-                           rho_V = 0, sigma_V = 0, mpa_trend = 1, phi = 0.3, check_cache = FALSE, seed = 42) {
+get_sim_dat <- function(formula = ~ 0 + fyear + restricted * year_covariate,
+                        rho_V = 0, sigma_V = 0, mpa_trend = 1, phi = 0.3,
+                        check_cache = FALSE, seed = 42, return_result_list = FALSE) {
 
 b_IN <- get_model_pars(fit_IN)
 b_ON <- get_model_pars(fit_ON)
@@ -102,19 +103,19 @@ sim_params <- list(
 sim_dat_sf <- XY_to_sf(sim_dat0)
 
 # Return list and assign to global environment)
-result_list <- list(
-  sim_IN = sim_IN,
-  sim_ON = sim_ON,
-  sim_OS = sim_OS,
-  hbll_allocations = hbll_allocations,
-  allocation_lu = allocation_lu,
-  sim_dat0 = sim_dat0,
-  sim_dat_sf = sim_dat_sf,
-  sim_dat = sim_dat,
-  sim_params = sim_params
-)
+# result_list <- list(
+#   sim_IN = sim_IN,
+#   sim_ON = sim_ON,
+#   sim_OS = sim_OS,
+#   hbll_allocations = hbll_allocations,
+#   # allocation_lu = allocation_lu,
+#   sim_dat0 = sim_dat0,
+#   sim_dat_sf = sim_dat_sf,
+#   sim_dat = sim_dat,
+#   sim_params = sim_params
+# )
 
-if (return_result_list) list2env(result_list, envir = .GlobalEnv)
+# if (return_result_list) list2env(result_list, envir = .GlobalEnv)
 
 sim_dat0
 }
@@ -128,12 +129,6 @@ dir.create(sim_dir, showWarnings = FALSE)
 # Status quo sampling effort
 # --------------------------
 hbll_allocations <- readRDS(here::here("data-generated", "hbll-allocations.rds"))
-
-sim_dat <- left_join(sim_dat0, hbll_allocations, by = c("survey_abbrev", "grouping_code")) |>
-  mutate(spatial_grouping_id = ifelse(pfma %in% c("5A", "4B"), "5A4B", pfma)) # Group 5A and 4B together for sampling purposes
-
-allocation_lu <- sim_dat |>
-  distinct(survey_abbrev, spatial_grouping_id, strata_depth, allocation)
 
 # HBLL INS N odd years
 # HBLL OUT N odd years
@@ -204,7 +199,8 @@ historical <- sp_dat |>
   left_join(hbll_allocations,
     by = c("survey_abbrev", "grouping_code", "ssid" = "survey_series_id"))
 
-update_sim_dat(
+
+sim_dat0 <- get_sim_dat(
   formula = ~ 1 + restricted * year_covariate,
   rho_V = NULL,
   sigma_V = NULL,
@@ -213,11 +209,89 @@ update_sim_dat(
   check_cache = FALSE,
   seed = 42
 )
+
+
+sim_ON <- simulate_hbll(fit_ON, restricted_df,
+  sim_dir = "data-generated/sim-dat",
+  check_cache = FALSE,
+  formula = ~ 0 + as.factor(year_covariate),
+  seed = 40,
+  year_covariate = 1:9,
+  mpa_trend = log(1),
+  rho_V = NULL,
+  sigma_V = NULL,
+  fixed_spatial_re = TRUE,
+  fixed_spatiotemporal_re = FALSE,
+  phi = 0.8,
+  B = c(sample(get_model_pars(fit_ON)$estimate[grepl("fyear", get_model_pars(fit_ON)$term)], 9, replace = FALSE)),
+  tag = "out-n"
+) |>
+  mutate(survey_abbrev = "HBLL OUT N")
+
+get_model_pars(fit_OS)
+
+
+historical_ON <- filter(historical, survey_abbrev == "HBLL OUT N") |>
+  mutate(end_year = max(year)) |>
+  mutate(d = "historical") |>
+  left_join(sp_dat_block_id |> select(fishing_event_id, block_id))
+historical_ON |>
+  group_by(year) |>
+  summarise(n = n())
+unique_historical_ON_XY <- distinct(historical_ON, block_id)
+d <- sim_ON |>
+  pivot_longer(cols = starts_with("as.factor(year_covariate)"), names_to = "year_covariate", values_to = "estimate") |>
+   mutate(year = unique(historical_ON$end_year) + as.numeric(stringr::str_extract(year_covariate, "\\d+"))) |>
+  XY_to_sf(coords = c("X", "Y"), crs_from = 3156, crs_to = st_crs(hbll_grid_poly)) |>
+  st_join(hbll_grid_poly |> select(block_id), join = st_within) |>
+  st_drop_geometry() |>
+  filter(block_id %in% unique_historical_ON_XY$block_id) |>
+  mutate(d = "simulated") |>
+  group_by(year) |>
+  sample_n(190, replace = FALSE)
+
+test <- bind_rows(historical_ON, d)
+ggplot(data = test) +
+  geom_point(aes(x = year, y = observed, color = d))
+
+test |>
+  group_by(d) |>
+  summarise(mean_catch = mean(observed),
+            max_catch = max(observed),
+            zero_count = sum(observed == 0),
+            non_zero_count = sum(observed > 0))
+
+plot_data <- test |>
+  group_by(d, survey_abbrev) |>
+  arrange(observed) |>
+  mutate(cumul_catch = cumsum(observed),
+        rank_obs = rank(observed))
+
+plot_data |>
+    ggplot(aes(x = rank_obs, y = cumul_catch)) +
+    geom_line(data = filter(plot_data, d == "simulated"),
+              aes(group = d),
+              colour = "black", alpha = 0.3) +
+    geom_line(data = filter(plot_data, d == "historical"),
+              aes(group = d),
+              colour = "red") +
+    facet_wrap(~ survey_abbrev, scales = "free") +
+    labs(x = "Rank (ordered observations)", y = "Cumulative catch")
+
+
+
+
+sim_dat <- left_join(sim_dat0, hbll_allocations, by = c("survey_abbrev", "grouping_code")) |>
+  mutate(spatial_grouping_id = ifelse(pfma %in% c("5A", "4B"), "5A4B", pfma)) # Group 5A and 4B together for sampling purposes
+
+allocation_lu <- sim_dat |>
+  distinct(survey_abbrev, spatial_grouping_id, strata_depth, allocation)
+
 samp1 <- status_quo_sampling()
 
-sim_params$IN
-sim_params$ON
-sim_params$OS
+# sim_params$IN
+# sim_params$ON
+# sim_params$OS
 
 simulated <-
   samp1 |>
@@ -228,22 +302,28 @@ simulated <-
 
 # 'Posterior check' - compare simulated and historical data
 test <- bind_rows(
-  historical |> mutate(d = "historical"),
-  simulated |> mutate(d = "simulated")
+  historical |> mutate(d = "hist"),
+  simulated |> mutate(d = "sim")
   ) |>
   mutate(catch_count = ifelse(catch_count > hook_count, hook_count, catch_count))
 
 test |> group_by(d, survey_abbrev) |>
-  summarise(mean_catch_count = mean(catch_count),
-    zero_count = sum(catch_count == 0), non_zero_count = sum(catch_count > 0))
+  summarise(mean_catch = mean(catch_count),
+    zeroes = sum(catch_count == 0), non_zeroes = sum(catch_count > 0)) |>
+    tidyr::pivot_wider(names_from = d, values_from = c(mean_catch, zeroes, non_zeroes))
 
 test |>
-  ggplot(aes(x = year, y = catch_count, colour = pfma)) +
+  ggplot() +
+  aes(x = year, y = catch_count) +
+  geom_rect(data = NULL, aes(xmin = -Inf, xmax = 2025.5, ymin = -Inf, ymax = Inf), fill = "grey95", alpha = 0.1) +
   geom_point(alpha = 0.5) +
   geom_smooth(method = "loess", se = FALSE) +
   # not offset problem
   # geom_point(data = test |> group_by(survey_abbrev, year) |> summarise(n = n(), hooks = mean(hook_count)), aes(x = year, y = hooks), color = "red") +
   facet_wrap(~ survey_abbrev, scale = "free_y")
+ggsave(here::here("draft-figures", "sim-dat-check-raw-ts.png"), width = 13, height = 4.4)
+ggsave(here::here("draft-figures", "sim-dat-check-raw-ts-loess.png"), width = 13, height = 4.4)
+
 
 # Posterior check on AR1 deviations
 # ---------------------------------
