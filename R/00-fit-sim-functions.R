@@ -17,96 +17,51 @@ prep_hbll_data <- function(dat, bait_counts) {
 }
 
 #' Fit sdmTMB model to HBLL survey data
-#'
-#' @param dat Data frame containing survey data
-#' @param survey_type Survey type ("HBLL INS" or "HBLL OUT")
-#' @param species Species name
-#' @param fit_dir Directory to save fitted models
-#' @param mesh_cutoff Mesh cutoff distance (default: 10)
-#' @param check_cache Check for cached model (default: TRUE)
-#' @param formula Model formula (default: catch_count ~ 1)
-#' @param ... Additional arguments passed to sdmTMB
-#'
-#' @return Fitted sdmTMB model object
-#'
-fit_hbll <- function(dat, survey_type, species, fit_dir, mesh_cutoff = 10,
-                        check_cache = TRUE,
-                        formula = catch_count ~ 1,
-                        family = sdmTMB::nbinom2(link = "log"),
-                        spatial = "on",
-                        spatiotemporal = "iid",
-                        use_extra_time = FALSE,
-                        extra_time = NULL,
-                        offset = 'offset',
-                        time = "year",
-                        anisotropy = TRUE,
-                        tag = NULL,
-                        ...) {
+# TODO: document
+fit_cached_sdmTMB <- function(fit_dir, check_cache = TRUE, update_from = NULL,
+                              model_tag = NULL, debug = FALSE, ...) {
 
-  dir.create(fit_dir, showWarnings = FALSE, recursive = TRUE)
-  fname <- paste(c(species, survey_type, tag), collapse = "-") |>
-    gsub("[^a-zA-Z0-9_.-]", "-", x = _)
-  rds_file <- file.path(fit_dir, paste0(fname, ".rds"))
-  hash_file <- file.path(fit_dir, paste0(fname, ".hash"))
+  if (!is.null(update_from)) {
+    # For model updates: merge base parameters with new ones
+    base_params <- extract_model_params(update_from)
+    update_args <- list(...)
+    final_params <- modifyList(base_params, update_args)
 
-  dat <- dat |> filter(stringr::str_detect(survey_abbrev, survey_type))
+    # Create hash and fit function
+    model_hash <- create_model_hash(final_params, debug)
+    fit_function <- local({
+      function() {
+        do.call(update, c(list(object = update_from), update_args))
+      }
+    })
 
-  model_state <- list(
-    dat,
-    mesh_cutoff,
-    formula,
-    family,
-    spatial,
-    spatiotemporal,
-    use_extra_time,
-    time,
-    offset,
-    anisotropy,
-    packageVersion("sdmTMB"),
-    list(...)
-  )
-  current_hash <- digest::digest(model_state)
-
-  if (check_cache && file.exists(rds_file) && file.exists(hash_file)) {
-    cached_hash <- readLines(hash_file, warn = FALSE)
-    if (identical(cached_hash, current_hash)) {
-      message("Cache hit. Loading model from: ", rds_file)
-      return(readRDS(rds_file))
-    }
-  }
-
-  message(
-    "Cache missing or invalid. Fitting model for: ", fname,
-    "\nCache file will be saved to: ", rds_file
-  )
-
-  mesh <- sdmTMB::make_mesh(dat, xy_cols = c("X", "Y"), cutoff = mesh_cutoff)
-
-  if (any(spatiotemporal != "off") && use_extra_time) {
-    message("Spatiotemporal = ", spatiotemporal, ". Finding missing years.")
-    extra_time <- sdmTMB:::find_missing_time(dat$year)
   } else {
-    message("Spatiotemporal = ", spatiotemporal, ". No extra time used.")
+    # For new models: use parameters as provided
+    final_params <- list(...)
+
+    # Create hash and fit function
+    model_hash <- create_model_hash(final_params, debug)
+    fit_function <- local({
+      function() {
+        do.call(sdmTMB, final_params)
+      }
+    })
   }
 
-  fit <- sdmTMB::sdmTMB(
-    formula = formula,
-    data = dat,
-    mesh = mesh,
-    family = sdmTMB::nbinom2(link = "log"),
-    spatial = spatial,
-    spatiotemporal = spatiotemporal,
-    extra_time = extra_time,
-    offset = offset,
-    time = time,
-    anisotropy = anisotropy,
-    ...
+  # Generate model name
+  if (!is.null(model_tag)) {
+    model_name <- paste0(model_tag, "-", model_hash)
+  } else {
+    model_name <- paste0("sdmTMB-", model_hash)
+  }
+
+  # Cache and return
+  cache_model(
+    model_name = model_name,
+    fit_dir = fit_dir,
+    fit_function = fit_function,
+    check_cache = check_cache
   )
-
-  saveRDS(fit, file = rds_file)
-  writeLines(current_hash, con = hash_file)
-
-  return(fit)
 }
 
 #' Predict from fitted sdmTMB model
