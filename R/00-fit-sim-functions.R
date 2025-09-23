@@ -257,60 +257,23 @@ simulate_hbll <- function(fit,
                           mpa_trend = log(1.05), # 5% increase per year
                           seed = NULL,
                           formula = ~ 1 + restricted * year_covariate,
-                          family = nbinom2(link = "log"),
+                          family = betabinomial(link = "cloglog"),
                           fixed_spatial_re = TRUE,
                           fixed_spatiotemporal_re = FALSE,
                           rho_V = NULL, # NULL = no AR1 deviations
                           sigma_V = NULL,
                           phi = NULL,
+                          range_val = NULL,
                           tag = NULL,
+                          B = NULL,
                           ...) {
-
   # Create directory for simulated data
   dir.create(sim_dir, showWarnings = FALSE, recursive = TRUE)
-
-  # Generate filename based on fit and parameters
   survey_type <- unique(fit$data$survey_abbrev)
   species <- unique(fit$data$species_common_name)
 
-  fname <- paste(c(species, survey_type, "sim", tag), collapse = "-") |>
-    gsub("[^a-zA-Z0-9_.-]", "-", x = _)
-  rds_file <- file.path(sim_dir, paste0(fname, ".rds"))
-  hash_file <- file.path(sim_dir, paste0(fname, ".hash"))
 
-  # Create sim state for hashing (similar to fit_hbll)
-  sim_state <- list(
-    fit$data,  # Original data used for fitting
-    restricted_df,
-    year_covariate,
-    mpa_trend,
-    seed,
-    formula,
-    family,
-    fixed_spatial_re,
-    fixed_spatiotemporal_re,
-    rho_V, # NULL if not using AR1 deviations on mean
-    sigma_V, # NULL if not provided
-    fit$spde$mesh,  # Mesh from fitted model
-    phi,
-    packageVersion("sdmTMB"),
-    list(...)
-  )
-  current_hash <- digest::digest(sim_state)
-
-  # Check cache
-  if (check_cache && file.exists(rds_file) && file.exists(hash_file)) {
-    cached_hash <- readLines(hash_file, warn = FALSE)
-    if (identical(cached_hash, current_hash)) {
-      message("Cache hit. Loading simulation from: ", rds_file)
-      return(readRDS(rds_file))
-    }
-  }
-
-  message(
-    "Cache missing or invalid. Running simulation for: ", fname,
-  )
-
+  # Set up simulation input parameters  ---------------------------------------
   # Get the model parameters
   b <- get_model_pars(fit)
 
@@ -331,21 +294,20 @@ simulate_hbll <- function(fit,
   # Prepare input data for simulation
   input_dat <- restricted_df |>
     filter(survey_abbrev %in% unique(fit$data$survey_abbrev)) |>
-    # select(X, Y, restricted) |>
     sdmTMB::replicate_df(
       time_name = "year_covariate",
       time_values = year_covariate
     ) |>
     mutate(
-      restricted = restricted,
-      year = as.numeric(year_covariate)
+      year = as.numeric(year_covariate),
+      fyear = as.factor(year)
     )
 
-# TODO: make this more general
-  if (any(grepl("log_depth", formula))) {
-    input_dat <- input_dat |>
-      filter(!(is.na(log_depth) | is.infinite(log_depth)))
-  }
+  # # TODO: make this more general
+  # if (any(grepl("log_depth", formula))) {
+  #   input_dat <- input_dat |>
+  #     filter(!(is.na(log_depth) | is.infinite(log_depth)))
+  # }
 
   input_mesh <- make_mesh(input_dat, xy_cols = c("X", "Y"), mesh = fit$spde$mesh)
 
@@ -356,22 +318,32 @@ simulate_hbll <- function(fit,
     zeta_s = NULL
   )
 
-  # Calculate intercept from year effects (if using year as factor)
-  intercept_value <- if (any(grepl("year", b$term))) {
-    mean(b[grep("year", b$term), "estimate"])
-  } else {
-    b$estimate[b$term == "(Intercept)"]
-  }
   # Build coefficient vector
   X <- model.matrix(object = formula, data = input_dat)
   n_coef <- ncol(X)
   coef_names <- colnames(X)
-  B <- numeric(n_coef)
-  # Coefficients
-  B[grep("(Intercept)", coef_names)] <- intercept_value # Only if intercept in formula
-  B[grep("restrictedTRUE", coef_names)] <- 0
-  B[grep("year_covariate$", coef_names)] <- 0  # Main effect (not interaction)
-  B[grep("restricted:year_covariate", coef_names)] <- mpa_trend
+
+  # Calculate intercept from year effects (if conditioning model uses year as factor)
+  intercept_value <- if (any(grepl("year", b$term))) {
+    # mean(b[grep("year", b$term), "estimate"]) # use mean of year effects
+    b[grepl("fyear", b$term), ]$estimate[nrow(b[grepl("fyear", b$term), ])] # use last year
+  } else {
+    b$estimate[b$term == "(Intercept)"]
+  }
+
+  if (is.null(B)) {
+    B <- numeric(n_coef)
+    # Coefficients - @TODO: generalise this...
+    B[grep("(Intercept)", coef_names)] <- intercept_value
+    # If simulating with year as factor, option to use random draws of year effects
+    B[grep("fyear", coef_names)] <- sample(b[grepl("fyear", b$term), "estimate"], #
+      size = length(B[grep("fyear", coef_names)]), replace = TRUE)
+    B[grep("restrictedTRUE", coef_names)] <- 0
+    B[grep("year_covariate$", coef_names)] <- 0 # Main effect (not interaction)
+    B[grep("restricted:year_covariate", coef_names)] <- mpa_trend
+    # B[grep("poly(log_depth, 2)1", coef_names)] <- b$estimate[b$term == "poly(log_depth, 2)1"]
+    # B[grep("poly(log_depth, 2)2", coef_names)] <- b$estimate[b$term == "poly(log_depth, 2)2"]
+  }
 
   if (!is.null(rho_V)) {
     if (is.null(sigma_V)) {
@@ -382,34 +354,87 @@ simulate_hbll <- function(fit,
 
     # generate AR1 deviations
     message("- Generating AR1 deviations for ", length(year_covariate))
-    year_devs <- sim_ar1_deviations(rho = rho_V,
+    year_devs <- sim_ar1_deviations(
+      rho = rho_V,
       sigma = sigma_V,
       years = year_covariate
     )
-    year_indices <- grep("as.factor\\(year\\)", coef_names)
+    year_indices <- grep("fyear", coef_names)
 
     if (length(year_indices) > 0) {
       message("- Using ", length(year_indices), " year factors")
-        if ("(Intercept)" %in% coef_names) {
-          stop("Don't use both intercept and factor years. Use either '~ 0 + as.factor(year) + ...' or '~ 1 + restricted * year_covariate'")
-        }
+      if ("(Intercept)" %in% coef_names) {
+        stop("Don't use both intercept and factor years. Use either '~ 0 + as.factor(year) + ...' or '~ 1 + restricted * year_covariate'")
+      }
       # Year coefficients (for each factor level)
       last_year_intercept <- b |>
         filter(grepl("^fyear", term)) |>
         mutate(year = as.numeric(gsub("fyear", "", term))) |>
         filter(year == max(year))
       B[year_indices] <- year_devs + last_year_intercept$estimate # add AR1 deviations starting from last year intercept
-    # test <- b |> filter(grepl("fyear", term)) |> pull(estimate)
-    # plot(c(test, B[year_indices]))
     }
   }
 
-  log_mean_offset <- log(mean(exp(fit$data$offset), na.rm = TRUE))
-  offset <- rep(log_mean_offset, nrow(input_dat))
+  # Generate offsets or weights using draws from original data
+  if (!is.null(offset) && family(fit)$family != "betabinomial") {
+    if (!is.null(seed)) set.seed(seed)
+    offset <- sample(fit$data$offset, size = nrow(input_dat), replace = TRUE)
+  }
 
+  if (family(fit)$family == "betabinomial") {
+    if (!is.null(seed)) set.seed(seed)
+    weights <- sample(fit$data$hook_count, size = nrow(input_dat), replace = TRUE)
+  } else {
+    weights <- NULL
+  }
+
+  phi <- ifelse(is.null(phi), b$estimate[b$term == "phi"], phi)
+  range_val <- ifelse(is.null(range_val), b$estimate[b$term == "range"], range_val)
+
+  message("Simulating data for ", species, " ", survey_type)
+  message("- Formula: ", formula)
   message("- MPA trend: ", round(mpa_trend, 2) * 100, "%")
+  message("- Coef names: ", paste(coef_names, collapse = ", "))
+  message("- B: ", paste(round(B, 2), collapse = ", "))
+  message("- Fitted family: ", family$family)
+  message("- Parameter values: phi = ", round(phi, 1))
 
-  # Simulate data
+  # Prepare cache parameters ---------------------------------------------------
+  # Extract stable parameters - avoid raw fit object instability
+  final_params <- list(
+    fit_params = extract_model_params(fit),  # Stable fit components
+    data = input_dat,
+    weights = weights,
+    year_covariate = year_covariate,
+    mpa_trend = mpa_trend,
+    seed = seed,
+    formula = formula,
+    family = family,
+    fixed_spatial_re = fixed_spatial_re,
+    fixed_spatiotemporal_re = fixed_spatiotemporal_re,
+    rho_V = rho_V,
+    sigma_V = sigma_V,
+    phi = phi,
+    range = range_val,
+    B = B,
+    ...
+  )
+
+  # Create stable hash and check cache
+  sim_hash <- create_model_hash(final_params)
+
+  fname <- paste(c(species, survey_type, "sim", tag, substr(sim_hash, 1, 8)), collapse = "-") |>
+    gsub("[^a-zA-Z0-9_.-]", "-", x = _)
+  rds_file <- file.path(sim_dir, paste0(fname, ".rds"))
+
+  if (check_cache && file.exists(rds_file)) {
+    message("Cache hit. Loading simulation from: ", rds_file)
+    return(readRDS(rds_file))
+  }
+
+  message("Cache missing. Running simulation for: ", fname)
+
+  # Simulate data --------------------------------------------------------------
   sim_dat <- sdmTMB::sdmTMB_simulate(
     formula = formula,
     data = input_dat,
@@ -418,17 +443,34 @@ simulate_hbll <- function(fit,
     time = "year",
     # rho = ar1_rho, # affects AR1 deviations of the GMRF
     sigma_E = if (fixed_spatiotemporal_re) epsilon_st_sd else 0,
-    phi = if (is.null(phi)) b$estimate[b$term == "phi"] else phi,
-    range = b$estimate[b$term == "range"],
+    phi = phi,
+    range = range_val,
     fixed_re = fixed_re,
     B = B,
-    offset = offset,
+    # offset = offset,
+    weights = weights,
     seed = seed,
     ...
   ) |>
     as_tibble()
+# browser()
+  # to test --> try to match simulate.sdmTMB
+  # - start with the sampling data locations
+  # put in original fitted data as input_dat
+  # B should be your estimated B
+  # use the empirical bayes estimates for the omegas and epsilon_st in fixed_re
+  # offset should be original offset of data
 
-  sim_dat$offset <- log_mean_offset
+  # start with this -- not using the single year mean.
+  # - simulate forward the same number of years as the original data and then
+  # sample from the year effect estimates, sample with replacement
+  # formula = ~ 0 + fyear
+
+  # - once the matching simulate.sdmTMB, start changing one of each of the variables
+  # - e.g., start by using sigma_E and simulating the spatiotemporal random field
+
+  # sim_dat$offset <- offset
+  sim_dat$hook_count <- weights
 
   # # Add simulation parameters as attributes for tracking
   # attr(sim_dat, "simulation_params") <- list(
@@ -443,11 +485,10 @@ simulate_hbll <- function(fit,
   #   seed = seed
   # )
 
-  # Save to cache if save_sim is TRUE
+  # Save to cache
   if (save_sim) {
-    message("Cache file will be saved to: ", rds_file)
-    saveRDS(sim_dat, file = rds_file)
-    writeLines(current_hash, con = hash_file)
+    saveRDS(sim_dat, rds_file)
+    message("Simulation saved to: ", rds_file)
   }
 
   return(sim_dat)
