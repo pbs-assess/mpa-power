@@ -42,7 +42,8 @@ hbll_grid_poly <- gfdata::load_survey_blocks(type = "polygon") |>
 
 hbll_allocations <- readRDS(here::here("data-generated", "hbll-allocations.rds"))
 bait_counts <- readRDS(file.path(synopsis_cache, "bait-counts.rds"))
-comm_ll_activity_status <- readRDS(here::here("data-generated", "spatial", "comm-ll-draft-activity-status.rds"))
+simple_mpa <- readRDS(here::here("data-generated", "spatial", "simple-mpa.rds"))
+# comm_ll_activity_status <- readRDS(here::here("data-generated", "spatial", "comm-ll-draft-activity-status.rds"))
 # mpa_shape_simplified <- comm_ll_activity_status |> st_simplify(dTolerance = 100)
 
 # HBLL species data
@@ -68,9 +69,8 @@ sp_dat <- filter(sp_dat0, stringr::str_detect(survey_abbrev, "HBLL")) |>
 historical <- sp_dat |>
   mutate(x = X * 1000, y = Y * 1000) |>
   st_as_sf(coords = c("x", "y"), crs = 3156) |>
-  st_join(comm_ll_activity_status |> st_transform(crs = 3156), join = st_within) |>
-  mutate(activity_status_label = if_else(is.na(activity_status_label), "outside", activity_status_label)) |>
-  mutate(restricted = ifelse(activity_status_label == "outside", 0, 1)) |>
+  st_join(simple_mpa |> st_transform(crs = 3156), join = st_within) |>
+  mutate(restricted = ifelse(is.na(uid), 0, 1)) |>
   st_join(hbll_grid_poly |> select(block_id, grouping_code) |> st_transform(crs = 3156), join = st_within) |>
   st_drop_geometry() |>
   select(ssid, survey_abbrev, year, species_common_name, fishing_event_id, latitude, longitude, X, Y,
@@ -148,6 +148,7 @@ fit_IN <- fit_cached_sdmTMB(
 )
 
 # TODO: turn of random fields that fail - currently this just turns off spatiotemporal
+# TODO - add sanity check as tag in filename so that we can reload the appropriate cache?
 # and then spatial field sequentially if sanity checks keep failing.
 # Function to check sanity and refit if needed
 refit_if_failed <- function(fit, survey_name, sp, fit_dir) {
