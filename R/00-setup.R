@@ -1,5 +1,5 @@
 # Core libraries
-library(sdmTMB)
+library(sdmTMB) # pak::pkg_install("pbs-assess/sdmTMB@betabinomial")
 library(dplyr)
 library(ggplot2)
 library(here)

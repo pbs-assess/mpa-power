@@ -18,13 +18,6 @@ dir.create(fit_dir, recursive = TRUE, showWarnings = FALSE)
 dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
 dir.create(sim_cache, recursive = TRUE, showWarnings = FALSE)
 
-summarise_sanity <- function(fit) {
-    sanity_list <- sanity(fit, silent = TRUE) |> unlist()
-    sanity_false_names <- names(sanity_list)[!sanity_list]
-    sanity_str <- ifelse(length(sanity_false_names) == 0, "ok", paste(sanity_false_names, collapse = "; "))
-    gsub("_ok", "", sanity_str)
-  }
-
 # Zero counts
 get_zero_counts <- function(fit, historical, seed = NULL, zero_text = FALSE) {
   df <- plot_d(fit, historical, type = "ts", seed = seed, check_sanity = TRUE) |>

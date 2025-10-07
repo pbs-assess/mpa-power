@@ -536,10 +536,10 @@ simulate_hbll <- function(fit,
 #' This is particularly useful for simulating survey sampling scenarios where
 #' different areas or time periods may have different sampling intensities.
 #'
-sample_by_plan <- function(sim_dat,
-  sampling_effort,
-  grouping_vars = NULL
-  ) {
+sample_by_plan <- function(
+    sim_dat,
+    sampling_effort,
+    grouping_vars = NULL) {
   group_list <- sim_dat |>
     left_join(sampling_effort) |>
     group_by(!!!syms(grouping_vars)) |>
@@ -560,7 +560,6 @@ sample_by_plan <- function(sim_dat,
 #' @return ggplot object
 #'
 plot_sampling_plan <- function(sampled_data, plan_name) {
-
   # Create summary for text labels
   samp_summary <- sampled_data |>
     group_by(year, restricted) |>
@@ -573,8 +572,10 @@ plot_sampling_plan <- function(sampled_data, plan_name) {
 
   # Create the plot
   ggplot(data = plot_dat) +
-    geom_sf(data = mpa_shape_simplified, fill = "#0072B2",
-      colour = NA, alpha = 0.3) +
+    geom_sf(
+      data = mpa_shape_simplified, fill = "#0072B2",
+      colour = NA, alpha = 0.3
+    ) +
     # scale_fill_manual(name = "MPA status",
     #   values = c("not identified as concern" = "#0072B2",
     #     "currently restricted" = "#D55E00", "identified as concern" = "#F0E442",
@@ -585,13 +586,17 @@ plot_sampling_plan <- function(sampled_data, plan_name) {
     geom_sf(aes(colour = eta, shape = factor(restricted)), size = 1.2) +
     scale_shape_manual(name = "Restricted", values = c(`0` = 21, `1` = 19)) +
     scale_colour_viridis_c(name = "eta", option = "A", end = 0.8) +
-    facet_wrap(~ year, nrow = 5) +
+    facet_wrap(~year, nrow = 5) +
     plot_limits_combined +
-    theme(legend.position = "bottom",
+    theme(
+      legend.position = "bottom",
       # legend.position.inside = c(0.87, 0.1),
-      legend.box = "horizontal") +
-    geom_sf_text(data = samp_summary |> mutate(X = -126, Y = 54) |>
-      XY_to_sf(crs_from = 4326, crs_to = 4326),
-      aes(x = X, y = Y, label = paste0("n = ", n)), size = 3) +
+      legend.box = "horizontal"
+    ) +
+    geom_sf_text(
+      data = samp_summary |> mutate(X = -126, Y = 54) |>
+        XY_to_sf(crs_from = 4326, crs_to = 4326),
+      aes(x = X, y = Y, label = paste0("n = ", n)), size = 3
+    ) +
     ggtitle(plan_name)
 }
