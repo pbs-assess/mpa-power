@@ -112,7 +112,7 @@ hbll_out_clean_allocation <- hbll_out_allocation |>
 # Combine all HBLL allocations
 hbll_allocations <- bind_rows(
   hbll_ins_clean_allocation |> mutate(allocation = allocation_2021),
-  hbll_out_clean_allocation |> mutate(allocation = historical_allocation)
+  hbll_out_clean_allocation |> mutate(allocation = round((historical_allocation / 100) * 190)) # see pg. 3 Doherty 2019
 ) |>
   select(survey_series_id, pfma, grouping_code, strata_depth, allocation) |>
   left_join(survey_lu, by = "survey_series_id")
