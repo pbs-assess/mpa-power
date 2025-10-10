@@ -57,6 +57,12 @@ survey_lu <- tibble::tibble(
   survey_series_id = c(1, 3, 4, 16, 22, 36, 39, 40)
 )
 
+if (!file.exists(here::here("data-generated", "spatial", "simple-mpa.rds"))) {
+  source(here::here("R", "01-prepare-spatial-data.R"))
+} else {
+  simple_mpa <- readRDS(here::here("data-generated", "spatial", "simple-mpa.rds"))
+}
+
 if (!file.exists(file.path("data-generated", "hbll-restricted-sf.rds"))) {
   gfdata::load_survey_blocks(type = "XY") |>
     filter(stringr::str_detect(survey_abbrev, "HBLL")) |>
@@ -67,11 +73,6 @@ if (!file.exists(file.path("data-generated", "hbll-restricted-sf.rds"))) {
   saveRDS(file.path("data-generated", "hbll-restricted-sf.rds"))
 }
 
-if (!file.exists(here::here("data-generated", "spatial", "comm-ll-draft-activity-status.rds"))) {
-  source(here::here("R", "01-prepare-spatial-data.R"))
-} else {
-  message("REMINDER to JD - update/resend comm-ll-draft-activity-status.rds once final shapefile available")
-}
 # Something like this could be helpful to add later
 # make load data file - sean included this which was smart
 # dir.create("data-generated", showWarnings = FALSE)
