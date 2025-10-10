@@ -2,7 +2,7 @@
 library(sdmTMB) # pak::pkg_install("pbs-assess/sdmTMB@betabinomial")
 library(dplyr)
 library(ggplot2)
-library(here)
+# library(here)
 library(sf)
 
 theme_set(gfplot::theme_pbs())

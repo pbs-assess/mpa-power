@@ -305,7 +305,7 @@ species_list <- c(
   "quillback rockfish"
 )
 
-species_list <- "yelloweye rockfish"
+# species_list <- "yelloweye rockfish"
 
 # =============================================================================
 # Define simulation parameter scenarios

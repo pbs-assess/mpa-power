@@ -121,16 +121,16 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
 # fit_species("yelloweye rockfish")
 
 # Species list
-# sp_list <- c(
-#   "yelloweye rockfish",
-#   "north pacific spiny dogfish",
-#   "lingcod",
-#   "quillback rockfish"
-# )
+sp_list <- c(
+  "yelloweye rockfish",
+  "north pacific spiny dogfish",
+  "lingcod",
+  "quillback rockfish"
+)
 
 # All species in parallel (uncomment to run in parallel)
-# n_workers <- floor(parallel::detectCores() / 2)
-# future::plan(future::multisession, workers = n_workers)
-# all_fits <- furrr::future_map(sp_list, fit_species, .options = furrr::furrr_options(seed = TRUE))
-# future::plan(future::sequential)  # Reset to sequential
+n_workers <- floor(parallel::detectCores() / 2)
+future::plan(future::multisession, workers = n_workers)
+all_fits <- furrr::future_map(sp_list, fit_species, .options = furrr::furrr_options(seed = TRUE))
+future::plan(future::sequential)  # reset to sequential
 # meep()
