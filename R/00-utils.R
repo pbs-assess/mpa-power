@@ -194,24 +194,24 @@ create_model_hash <- function(params, debug = FALSE) {
   digest::digest(stable_state, algo = "xxhash64")
 }
 
-# Simple file-based caching
-cache_model <- function(model_name, fit_dir, fit_function, check_cache = TRUE) {
-  dir.create(fit_dir, showWarnings = FALSE, recursive = TRUE)
-  rds_file <- file.path(fit_dir, paste0(model_name, ".rds"))
+# # Simple file-based caching
+# cache_model <- function(model_name, fit_dir, fit_function, check_cache = TRUE) {
+#   dir.create(fit_dir, showWarnings = FALSE, recursive = TRUE)
+#   rds_file <- file.path(fit_dir, paste0(model_name, ".rds"))
 
-  if (check_cache && file.exists(rds_file)) {
-    message("Cache hit. Loading model from: ", rds_file)
-    return(readRDS(rds_file))
-  }
+#   if (check_cache && file.exists(rds_file)) {
+#     message("Cache hit. Loading model from: ", rds_file)
+#     return(readRDS(rds_file))
+#   }
 
-  message("Cache missing. Fitting model for: ", model_name)
-  fit <- fit_function()
+#   message("Cache missing. Fitting model for: ", model_name)
+#   fit <- fit_function()
+# browser()
+#   saveRDS(fit, rds_file)
+#   message("Model saved to: ", rds_file)
 
-  saveRDS(fit, rds_file)
-  message("Model saved to: ", rds_file)
-
-  return(fit)
-}
+#   return(fit)
+# }
 
 # TODO document
 summarise_sanity <- function(fit) {
@@ -219,4 +219,64 @@ summarise_sanity <- function(fit) {
     sanity_false_names <- names(sanity_list)[!sanity_list]
     sanity_str <- ifelse(length(sanity_false_names) == 0, "ok", paste(sanity_false_names, collapse = "; "))
     gsub("_ok", "", sanity_str)
+  }
+
+update_collapsed_rf <- function(fit) {
+  rp <- sdmTMB::tidy(fit, "ran_pars")
+  rp$collapsed <- rp$estimate < 0.01
+
+  spatial <- if ("sigma_O" %in% rp$term && rp$collapsed[rp$term == "sigma_O"]) {
+    "off"
+  } else {
+    fit$spatial
+  }
+
+  spatiotemporal <- if ("sigma_E" %in% rp$term && rp$collapsed[rp$term == "sigma_E"]) {
+    "off"
+  } else {
+    fit$spatiotemporal
+  }
+
+  needs_refit <- (spatial != fit$spatial) || (spatiotemporal != fit$spatiotemporal)
+
+  list(
+    spatial = spatial,
+    spatiotemporal = spatiotemporal,
+    needs_refit = needs_refit
+  )
+}
+
+#' Setup parallel or sequential processing
+#'
+#' @param use_parallel Logical. Use parallel processing?
+#' @param n_workers Number of workers for parallel processing
+#'
+#' @return A map function (either purrr::map or furrr::future_map)
+setup_parallel <- function(use_parallel, n_workers = NULL) {
+  if (use_parallel) {
+    if (is.null(n_workers)) n_workers <- floor(parallel::detectCores() / 2)
+    future::plan(future::multisession, workers = n_workers)
+    message("Using ", n_workers, " parallel workers")
+    return(furrr::future_map)
+  } else {
+    future::plan(future::sequential)
+    message("Using sequential processing")
+    return(purrr::map)
+  }
+}
+
+clean_family_name <- function(fit) {
+    if (!is.null(fit$family$delta)) {
+      # Delta model - sdmTMB style: "Delta family1(link1), family2(link2)"
+      fam1 <- fit$family$family[[1]]
+      fam2 <- fit$family$family[[2]]
+      link1 <- fit$family$link[[1]]
+      link2 <- fit$family$link[[2]]
+      paste0("Delta ", fam1, "(", link1, "), ", fam2, "(", link2, ")")
+    } else {
+      # Regular model - sdmTMB style: "family(link)"
+      fam <- fit$family$family
+      link <- fit$family$link
+      paste0(fam, "(", link, ")")
+    }
   }

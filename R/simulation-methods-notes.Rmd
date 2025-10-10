@@ -40,10 +40,13 @@ fixed_spatial_re = FALSE:
 In our simulated data we 
 - use conditional spatial random fields, where each simulation replicate uses a spatial random field that is drawn from the posterior distribution of the spatial field.
 - use the best estimate of the range parameter from the conditioning model (but if fixed re, then range not actually used?)
+- simulate a spatiotemporal random field using the estimated spatiotemporal standard deviation from the conditioning model, sigma_E (marginal approach to RF parameterization)
 - phi; we use the dispersion parameter estimated from the conditioning model to add observation error each simulated observations, assuming a negative binomial distribution of the form: NB2(\mu,\phi), where Var(Y) = \mu + \mu^2/\phi
 mesh: we used the same mesh as was used in the conditioning model
+- 
 
-### AR(1) parameterization
+
+### AR(1) parameterization - TODO: EDIT THIS SECTION
 
 #### What we do in our simulation
 General notes as I try and really understand what we are doing and why:
@@ -55,10 +58,10 @@ General notes as I try and really understand what we are doing and why:
 - we use the sigma_E from the conditioning model and use this as the marginal standard deviation of the AR1 process. (do I need to remember that Var(epsilon_st) = sigma_E^2 for each year?)
 - we fit IID conditioning model, implications:
   - Why not fit AR(1): 
-    * we are more likely to get a model that converges because we don't have to estimate the extra \rho parameter, already HBLL INS N yelloweye doesn't convert with st on
+    * we are more likely to get a model that converges because we don't have to estimate the extra \rho parameter - TRUE?
     * IID provides more conservative estimates of temporal variation - because it assumes that spatiotemporal random effects are indedependt each year (i.e., no autocorrelation, which is highly unlikely, such that previous year latent effects, - environmental conditions, don't affect the next year)
-    * note: tried fitting AR(1) to HBLL OUT yelloweye, and they didn't converge.
-- Question: What should we do about choosing rho?
+- Question: What should we do about choosing rho? - rho is something we specifically toggle in our parameters
+- significance/implications of rho? - stronger/weaker environmental forcing?
 - We use the model form `0 + as.factor(year_covariate) + restricted * year_covariate`, such that each year is the intercept from the conditioning model plus an innovation from the AR(1) process.
 
 An AR1 (first-order autoregressive) process follows: `X_t = ρ * X_{t-1} + ε_t * √(1-ρ²)`
@@ -67,3 +70,170 @@ Where:
 - `ρ` is the correlation parameter (-1 to 1)
 - `ε_t ~ N(0, σ²)` are independent innovations
 - `√(1-ρ²)` ensures stationary variance
+
+Conceptually:
+  - Baseline abundance: The underlying "expected" abundance level for each year (intercept_value)
+  - AR(1) deviations: Year-to-year fluctuations around that baseline due to environmental variation, autocorrelated across time
+
+  Mathematically:
+  - AR(1) process generates deviations centered at 0 with proper temporal correlation
+  - These deviations are then added to the baseline: log(abundance) = baseline + AR1_deviation
+
+  Practically:
+  - Makes the code more modular and easier to understand
+  - Allows you to easily switch AR(1) on/off without affecting baseline calculations
+  - Matches how sdmTMB and other mixed models typically structure random effects
+
+  Your current approach is correct:
+  1. sim_ar1_deviations() generates temporally correlated deviations around 0
+  2. In simulate_hbll(), you add these to the baseline: B[year_indices] <- year_devs + intercept_value
+
+  This separation also makes it easier to:
+  - Debug each component independently
+  - Adjust temporal correlation without affecting mean levels
+  - Understand which part controls what aspect of the simulation
+
+### Simulation mean and offset
+
+$$\mathbb{E}[y_{\bf{s},t}] = \mu_{\bf{s},t}$$
+$$\mu_{\bf{s},t} = f^{-1}(\bf{X}_{\bf{s},t}^{main}\bf{\Beta} + O_{\bf{s},t} + \omega_{\bf{s}} + \epsilon_{\bf{s},t})$$
+
+Where:
+* $\bf{X}_{\bf{s},t}^{main}$ is the design matrix for the fixed effects
+* $\mu$ is the mean expected catch count at location $\bf{s}$ (bold s?) and year $t$
+* $f^{-1}$ is the inverse link function (exp); $f$ is the link function (log)
+* $\bf{\Beta}$ is the vector of fixed effect coefficients
+* $O_{\bf{s},t}$ is the offset (log(hook_count / hook_adjust_factor)). In the simulation we set the offset to the mean of the exp(offset) of the conditioning model for each survey and species.
+* $\omega_{\bf{s}}$ is the spatial random field  $\omega_{\bf{s}} \sim MVN(0, \sigma_{omega})$. In the simulation we used a single draw of the spatial random field that was estimated from the conditioning model - i.e., this was different for each simulation replicate.
+* $\epsilon_{\bf{s},t}$ is the spatiotemporal random field $\epsilon_{\bf{s},t} \sim MVN(0, \sigma_{epsilon})$. In the simulation we used 
+
+We simulated observations from a negative binomial (NB2) distribution with mean $\mu_{\bf{s},t}$ and dispersion parameter $\phi$:
+
+$y_{\bf{s},t} \sim NB2(\mu_{\bf{s},t}, \phi)$
+
+In the NB2 the variance scales linearly with the mean such that:
+
+$$Var(y) = \mu + \mu^2/\phi$$
+
+where $\mu$ is the mean of the NB2 distribution.
+
+In the simulation output:
+* $\mu$ = true value in inverse link space; $\mu = exp(\eta)$; it is the actual expected catch count (without observation error)
+* $\eta$ = true value in link space; it is the linear predictor: $\eta = X\beta + offset + spatial terms$ 
+
+
+
+The NB2 distribution is a generalization of the Poisson distribution that allows for overdispersion.
+
+
+Conditioning model estimated IID means for each year as a factor.
+For the simulation, we used the mean of the conditioning model's year effects as the intercept. mean(fyear coefficients)
+We generated annual deviations from the mean using an AR(1) with marginal standard deviation, sigma_V, and correlation parameter, rho_V.
+
+
+
+
+#### The Challenge with Offsets in Simulation
+
+The core challenge in our simulation relates to how offsets are handled between the conditioning model and the simulation process.
+
+
+**In the conditioning model:**
+- Observations are modeled as: `log(E[catch_count]) = η + offset`
+- Where `η` is the linear predictor and `offset = log(hook_count)`
+- Year effects (fyear coefficients) represent log catch rates per hook, not absolute catch counts
+
+
+
+**The key issue:**
+When we use year effects as intercepts for simulation, we must account for the fact that these coefficients were estimated relative to the offset scale used during model fitting.
+
+#### Mathematical Formulation
+
+**Conditioning Model:**
+```
+log(λᵢ) = β₀ + βᵧ · year + βᵣ · restricted + βᵣᵧ · (restricted × year) + log(hook_countᵢ) + spatial terms
+```
+
+Where:
+- `λᵢ` is the expected catch count at location i
+- `βᵧ` are the year coefficients (typically fyear2007, fyear2009, etc.)
+- `log(hook_countᵢ)` is the offset for each observation
+
+**For simulation, the mean parameter becomes:**
+```
+log(μᵢⱼ) = intercept_value + β₁ · restrictedᵢ + β₂ · year_covariateⱼ + β₃ · (restrictedᵢ × year_covariateⱼ) + log(mean_hook_count)
+```
+
+#### Offset Calculation in simulate_hbll()
+
+**Lines 452-453:**
+```r
+log_mean_offset <- log(mean(exp(fit$data$offset), na.rm = TRUE))
+offset <- rep(log_mean_offset, nrow(input_dat))
+```
+
+**This calculates:**
+1. `exp(fit$data$offset)` - converts log hook counts back to hook counts
+2. `mean(...)` - takes the mean hook count across all historical observations  
+3. `log(...)` - converts back to log scale for use as offset
+
+**Lines 470 & 476:**
+```r
+# Pass offset directly to sdmTMB_simulate
+sdmTMB_simulate(..., offset = offset, ...)
+
+# Also store in output for downstream use
+sim_dat$offset <- log_mean_offset
+```
+
+#### Why This Approach Works
+
+1. **Intercept calculation (line 405-406):** Uses `mean(b[grep("year", b$term), "estimate"])` which gives the average log catch rate per hook across all historical years
+
+2. **Offset addition:** The `offset` parameter in `sdmTMB_simulate()` effectively transforms this from "log catch rate per hook" to "log total catch count" by adding the log mean hook count
+
+3. **Final equation:** The simulation generates catch counts from:
+   ```
+   log(μ) = intercept_value + offset + other terms
+         = mean(fyear coefficients) + log(mean_hook_count) + other terms
+   ```
+
+This ensures that simulated catch counts are on the same scale as the original observations, accounting for the hook count scale that was implicit in the conditioning model's year effects.
+
+
+> explain this to me again: In the simulation output:
+  * $\mu$ = true value in inverse link space
+  * $\eta$ = true value in link space
+
+In GLMs:
+
+  Link space (η - "eta"):
+  - This is the linear predictor: η = Xβ + offset + spatial terms
+  - For log-link: η = log(μ)
+  - This is what gets calculated "behind the scenes" in the model
+  - Can take any real value (-∞ to +∞)
+
+  Inverse link space (μ - "mu"):
+  - This is the expected response: μ = f⁻¹(η) where f⁻¹ is the inverse link function
+  - For log-link: μ = exp(η)
+  - This is the actual expected catch count (always positive)
+  - This is what we care about biologically
+
+  In Your Simulation Context:
+
+  η (link space):
+  η = intercept + β₁·restricted + β₂·year_covariate + β₃·(restricted×year_covariate) + log(hook_count) + ω_s + ε_st
+  - Could be something like: η = -2.3 + 0.1×restricted + 0.05×year + spatial terms
+  - Includes the log(hook_count) offset
+
+  μ (inverse link space):
+  μ = exp(η)
+  - This gives the expected number of fish caught
+  - If η = -2.3, then μ = exp(-2.3) ≈ 0.1 fish expected
+
+  Why This Matters:
+
+  - Your year coefficients (like -4.7) are in link space (η)
+  - Your expected catch counts are in inverse link space (μ)
+  - The offset issue you solved was about making sure the transformation from η to μ accounts for hook counts properly

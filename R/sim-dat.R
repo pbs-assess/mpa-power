@@ -159,17 +159,6 @@ meep()
 #   tag = "ar1"
 # )
 
-# TODO: evaluate and compare conditioning models: see - https://github.com/mis-assess/shrimp_surveydesign_csas/blob/794abdf0d4657dff5ed3316fe876b58afab0dd83/Reproducible_Examples/coastwide-density.R#L157
-fit <- fit_OS
-s_nb2 <- simulate(fit, nsim = 500, type = "mle-mvn")
-r_nb2 <- dharma_residuals(s_nb2, fit, return_DHARMa = TRUE)
-plot(r_nb2)
-DHARMa::testResiduals(r_nb2)
-sp_r <- DHARMa::recalculateResiduals(s_nb2, group = fit$data$fyear)
-DHARMa::testSpatialAutocorrelation(r_nb2,
-  x = fit$data$X,
-  y = fit$data$Y)
-DHARMa::testZeroInflation(r_nb2)
 
 
 # -----------------------------------------------------------------------------
@@ -299,7 +288,7 @@ sim_dat_sf <- XY_to_sf(sim_dat0)
 
 sp_dat_block_id <- sp_dat |>
   select(ssid, survey_abbrev, year, latitude, longitude, grouping_code, hook_count, catch_count) |>
-  XY_to_sf(x_col = "longitude", y_col = "latitude", mult = 1, crs_from = 4326, crs_to = 32609) |>
+  XY_to_sf(coords = c("longitude", "latitude"), mult = 1, crs_from = 4326, crs_to = 32609) |>
   # XY_to_sf(crs_to = st_crs(hbll_grid_poly)) |>
   st_join(hbll_grid_poly |>
     rename(survey_abbrev_grid = survey_abbrev, grouping_code_grid = grouping_code),
@@ -580,14 +569,14 @@ p2 <- local(plot_sampling_plan(samp2, plan_name_2))
 sp_dat |>
   select(ssid, survey_abbrev, year, latitude, longitude, grouping_code) |>
   # select(ssid, year, latitude, longitude, grouping_code) |>
-  XY_to_sf(x_col = "longitude", y_col = "latitude", mult = 1, crs_from = 4326, crs_to = 32609) |>
+  XY_to_sf(coords = c("longitude", "latitude"), mult = 1, crs_from = 4326, crs_to = 32609) |>
   st_join(hbll_grid_poly, join = st_within) |>
   st_drop_geometry() |>
   # filter(is.na(block_id))
   # distinct(ssid, grouping_code.x, grouping_code.y, block_id) |>
   filter(is.na(block_id)) |>
   # filter(grouping_code.x < 317) |>
-  XY_to_sf(x_col = "longitude", y_col = "latitude", mult = 1, crs_from = 4326, crs_to = 32609) |>
+  XY_to_sf(coords = c("longitude", "latitude"), mult = 1, crs_from = 4326, crs_to = 32609) |>
   ggplot() +
     geom_sf(data = pacea::bc_coast, fill = "grey94", colour = "grey90") +
     geom_sf(data = hbll_grid_poly, aes(fill = survey_abbrev), colour = NA, alpha = 0.3) +
@@ -602,7 +591,7 @@ ggsave(here::here("draft-figures", "hbll-ins-n-NA-grid-locations.pdf"), width = 
 # Identify which sampled locations are inside/outside MPA polygons
 sp_dat_mpa_status <- sp_dat |>
   select(ssid, survey_abbrev, year, latitude, longitude, grouping_code) |>
-  XY_to_sf(x_col = "longitude", y_col = "latitude", mult = 1, crs_from = 4326,
+  XY_to_sf(coords = c("longitude", "latitude"), mult = 1, crs_from = 4326,
     crs_to = st_crs(comm_ll_activity_status)) |>
   st_join(comm_ll_activity_status, join = st_within) |>
   mutate(
@@ -616,7 +605,7 @@ janitor::tabyl(sp_dat_mpa_status, year, in_mpa) |>
   reframe(prop = mean(prop), n = mean(`1`))
 
 sp_dat_mpa_status |>
-  XY_to_sf(x_col = "longitude", y_col = "latitude", mult = 1, crs_from = 4326, crs_to = 32609) |>
+  XY_to_sf(coords = c("longitude", "latitude"), mult = 1, crs_from = 4326, crs_to = 32609) |>
   ggplot() +
     geom_sf(data = pacea::bc_coast, fill = "grey94", colour = "grey90") +
     geom_sf(data = mpa_shape_simplified, fill = "grey85", colour = "grey85") +
@@ -630,7 +619,7 @@ ggsave(here::here("draft-figures", "HBLL-sampled-inside-outside-mpa.pdf"), width
 # Get unique MPA locations with grid information
 sampled_mpa_locations_with_grid <- sp_dat_mpa_status |>
   # select(-survey_abbrev, -grouping_code) |> # simplest to remove from one or the other dataframes
-  XY_to_sf(x_col = "longitude", y_col = "latitude", mult = 1, crs_from = 4326, crs_to = 32609) |>
+  XY_to_sf(coords = c("longitude", "latitude"), mult = 1, crs_from = 4326, crs_to = 32609) |>
   st_join(hbll_grid_poly, join = st_within)
 
 unique_samples_in_mpa <- bind_rows(

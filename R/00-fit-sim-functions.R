@@ -19,7 +19,8 @@ prep_hbll_data <- function(dat, bait_counts) {
 #' Fit sdmTMB model to HBLL survey data
 # TODO: document
 fit_cached_sdmTMB <- function(fit_dir, check_cache = TRUE, update_from = NULL,
-                              model_tag = NULL, debug = FALSE, ...) {
+                              model_tag = NULL, refit_on_collapse = FALSE,
+                              debug = FALSE, ...) {
 
   if (!is.null(update_from)) {
     # For model updates: merge base parameters with new ones
@@ -28,7 +29,6 @@ fit_cached_sdmTMB <- function(fit_dir, check_cache = TRUE, update_from = NULL,
     final_params <- modifyList(base_params, update_args)
 
     # Create hash and fit function
-    model_hash <- create_model_hash(final_params, debug)
     fit_function <- local({
       function() {
         do.call(update, c(list(object = update_from), update_args))
@@ -40,13 +40,17 @@ fit_cached_sdmTMB <- function(fit_dir, check_cache = TRUE, update_from = NULL,
     final_params <- list(...)
 
     # Create hash and fit function
-    model_hash <- create_model_hash(final_params, debug)
     fit_function <- local({
       function() {
         do.call(sdmTMB, final_params)
       }
     })
   }
+
+  # Include refit_on_collapse in hash so we know this model may have simplified fields
+  hash_params <- final_params
+  hash_params$refit_on_collapse <- refit_on_collapse
+  model_hash <- create_model_hash(hash_params, debug)
 
   # Generate model name
   if (!is.null(model_tag)) {
@@ -55,13 +59,47 @@ fit_cached_sdmTMB <- function(fit_dir, check_cache = TRUE, update_from = NULL,
     model_name <- paste0("sdmTMB-", model_hash)
   }
 
-  # Cache and return
-  cache_model(
-    model_name = model_name,
-    fit_dir = fit_dir,
-    fit_function = fit_function,
-    check_cache = check_cache
+  # Check cache first
+  dir.create(fit_dir, showWarnings = FALSE, recursive = TRUE)
+  rds_file <- file.path(fit_dir, paste0(model_name, ".rds"))
+
+  if (check_cache && file.exists(rds_file)) {
+    message("Cache hit. Loading model from: ", rds_file)
+    return(readRDS(rds_file))
+  }
+
+  # Fit initial model (don't cache yet if refit_on_collapse = TRUE)
+  message("Cache missing. Fitting model for: ", model_name)
+
+  fit <- fit_function()
+
+  # Check for collapsed random fields and refit if needed
+  if (refit_on_collapse) {
+    rf_update <- update_collapsed_rf(fit)
+
+    if (rf_update$needs_refit) {
+      message("Random field(s) collapsed. Refitting with spatial = '",
+              rf_update$spatial, "', spatiotemporal = '", rf_update$spatiotemporal, "'")
+
+      fit <- update(fit,
+                    spatial = rf_update$spatial,
+                    spatiotemporal = rf_update$spatiotemporal)
+    }
+  }
+
+  # Store sanity check results on final model
+  sanity_result <- sdmTMB::sanity(fit, silent = TRUE)
+  fit$sanity_check <- list(
+    passed = all(unlist(sanity_result)),
+    details = sanity_result,
+    sdmTMB_version = as.character(packageVersion("sdmTMB"))
   )
+
+  # Cache the final model
+  saveRDS(fit, rds_file)
+  message("Model saved to: ", rds_file)
+
+  return(fit)
 }
 
 #' Predict from fitted sdmTMB model
@@ -277,6 +315,12 @@ simulate_hbll <- function(fit,
   # Get the model parameters
   b <- get_model_pars(fit)
 
+  # Calculate sigma_V default if NULL (SD of year effects)
+  if (is.null(sigma_V) && !is.null(rho_V)) {
+    sigma_V <- sd(b$estimate[grepl("fyear", b$term)])
+    message("Using default sigma_V = ", round(sigma_V, 3), " (SD of year effects)")
+  }
+
   # Fixed random effects (get single draw from rf distributions)
   osp <- one_sample_posterior(fit)
   omega_s <- if (fixed_spatial_re) {
@@ -472,6 +516,9 @@ simulate_hbll <- function(fit,
   # sim_dat$offset <- offset
   sim_dat$hook_count <- weights
 
+  # Add survey abbreviation to output
+  sim_dat$survey_abbrev <- survey_type
+
   # # Add simulation parameters as attributes for tracking
   # attr(sim_dat, "simulation_params") <- list(
   #   survey_abbrev = unique(fit$data$survey_abbrev),
@@ -521,6 +568,8 @@ simulate_hbll <- function(fit,
 #'   Common grouping variables include `c("survey_abbrev", "year")` to sample
 #'   separately for each survey and year combination. If `NULL`, no grouping
 #'   is applied and sampling is done across the entire dataset.
+#' @param seed Random seed for reproducibility. If NULL, sampling is not reproducible.
+#'   For power analysis with Monte Carlo replicates, use the replicate number as seed.
 #'
 #' @return A data frame containing the sampled observations. The structure
 #'   matches the input `sim_dat` but with fewer rows based on the sampling
@@ -539,9 +588,16 @@ simulate_hbll <- function(fit,
 sample_by_plan <- function(
     sim_dat,
     sampling_effort,
-    grouping_vars = NULL) {
+    grouping_vars = NULL,
+    seed = NULL) {
+
+  if (!is.null(seed)) set.seed(seed)
+
   group_list <- sim_dat |>
-    left_join(sampling_effort) |>
+    left_join(sampling_effort, by = join_by(year, X, Y, restricted,
+      survey_abbrev, block_id, grouping_code, survey_series_id,
+      pfma, strata_depth, allocation)) |>
+    drop_na(n_samps) |>
     group_by(!!!syms(grouping_vars)) |>
     group_split()
 

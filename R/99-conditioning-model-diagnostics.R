@@ -11,7 +11,7 @@ library(patchwork)
 library(digest)
 
 # Setup directories
-fit_dir <- here::here("data-generated", "fits")
+fit_dir <- here::here("data-generated", "fits/model-comparison-supplement")
 fig_dir <- here::here("draft-figures", "diagnostics")
 sim_cache <- here::here("data-generated", "sim-cache")
 dir.create(fit_dir, recursive = TRUE, showWarnings = FALSE)
@@ -229,8 +229,7 @@ hbll_grid_poly <- gfdata::load_survey_blocks(type = "polygon") |>
 
 hbll_allocations <- readRDS(here::here("data-generated", "hbll-allocations.rds"))
 bait_counts <- readRDS(file.path(synopsis_cache, "bait-counts.rds"))
-comm_ll_activity_status <- readRDS(here::here("data-generated", "spatial", "comm-ll-draft-activity-status.rds"))
-mpa_shape_simplified <- comm_ll_activity_status |> st_simplify(dTolerance = 100)
+simple_mpa <- readRDS(here::here("data-generated", "spatial", "simple-mpa.rds"))
 
 # HBLL species data
 sp <- sp_to_hyphens("yelloweye rockfish")
@@ -238,9 +237,7 @@ sp <- sp_to_hyphens("north pacific spiny dogfish")
 sp <- sp_to_hyphens("lingcod")
 sp <- sp_to_hyphens("quillback rockfish")
 
-devtools::load_all("~/R_DFO/sdmTMB")
-
-source(here::here("R", "caching-functions.R"))
+# source(here::here("R", "caching-functions.R"))
 
 sp_list <- c("yelloweye rockfish", "north pacific spiny dogfish", "lingcod", "quillback rockfish")
 for (sp in sp_to_hyphens(sp_list)) {
@@ -257,12 +254,10 @@ sp_dat <- filter(sp_dat0, stringr::str_detect(survey_abbrev, "HBLL")) |>
   )
 
 historical <- sp_dat |>
-  mutate(x = X * 1000, y = Y * 1000) |>
-  st_as_sf(coords = c("x", "y"), crs = 3156) |>
-  st_join(comm_ll_activity_status |> st_transform(crs = 3156), join = st_within) |>
-  mutate(activity_status_label = if_else(is.na(activity_status_label), "outside", activity_status_label)) |>
-  mutate(restricted = ifelse(activity_status_label == "outside", 0, 1)) |>
-  st_join(hbll_grid_poly |> select(block_id, grouping_code) |> st_transform(crs = 3156), join = st_within) |>
+  XY_to_sf(crs_to = 32609) |>
+  st_join(simple_mpa |> st_transform(crs = 32609), join = st_within) |>
+  mutate(restricted = ifelse(is.na(uid), 0, 1)) |>
+  st_join(hbll_grid_poly |> select(block_id, grouping_code), join = st_within) |>
   st_drop_geometry() |>
   select(ssid, survey_abbrev, year, species_common_name, fishing_event_id, latitude, longitude, X, Y,
     block_id, fe_grouping_code = grouping_code.x, grouping_code = grouping_code.y,
@@ -281,11 +276,6 @@ historical <- sp_dat |>
 #   st_as_sf()
 
 # plot_limits_combined <- get_plot_limits(combined, buffer = 1000)
-
-
-# Set up fit directory for caching
-fit_dir <- here::here("data-generated", "fits")
-dir.create(fit_dir, showWarnings = FALSE, recursive = TRUE)
 
 # Prepare data and meshes
 d_IN <- sp_dat |> filter(survey_abbrev == "HBLL INS N")

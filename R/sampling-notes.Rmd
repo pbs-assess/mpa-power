@@ -60,7 +60,7 @@ historical <- left_join(sp_dat0, strata, by = c("survey_series_id", "grouping_co
 
 # Ok, turns out there are quite a few grouping codes that don't seem to match what they should be. I guess worth following up on so these get fixed.
 historical |>
-  XY_to_sf(x_col = "longitude", y_col = "latitude", crs_from = 4326) |>
+  XY_to_sf(coords = c("longitude", "latitude"), crs_from = 4326) |>
   ggplot() +
   geom_sf(aes(colour = min_depth_m), size = 0.5) +
   scale_colour_viridis_c(direction = -1)

@@ -19,12 +19,53 @@ dir.create(here::here("data-generated", "spatial"), recursive = TRUE, showWarnin
 hbll_ssids <- c(22, 36, 39, 40)
 syn_ssids <- c(1, 3, 4, 16)
 
+if (!file.exists(file.path("data-generated", "hbll-last-sampled-year.rds")) |
+    !file.exists(file.path("data-generated", "historical-locations.rds"))) {
+  d0 <- readRDS(file.path(synopsis_cache, "yelloweye-rockfish.rds"))$survey_sets
+  simple_mpa <- readRDS(file.path("data-generated", "spatial", "simple-mpa.rds"))
+  hbll_grid_poly <- gfdata::load_survey_blocks(type = "polygon") |>
+    filter(survey_series_id %in% c(22, 36, 39))
+  hbll_last_sampled_year <- d0 |>
+    filter(survey_series_id.x %in% hbll_ssids) |>
+    group_by(survey_abbrev) |>
+    slice(which.max(year)) |>
+    select(ssid = survey_series_id.x, survey_abbrev, last_sampled_year = year) |>
+    filter(ssid != 40)
+    saveRDS(hbll_last_sampled_year, file.path("data-generated", "hbll-last-sampled-year.rds"))
+
+
+  historical_locations <- d0 |>
+    filter(stringr::str_detect(survey_abbrev, "HBLL")) |>
+    filter(survey_abbrev != "HBLL INS S") |> # may as well remove this up here
+    add_utm_columns() |>
+    XY_to_sf(crs_to = 32609) |>
+    st_join(simple_mpa |> st_transform(crs = 32609), join = st_within) |>
+    mutate(restricted = ifelse(is.na(uid), 0, 1)) |>
+    st_join(hbll_grid_poly |> select(block_id, grouping_code), join = st_within) |>
+    st_drop_geometry() |>
+    # select(ssid = survey_series_id.x, survey_abbrev, year, fishing_event_id,
+    #   latitude, longitude, X, Y,block_id,
+    #   fe_grouping_code = grouping_code.x, grouping_code = grouping_code.y, restricted)
+    distinct(survey_abbrev, block_id, latitude, longitude, X, Y)
+  saveRDS(historical_locations, file.path("data-generated", "historical-locations.rds"))
+}
+
 survey_lu <- tibble::tibble(
   survey_abbrev = c("SYN QCS", "SYN HS", "SYN WCVI", "SYN WCHG",
                     "HBLL OUT N", "HBLL OUT S",
                     "HBLL INS N", "HBLL INS S"),
   survey_series_id = c(1, 3, 4, 16, 22, 36, 39, 40)
 )
+
+if (!file.exists(file.path("data-generated", "hbll-restricted-sf.rds"))) {
+  gfdata::load_survey_blocks(type = "XY") |>
+    filter(stringr::str_detect(survey_abbrev, "HBLL")) |>
+    XY_to_sf(crs_to = 32609) |>
+    filter(stringr::str_detect(survey_abbrev, "HBLL")) %>%
+    st_join(., simple_mpa |> st_transform(crs = st_crs(.)), join = st_within) |>
+    mutate(restricted = ifelse(is.na(uid), 0, 1)) |>
+  saveRDS(file.path("data-generated", "hbll-restricted-sf.rds"))
+}
 
 if (!file.exists(here::here("data-generated", "spatial", "comm-ll-draft-activity-status.rds"))) {
   source(here::here("R", "01-prepare-spatial-data.R"))
