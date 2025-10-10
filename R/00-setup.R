@@ -1,5 +1,5 @@
 # Core libraries
-library(sdmTMB) # pak::pkg_install("pbs-assess/sdmTMB@betabinomial")
+library(sdmTMB)
 library(dplyr)
 library(ggplot2)
 library(here)
@@ -33,7 +33,7 @@ if (!file.exists(file.path("data-generated", "hbll-last-sampled-year.rds")) |
     filter(ssid != 40)
     saveRDS(hbll_last_sampled_year, file.path("data-generated", "hbll-last-sampled-year.rds"))
 
-
+# Really slow on remote server (I think because old RGEOS and RGDAL?)
   historical_locations <- d0 |>
     filter(stringr::str_detect(survey_abbrev, "HBLL")) |>
     filter(survey_abbrev != "HBLL INS S") |> # may as well remove this up here
@@ -71,6 +71,11 @@ if (!file.exists(file.path("data-generated", "hbll-restricted-sf.rds"))) {
     st_join(., simple_mpa |> st_transform(crs = st_crs(.)), join = st_within) |>
     mutate(restricted = ifelse(is.na(uid), 0, 1)) |>
   saveRDS(file.path("data-generated", "hbll-restricted-sf.rds"))
+}
+
+# Setup allocations
+if (!file.exists(file.path("data-generated", "hbll-allocations.rds"))) {
+  source(here::here("R", "prep-survey-allocations.R"))
 }
 
 # Something like this could be helpful to add later
