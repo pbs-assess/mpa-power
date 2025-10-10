@@ -254,7 +254,7 @@ update_collapsed_rf <- function(fit) {
 #' @return A map function (either purrr::map or furrr::future_map)
 setup_parallel <- function(use_parallel, n_workers = NULL) {
   if (use_parallel) {
-    if (is.null(n_workers)) n_workers <- floor(parallel::detectCores() / 2)
+    if (is.null(n_workers)) n_workers <- floor(future::availableCores() / 2)
 
     # Use multicore on hake server (Unix fork), multisession elsewhere (Windows-safe)
     if (Sys.info()['user'] %in% c("dunic", "anderson")) {

@@ -305,7 +305,7 @@ species_list <- c(
   "quillback rockfish"
 )
 
-species_list <- "yelloweye rockfish"
+# species_list <- "yelloweye rockfish"
 
 # =============================================================================
 # Define simulation parameter scenarios
@@ -346,11 +346,11 @@ formula_scenarios <- tribble(
 #   - 5 replicates per combination
 # Total: 3 × 2 × 1 × 1 × 5 = 30 simulations per species
 param_grid <- create_sim_param_grid(
-  mpa_trend = c(1, 1.02, 1.05),           # Multiplicative annual trend in MPAs
+  mpa_trend = c(1.01, 1.02, 1.05),           # Multiplicative annual trend in MPAs
   ar1_scenarios = ar1_scenarios,          # Explicitly defined above
   time_scenarios = time_scenarios,        # Explicitly defined above
   formula_scenarios = formula_scenarios,  # Explicitly defined above
-  nreps = 5                               # Use 5 for testing, increase to 20+ for production
+  nreps = 50                               # Use 5 for testing, increase to 20+ for production
 )
 
 message("\n=== Parameter Grid Summary ===")
@@ -405,3 +405,6 @@ saveRDS(sim_summary, file.path(sim_dir, "simulation-summary.rds"))
 message("\n=== Simulation Summary ===")
 print(sim_summary)
 message("\nSummary saved to: ", file.path(sim_dir, "simulation-summary.rds"))
+
+# Reset to sequential processing
+future::plan(future::sequential)
