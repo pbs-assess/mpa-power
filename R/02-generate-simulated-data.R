@@ -13,7 +13,7 @@ library(purrr)
 # Configuration
 # =============================================================================
 
-USE_PARALLEL <- FALSE  # Set to TRUE for HPC
+USE_PARALLEL <- TRUE# Set to TRUE for HPC
 # N_WORKERS <- if (USE_PARALLEL) 40 else 1
 N_WORKERS <- NULL
 

@@ -188,7 +188,7 @@ run_sampling <- function(sim_dat) {
 # Main execution
 # =============================================================================
 
-USE_PARALLEL <- FALSE  # Set to TRUE for HPC
+USE_PARALLEL <- TRUE# Set to TRUE for HPC
 N_WORKERS <- NULL
 
 # Setup parallel processing
