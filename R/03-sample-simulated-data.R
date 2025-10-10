@@ -201,7 +201,6 @@ N_WORKERS <- NULL
 if (USE_PARALLEL) {
   if (is.null(N_WORKERS)) N_WORKERS <- floor(parallel::detectCores() / 2)
 
-  # Use multicore on hake server (Unix fork), multisession elsewhere (Windows-safe)
   if (Sys.info()['user'] %in% c("dunic", "anderson")) {
     future::plan(future::multicore, workers = N_WORKERS)
     message("Using ", N_WORKERS, " parallel workers (multicore)")
