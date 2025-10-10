@@ -33,6 +33,8 @@ if (!file.exists(file.path("data-generated", "grid-allocations.rds"))) {
     mutate(restricted = ifelse(is.na(uid), 0, 1)) |>
     st_drop_geometry()
   saveRDS(grid_allocations, file.path("data-generated", "grid-allocations.rds"))
+} else {
+  grid_allocations <- readRDS(file.path("data-generated", "grid-allocations.rds"))
 }
 
 historical_locations <- readRDS(file.path("data-generated", "historical-locations.rds")) |>
