@@ -1,10 +1,7 @@
 # Prepare HBLL survey allocations
 # Based on sampling-notes.Rmd
 
-library(dplyr)
-
 # Load settings and utilities
-source('R/00-setup.R')
 source('R/00-utils.R')
 
 # Full grouping table

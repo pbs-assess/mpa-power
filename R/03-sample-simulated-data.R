@@ -194,9 +194,16 @@ N_WORKERS <- NULL
 # Setup parallel processing
 if (USE_PARALLEL) {
   if (is.null(N_WORKERS)) N_WORKERS <- floor(parallel::detectCores() / 2)
-  future::plan(future::multisession, workers = N_WORKERS)
+
+  # Use multicore on hake server (Unix fork), multisession elsewhere (Windows-safe)
+  if (Sys.info()['user'] %in% c("dunic", "anderson")) {
+    future::plan(future::multicore, workers = N_WORKERS)
+    message("Using ", N_WORKERS, " parallel workers (multicore)")
+  } else {
+    future::plan(future::multisession, workers = N_WORKERS)
+    message("Using ", N_WORKERS, " parallel workers (multisession)")
+  }
   map_fn <- furrr::future_pmap_dfr
-  message("Using ", N_WORKERS, " parallel workers")
 } else {
   future::plan(future::sequential)
   map_fn <- purrr::pmap_dfr

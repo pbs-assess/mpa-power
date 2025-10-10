@@ -255,8 +255,15 @@ update_collapsed_rf <- function(fit) {
 setup_parallel <- function(use_parallel, n_workers = NULL) {
   if (use_parallel) {
     if (is.null(n_workers)) n_workers <- floor(parallel::detectCores() / 2)
-    future::plan(future::multisession, workers = n_workers)
-    message("Using ", n_workers, " parallel workers")
+
+    # Use multicore on hake server (Unix fork), multisession elsewhere (Windows-safe)
+    if (Sys.info()['user'] %in% c("dunic", "anderson")) {
+      future::plan(future::multicore, workers = n_workers)
+      message("Using ", n_workers, " parallel workers (multicore)")
+    } else {
+      future::plan(future::multisession, workers = n_workers)
+      message("Using ", n_workers, " parallel workers (multisession)")
+    }
     return(furrr::future_map)
   } else {
     future::plan(future::sequential)
