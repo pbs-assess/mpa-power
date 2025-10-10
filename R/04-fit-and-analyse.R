@@ -21,6 +21,24 @@ USE_PARALLEL <- TRUE
 #N_WORKERS <- if (USE_PARALLEL) 20 else 1
 N_WORKERS <- NULL
 
+# Setup parallel processing
+if (USE_PARALLEL) {
+  if (is.null(N_WORKERS)) N_WORKERS <- future::availableCores() / 2
+
+  if (Sys.info()['user'] %in% c("dunic", "anderson")) {
+    future::plan(future::multicore, workers = N_WORKERS)
+    message("Using ", N_WORKERS, " parallel workers (multicore)")
+  } else {
+    future::plan(future::multisession, workers = N_WORKERS)
+    message("Using ", N_WORKERS, " parallel workers (multisession)")
+  }
+  map_fn <- furrr::future_map_dfr
+} else {
+  future::plan(future::sequential)
+  map_fn <- purrr::map_dfr
+  message("Using sequential processing")
+}
+
 # =============================================================================
 # Helper Functions
 # =============================================================================
@@ -187,8 +205,8 @@ all_fitted_results <- purrr::map_dfr(sampled_files, function(file) {
 
     replicates <- unique(combo_data$replicate)
 
-    # Fit each replicate
-    rep_results <- purrr::map_dfr(replicates, function(rep) {
+    # Fit each replicate (in parallel if enabled)
+    rep_results <- map_fn(replicates, function(rep) {
       rep_data <- combo_data |> filter(replicate == rep)
 
       # Fit model for replicate
@@ -232,6 +250,15 @@ all_fitted_results <- purrr::map_dfr(sampled_files, function(file) {
         fit_spatiotemporal = fit$spatiotemporal,
         formula = deparse(fit$formula)
       )
+    }, .options = if (USE_PARALLEL) {
+      furrr::furrr_options(
+        seed = TRUE,
+        packages = c("sdmTMB", "dplyr", "tibble", "broom.mixed"),
+        globals = c("fit_simulation", "extract_trend_estimate", "update_collapsed_rf",
+                    "summarise_sanity", "clean_family_name", "combo_data", "combo", "species")
+      )
+    } else {
+      list()
     })
 
     # Save cache
