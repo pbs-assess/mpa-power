@@ -405,3 +405,6 @@ saveRDS(sim_summary, file.path(sim_dir, "simulation-summary.rds"))
 message("\n=== Simulation Summary ===")
 print(sim_summary)
 message("\nSummary saved to: ", file.path(sim_dir, "simulation-summary.rds"))
+
+# Reset to sequential processing
+future::plan(future::sequential)

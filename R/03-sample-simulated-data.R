@@ -199,7 +199,7 @@ N_WORKERS <- NULL
 
 # Setup parallel processing
 if (USE_PARALLEL) {
-  if (is.null(N_WORKERS)) N_WORKERS <- floor(parallel::detectCores() / 2)
+  if (is.null(N_WORKERS)) N_WORKERS <- floor(future::availableCores() / 2)
 
   if (Sys.info()['user'] %in% c("dunic", "anderson")) {
     future::plan(future::multicore, workers = N_WORKERS)
@@ -280,6 +280,9 @@ purrr::walk(species_list, function(sp, check_cache = FALSE) {
 
 message("\n=== All sampling complete ===")
 message("Files saved to: ", sample_dir)
+
+# Reset to sequential processing
+future::plan(future::sequential)
 
 ye_samps <- readRDS(file.path(sample_dir, "yelloweye-rockfish-all-sampled.rds"))
 glimpse(ye_samps)

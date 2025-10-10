@@ -275,3 +275,6 @@ message("Fitted results cached in: ", results_dir)
 # Save combined results
 saveRDS(all_fitted_results, file.path(results_dir, "all-fitted-results.rds"))
 message("\nCombined results saved: ", file.path(results_dir, "all-fitted-results.rds"))
+
+# Reset to sequential processing
+future::plan(future::sequential)
