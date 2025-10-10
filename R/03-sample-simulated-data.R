@@ -33,6 +33,8 @@ if (!file.exists(file.path("data-generated", "grid-allocations.rds"))) {
     mutate(restricted = ifelse(is.na(uid), 0, 1)) |>
     st_drop_geometry()
   saveRDS(grid_allocations, file.path("data-generated", "grid-allocations.rds"))
+} else {
+  grid_allocations <- readRDS(file.path("data-generated", "grid-allocations.rds"))
 }
 
 historical_locations <- readRDS(file.path("data-generated", "historical-locations.rds")) |>
@@ -199,7 +201,6 @@ N_WORKERS <- NULL
 if (USE_PARALLEL) {
   if (is.null(N_WORKERS)) N_WORKERS <- floor(parallel::detectCores() / 2)
 
-  # Use multicore on hake server (Unix fork), multisession elsewhere (Windows-safe)
   if (Sys.info()['user'] %in% c("dunic", "anderson")) {
     future::plan(future::multicore, workers = N_WORKERS)
     message("Using ", N_WORKERS, " parallel workers (multicore)")
