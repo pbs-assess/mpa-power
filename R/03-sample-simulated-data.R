@@ -25,11 +25,15 @@ hbll_allocations <- readRDS(here::here("data-generated", "hbll-allocations.rds")
   as_tibble()
 hbll_grid <- gfdata::load_survey_blocks(type = "XY") |>
   filter(stringr::str_detect(survey_abbrev, "HBLL"))
-grid_allocations <- left_join(hbll_grid, hbll_allocations) |>
-  XY_to_sf(crs_to = st_crs(simple_mpa) ) |>
-  st_join(simple_mpa, join = st_within) |>
-  mutate(restricted = ifelse(is.na(uid), 0, 1)) |>
-  st_drop_geometry()
+
+if (!file.exists(file.path("data-generated", "grid-allocations.rds"))) {
+  grid_allocations <- left_join(hbll_grid, hbll_allocations) |>
+    XY_to_sf(crs_to = st_crs(simple_mpa) ) |>
+    st_join(simple_mpa, join = st_within) |>
+    mutate(restricted = ifelse(is.na(uid), 0, 1)) |>
+    st_drop_geometry()
+  saveRDS(grid_allocations, file.path("data-generated", "grid-allocations.rds"))
+}
 
 historical_locations <- readRDS(file.path("data-generated", "historical-locations.rds")) |>
   drop_na(block_id) # needed because there are lat/lon locations that were surveyed
