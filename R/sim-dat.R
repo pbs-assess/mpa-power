@@ -415,6 +415,7 @@ samp1 <- sample_by_plan(
 
 plan_name <- "Status quo"
 p1 <- local(plot_sampling_plan(samp1, plan_name))
+dir.create(here::here("draft-figures"), showWarnings = FALSE)
 ggsave(here::here("draft-figures", paste0("sim-dat-", plan_name, ".png")), width = 9, height = 18)
 
 # Test fit to monitoring data and see if we can recover the trends
@@ -524,7 +525,9 @@ test3 <- fit_monitoring(
   spatial = "on",
   spatiotemporal = "AR1",
   time = "year",
-  time_varying = ~ after_mpa
+  time_varying = ~ 0 + after_mpa,
+  # extra_time = seq(2007:2042),
+  time_varying_type = "ar1"
 )
 
 meep()
