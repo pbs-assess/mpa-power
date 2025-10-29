@@ -7,8 +7,6 @@
 source(here::here("R", "01-fit-conditioning-models.R"))
 source(here::here("R", "00-fit-sim-functions.R"))
 
-library(purrr)
-
 # =============================================================================
 # Configuration
 # =============================================================================
@@ -84,7 +82,7 @@ create_sim_param_grid <- function(mpa_trend,
 #' @param sim_hash Hash for cache validation
 #'
 #' @return Character string with file name
-generate_sim_filename <- function(species, param_row, sim_hash) {
+generate_sim_filename <- function(species, survey_abbrev, param_row, sim_hash) {
   sp <- sp_to_hyphens(species)
 
   # Create descriptive name parts
@@ -98,7 +96,7 @@ generate_sim_filename <- function(species, param_row, sim_hash) {
   }
 
   # Combine name parts
-  name_parts <- c(sp, mpa_str, ar1_str, time_str, formula_str,
+  name_parts <- c(sp, survey_abbrev, mpa_str, ar1_str, time_str, formula_str,
                   substr(sim_hash, 1, 8))
   fname <- paste(name_parts, collapse = "-")
   fname <- gsub("[^a-zA-Z0-9_.-]", "-", fname)
@@ -147,7 +145,7 @@ run_species_simulations <- function(sp_name,
 
   # Create survey list from passed fits
   survey_names <- names(fits_passed)
-  surveys <- purrr::map(survey_names, ~ {
+  survey_fits <- purrr::map(survey_names, ~ {
     list(
       fit = fits_passed[[.x]],
       abbrev = unique(fits_passed[[.x]]$data$survey_abbrev),
@@ -181,46 +179,53 @@ run_species_simulations <- function(sp_name,
         formula_scenario == param_combo$formula_scenario
       )
 
-    # Create hash and check cache BEFORE running simulations
-    hash_params <- list(
-      species = sp_name,
-      mpa_trend = param_combo$mpa_trend,
-      ar1_scenario = param_combo$ar1_scenario,
-      time_scenario = param_combo$time_scenario,
-      formula = param_combo$formula[[1]],
-      rho_V = param_combo$rho_V,
-      sigma_V = param_combo$sigma_V,
-      phi = param_combo$phi,
-      nreps = nrow(combo_reps)
-    )
-    sim_hash <- digest::digest(hash_params)
+    # Process each survey separately
+    survey_results <- purrr::map(survey_fits, function(survey_config) {
+      survey_abbrev <- survey_config$abbrev
 
-    # Generate filename
-    fname <- generate_sim_filename(sp_name, param_combo, sim_hash)
-    fpath <- file.path(sim_dir, fname)
+      message("\n  Survey: ", survey_abbrev)
 
-    # Check cache - return early if found
-    if (check_cache && file.exists(fpath)) {
-      message("  Cache hit: ", fname)
-      return(list(
+      # Create hash and check cache BEFORE running simulations
+      hash_params <- list(
         species = sp_name,
-        param_combo = param_combo,
-        file = fpath,
-        from_cache = TRUE
-      ))
-    }
+        survey_abbrev = survey_abbrev,
+        mpa_trend = param_combo$mpa_trend,
+        ar1_scenario = param_combo$ar1_scenario,
+        time_scenario = param_combo$time_scenario,
+        formula = param_combo$formula[[1]],
+        rho_V = param_combo$rho_V,
+        sigma_V = param_combo$sigma_V,
+        phi = param_combo$phi,
+        nreps = nrow(combo_reps)
+      )
+      sim_hash <- digest::digest(hash_params)
 
-    message("  Cache miss: running simulations")
+      # Generate filename
+      fname <- generate_sim_filename(sp_name, survey_abbrev, param_combo, sim_hash)
+      fpath <- file.path(sim_dir, fname)
 
-    # Run all replicates for this parameter combination
-    sim_dat_all_reps <- purrr::pmap_dfr(combo_reps, function(...) {
-      row <- list(...)
+      # Check cache - return early if found
+      if (check_cache && file.exists(fpath)) {
+        message("    Cache hit: ", fname)
+        return(list(
+          species = sp_name,
+          survey_abbrev = survey_abbrev,
+          param_combo = param_combo,
+          file = fpath,
+          from_cache = TRUE
+        ))
+      }
 
-      message("  - Running replicate ", row$replicate, " (seed: ", row$seed, ")")
+      message("    Cache miss: running simulations")
 
-      # Run simulation for each survey
-      survey_results <- purrr::map_dfr(surveys, function(survey_config) {
-        simulate_hbll(
+      # Run all replicates for this survey
+      sim_dat_all_reps <- purrr::pmap_dfr(combo_reps, function(...) {
+        row <- list(...)
+
+        message("    - Running replicate ", row$replicate, " (seed: ", row$seed, ")")
+
+        # Run simulation for this survey
+        survey_sim <- simulate_hbll(
           fit = survey_config$fit,
           restricted_df = restricted_df,
           sim_dir = "data-generated/sim-dat",
@@ -237,53 +242,57 @@ run_species_simulations <- function(sp_name,
           phi = if (is.na(row$phi)) NULL else row$phi,
           tag = paste0(survey_config$tag_prefix, "-rep", row$replicate)
         )
+
+        # Add replicate column and remove fyear columns
+        survey_sim |>
+          select(!contains("fyear")) |>
+          mutate(replicate = row$replicate)
       })
 
-      # Add replicate column and remove fyear columns
-      survey_results |>
-        select(!contains("fyear")) |>
-        mutate(replicate = row$replicate)
+      # Post-process survey data: add spatial joins and calendar years
+      sim_dat_all_reps <- sim_dat_all_reps |>
+        left_join(hbll_grid |> select(X, Y, block_id, grouping_code),
+                  by = c("X", "Y")) |>
+        left_join(hbll_last_sampled_year, by = "survey_abbrev") |>
+        mutate(
+          year_counter = year,  # Store original simulation year
+          year = last_sampled_year + year,  # Convert to calendar year
+          d = "simulated"
+        ) |>
+        left_join(hbll_allocations, by = c("survey_abbrev", "grouping_code")) |>
+        mutate(spatial_grouping_id = ifelse(pfma %in% c("5A", "4B"), "5A4B", pfma))
+
+      # Add parameter metadata as attributes
+      attr(sim_dat_all_reps, "sim_params") <- list(
+        species = sp_name,
+        survey_abbrev = survey_abbrev,
+        mpa_trend = param_combo$mpa_trend,
+        ar1_scenario = param_combo$ar1_scenario,
+        time_scenario = param_combo$time_scenario,
+        formula_scenario = param_combo$formula_scenario,
+        rho_V = param_combo$rho_V,
+        sigma_V = param_combo$sigma_V,
+        phi = param_combo$phi,
+        year_covariate = param_combo$year_covariate[[1]],
+        formula = param_combo$formula[[1]],
+        nreps = nrow(combo_reps),
+        created_date = Sys.time()
+      )
+
+      # Save survey file
+      saveRDS(sim_dat_all_reps, fpath)
+      message("    Saved: ", fname)
+
+      return(list(
+        species = sp_name,
+        survey_abbrev = survey_abbrev,
+        param_combo = param_combo,
+        file = fpath,
+        from_cache = FALSE
+      ))
     })
 
-    # Post-process combined data: add spatial joins and calendar years
-    sim_dat_all_reps <- sim_dat_all_reps |>
-      left_join(hbll_grid |> select(X, Y, block_id, grouping_code),
-                by = c("X", "Y")) |>
-      left_join(hbll_last_sampled_year, by = "survey_abbrev") |>
-      mutate(
-        year_counter = year,  # Store original simulation year
-        year = last_sampled_year + year,  # Convert to calendar year
-        d = "simulated"
-      ) |>
-      left_join(hbll_allocations, by = c("survey_abbrev", "grouping_code")) |>
-      mutate(spatial_grouping_id = ifelse(pfma %in% c("5A", "4B"), "5A4B", pfma))
-
-    # Add parameter metadata as attributes
-    attr(sim_dat_all_reps, "sim_params") <- list(
-      species = sp_name,
-      mpa_trend = param_combo$mpa_trend,
-      ar1_scenario = param_combo$ar1_scenario,
-      time_scenario = param_combo$time_scenario,
-      formula_scenario = param_combo$formula_scenario,
-      rho_V = param_combo$rho_V,
-      sigma_V = param_combo$sigma_V,
-      phi = param_combo$phi,
-      year_covariate = param_combo$year_covariate[[1]],
-      formula = param_combo$formula[[1]],
-      nreps = nrow(combo_reps),
-      created_date = Sys.time()
-    )
-
-    # Save combined file
-    saveRDS(sim_dat_all_reps, fpath)
-    message("  Saved: ", fname)
-
-    return(list(
-      species = sp_name,
-      param_combo = param_combo,
-      file = fpath,
-      from_cache = FALSE
-    ))
+    return(survey_results)
   })
 
   message("\n========================================")
@@ -305,7 +314,7 @@ species_list <- c(
   "quillback rockfish"
 )
 
-# species_list <- "yelloweye rockfish"
+species_list <- "yelloweye rockfish"
 
 # =============================================================================
 # Define simulation parameter scenarios
@@ -337,6 +346,9 @@ formula_scenarios <- tribble(
   "standard", list(~ 1 + restricted * year_covariate)  # MPA × time interaction
 )
 
+nreps <- 50
+nreps <- 1
+
 # Create parameter grid
 # This creates all combinations of:
 #   - 3 MPA trends (no change, 2%, 5% annual increase)
@@ -350,7 +362,7 @@ param_grid <- create_sim_param_grid(
   ar1_scenarios = ar1_scenarios,          # Explicitly defined above
   time_scenarios = time_scenarios,        # Explicitly defined above
   formula_scenarios = formula_scenarios,  # Explicitly defined above
-  nreps = 50                               # Use 5 for testing, increase to 20+ for production
+  nreps = nreps                               # Use 5 for testing, increase to 20+ for production
 )
 
 message("\n=== Parameter Grid Summary ===")
@@ -388,15 +400,20 @@ if (USE_PARALLEL) {
 # Create summary
 sim_summary <- purrr::map_dfr(all_results, function(sp_results) {
   if (is.null(sp_results)) return(NULL)
-  purrr::map_dfr(sp_results, function(x) {
-    tibble(
-      species = x$species,
-      mpa_trend = x$param_combo$mpa_trend,
-      ar1_scenario = x$param_combo$ar1_scenario,
-      time_scenario = x$param_combo$time_scenario,
-      file = basename(x$file),
-      from_cache = x$from_cache
-    )
+  # sp_results is a list of param_combos, each containing a list of survey results
+  purrr::map_dfr(sp_results, function(param_combo_results) {
+    # param_combo_results is a list of survey results
+    purrr::map_dfr(param_combo_results, function(x) {
+      tibble(
+        species = x$species,
+        survey_abbrev = x$survey_abbrev,
+        mpa_trend = x$param_combo$mpa_trend,
+        ar1_scenario = x$param_combo$ar1_scenario,
+        time_scenario = x$param_combo$time_scenario,
+        file = basename(x$file),
+        from_cache = x$from_cache
+      )
+    })
   })
 })
 
@@ -408,3 +425,6 @@ message("\nSummary saved to: ", file.path(sim_dir, "simulation-summary.rds"))
 
 # Reset to sequential processing
 future::plan(future::sequential)
+
+
+test <- readRDS(file.path(sim_dir, "simulation-summary.rds"))

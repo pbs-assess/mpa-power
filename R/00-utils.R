@@ -167,16 +167,27 @@ create_model_hash <- function(params, debug = FALSE) {
   }
 
   hash_params$formula <- paste(deparse(params$formula), collapse = "")
-  hash_params$data <- digest::digest(as.data.frame(params$data), algo = "xxhash64")
+
+  # Make data hashing robust across systems
+  # Round numeric columns to avoid floating point precision differences
+  data_for_hash <- as.data.frame(params$data)
+  rownames(data_for_hash) <- NULL
+
+  # Round numeric columns to 10 decimal places for stable hashing
+  numeric_cols <- sapply(data_for_hash, is.numeric)
+  data_for_hash[numeric_cols] <- lapply(data_for_hash[numeric_cols], round, digits = 10)
+
+  hash_params$data <- digest::digest(data_for_hash, algo = "xxhash64")
 
   # Handle mesh objects for stable hashing
   if (!is.null(params$mesh) && inherits(params$mesh, "sdmTMBmesh")) {
-    # Use only the stable components of the mesh for hashing
+    # Use data locations (loc_xy) rather than mesh vertices for more stable hashing
+    # Round numeric values to avoid floating point precision differences
     hash_params$mesh <- list(
-      cutoff = params$mesh$cutoff,
-      max_edge = params$mesh$max_edge,
-      n_vertices = nrow(params$mesh$mesh$loc),
-      mesh_bounds = range(params$mesh$mesh$loc)
+      n_vertices = params$mesh$mesh$n,
+      data_bounds = round(range(params$mesh$loc_xy), digits = 10),
+      xy_cols = params$mesh$xy_cols,
+      manifold = params$mesh$mesh$manifold
     )
   }
 
