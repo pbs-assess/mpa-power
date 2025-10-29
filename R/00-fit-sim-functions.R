@@ -306,7 +306,8 @@ simulate_hbll <- function(fit,
                           B = NULL,
                           ...) {
   # Create directory for simulated data
-  dir.create(sim_dir, showWarnings = FALSE, recursive = TRUE)
+  # dir.create(sim_dir, showWarnings = FALSE, recursive = TRUE)
+  stopifnot(dir.exists(sim_dir))
   survey_type <- unique(fit$data$survey_abbrev)
   species <- unique(fit$data$species_common_name)
 
