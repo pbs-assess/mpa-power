@@ -191,18 +191,22 @@ create_model_hash <- function(params, debug = FALSE) {
     )
   }
 
-  # Create hash
-  stable_state <- list(
-    params = hash_params[order(names(hash_params))],
-    sdmTMB_version = as.character(packageVersion("sdmTMB"))
-  )
+  # Create hash using string-based approach for platform independence
+  hash_params_ordered <- hash_params[order(names(hash_params))]
+
+  # Convert all components to strings and concatenate
+  hash_components <- sapply(names(hash_params_ordered), function(nm) {
+    paste0(nm, "=", paste(as.character(hash_params_ordered[[nm]]), collapse = ","))
+  })
+
+  hash_string <- paste(hash_components, collapse = "|")
 
   if (debug) {
-    message("Debug: Hash components:")
-    str(stable_state, max.level = 2)
+    message("Debug: Hash string:")
+    message(hash_string)
   }
 
-  digest::digest(stable_state, algo = "xxhash64")
+  digest::digest(hash_string, algo = "xxhash64")
 }
 
 # # Simple file-based caching

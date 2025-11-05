@@ -12,6 +12,13 @@ library(tidyr)
 library(patchwork)
 library(digest)
 
+# =============================================================================
+# Configuration
+# =============================================================================
+
+USE_PARALLEL <- FALSE  # Set to TRUE for HPC
+N_WORKERS <- 40        # Number of parallel workers (ignored if USE_PARALLEL = FALSE)
+
 # Setup directories
 fit_dir <- here::here("data-generated", "fits")
 dir.create(fit_dir, recursive = TRUE, showWarnings = FALSE)
@@ -134,3 +141,23 @@ future::plan(future::multisession, workers = n_workers)
 all_fits <- furrr::future_map(sp_list, fit_species, .options = furrr::furrr_options(seed = TRUE))
 future::plan(future::sequential)  # reset to sequential
 # meep()
+
+# Setup parallel processing
+map_fn <- setup_parallel(USE_PARALLEL, N_WORKERS)
+
+# Fit all species
+if (USE_PARALLEL) {
+  all_fits <- map_fn(sp_list, fit_species,
+                     check_cache = check_cache,
+                     silent = silent,
+                     refit_on_collapse = refit_on_collapse,
+                     .options = furrr::furrr_options(seed = TRUE))
+} else {
+  all_fits <- map_fn(sp_list, fit_species,
+                     check_cache = check_cache,
+                     silent = silent,
+                     refit_on_collapse = refit_on_collapse)
+}
+
+# Reset to sequential
+future::plan(future::sequential)
