@@ -22,6 +22,8 @@ N_WORKERS <- 40        # Number of parallel workers (ignored if USE_PARALLEL = F
 # Setup directories
 fit_dir <- here::here("data-generated", "fits")
 dir.create(fit_dir, recursive = TRUE, showWarnings = FALSE)
+cleaned_data_dir <- here::here("data-generated", "cleaned-species-data")
+dir.create(cleaned_data_dir, recursive = TRUE, showWarnings = FALSE)
 
 # -----------------------------------------------------------------------------
 # Prepare data
@@ -37,7 +39,7 @@ refit_on_collapse <- TRUE
 
 # Fit models for a single species
 fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
-                        refit_on_collapse = TRUE) {
+                        refit_on_collapse = TRUE, save_cleaned_data = TRUE) {
   sp <- sp_to_hyphens(sp_name)
   message(paste0("Fitting conditioning models for ", sp))
   sp_dat0 <- readRDS(file.path(synopsis_cache, paste0(sp, ".rds")))$survey_sets
@@ -61,6 +63,14 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
   d_ON <- sp_dat |> filter(survey_abbrev == "HBLL OUT N")
   d_ON$weights <- d_ON$hook_count / mean(d_ON$hook_count)
   mesh_ON <- local(make_mesh(d_ON, xy_cols = c("X", "Y"), cutoff = 10))
+
+  # Save cleaned datasets
+  if (save_cleaned_data) {
+    saveRDS(d_ON, file.path(cleaned_data_dir, paste0(sp, "-HBLL-OUT-N.rds")))
+    saveRDS(d_OS, file.path(cleaned_data_dir, paste0(sp, "-HBLL-OUT-S.rds")))
+    saveRDS(d_IN, file.path(cleaned_data_dir, paste0(sp, "-HBLL-INS-N.rds")))
+    message("  Saved cleaned data for ", sp)
+  }
 
   # Beta binomial ----------------------------------------------------------------
   sprf <- "on"
@@ -128,12 +138,13 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
 # fit_species("yelloweye rockfish")
 
 # Species list
-# sp_list <- c(
-#   "yelloweye rockfish",
-#   "north pacific spiny dogfish",
-#   "lingcod",
-#   "quillback rockfish"
-# )
+sp_list <- c(
+  "yelloweye rockfish",
+  "north pacific spiny dogfish",
+  "lingcod",
+  "quillback rockfish",
+  "pacific halibut"
+)
 
 # Setup parallel processing
 map_fn <- setup_parallel(USE_PARALLEL, N_WORKERS)
@@ -144,12 +155,14 @@ if (USE_PARALLEL) {
                      check_cache = check_cache,
                      silent = silent,
                      refit_on_collapse = refit_on_collapse,
+                     save_cleaned_data = TRUE,
                      .options = furrr::furrr_options(seed = TRUE))
 } else {
   all_fits <- map_fn(sp_list, fit_species,
                      check_cache = check_cache,
                      silent = silent,
-                     refit_on_collapse = refit_on_collapse)
+                     refit_on_collapse = refit_on_collapse,
+                     save_cleaned_data = TRUE)
 }
 
 # Reset to sequential
