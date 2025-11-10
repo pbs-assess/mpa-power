@@ -101,7 +101,7 @@ generate_sim_filename <- function(species, survey_abbrev, param_row, sim_hash) {
   fname <- paste(name_parts, collapse = "-")
   fname <- gsub("[^a-zA-Z0-9_.-]", "-", fname)
 
-  return(paste0(fname, ".rds"))
+  return(paste0(fname, "_", CACHE_VERSION, ".rds"))
 }
 
 #' Load and prepare survey fits for a species
