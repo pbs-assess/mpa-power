@@ -166,26 +166,57 @@ create_model_hash <- function(params, debug = FALSE) {
     )
   }
 
-  hash_params$formula <- paste(deparse(params$formula), collapse = "")
+  # Use deparse1() if available (R >= 4.0) for stable formula representation
+  # deparse1() always returns a single string, unlike deparse() which can return a vector
+  # See: https://stackoverflow.com/questions/70850546/why-does-deparse-return-a-vector-of-length-two-here
+  # Falls back to deparse() for older R versions
+  if (exists("deparse1")) {
+    hash_params$formula <- deparse1(params$formula)
+  } else {
+    hash_params$formula <- paste(deparse(params$formula), collapse = "")
+  }
 
   # Make data hashing robust across systems
   # Round numeric columns to avoid floating point precision differences
   data_for_hash <- as.data.frame(params$data)
   rownames(data_for_hash) <- NULL
 
+  # Sort columns alphabetically for consistent ordering across systems
+  data_for_hash <- data_for_hash[, order(names(data_for_hash)), drop = FALSE]
+
+  # Exclude spatial coordinate columns - spatial info is captured in mesh hash
+  # This prevents GDAL/PROJ version differences from affecting the hash
+  coord_cols <- c("X", "Y", "lon", "lat", "longitude", "latitude", "x", "y")
+  data_for_hash <- data_for_hash[, !names(data_for_hash) %in% coord_cols, drop = FALSE]
+
   # Round numeric columns to 10 decimal places for stable hashing
   numeric_cols <- sapply(data_for_hash, is.numeric)
   data_for_hash[numeric_cols] <- lapply(data_for_hash[numeric_cols], round, digits = 10)
 
+  # Sort rows to ensure hash is independent of row order
+  # This makes mesh generation order-independent for caching
+  data_for_hash <- data_for_hash[do.call(order, data_for_hash), , drop = FALSE]
+
   hash_params$data <- digest::digest(data_for_hash, algo = "xxhash64")
+
+  # Hash numeric vectors (offset, weights) to avoid R version differences in as.character()
+  # Different R versions format floats differently, causing hash mismatches
+  if (!is.null(params$offset)) {
+    hash_params$offset <- digest::digest(round(params$offset, 10), algo = "xxhash64")
+  }
+  if (!is.null(params$weights)) {
+    hash_params$weights <- digest::digest(round(params$weights, 10), algo = "xxhash64")
+  }
 
   # Handle mesh objects for stable hashing
   if (!is.null(params$mesh) && inherits(params$mesh, "sdmTMBmesh")) {
-    # Use data locations (loc_xy) rather than mesh vertices for more stable hashing
-    # Round numeric values to avoid floating point precision differences
+    # For cross-platform stability, only hash coarse spatial extent
+    # Exact mesh triangulation (n_vertices) depends on precise X,Y coordinates
+    # which vary with GDAL/PROJ versions. What matters is the general spatial domain.
+    # Round bounds to nearest 1km for robustness to coordinate transformation differences
+    mesh_bounds <- range(params$mesh$loc_xy)
     hash_params$mesh <- list(
-      n_vertices = params$mesh$mesh$n,
-      data_bounds = round(range(params$mesh$loc_xy), digits = 10),
+      data_bounds = round(mesh_bounds / 1000) * 1000,  # Round to nearest km
       xy_cols = params$mesh$xy_cols,
       manifold = params$mesh$mesh$manifold
     )
@@ -202,8 +233,18 @@ create_model_hash <- function(params, debug = FALSE) {
   hash_string <- paste(hash_components, collapse = "|")
 
   if (debug) {
-    message("Debug: Hash string:")
-    message(hash_string)
+    message("\n=== Hash Debug Information ===")
+    message("Individual hash components:")
+    for (nm in names(hash_params_ordered)) {
+      component_str <- paste0(nm, "=", paste(as.character(hash_params_ordered[[nm]]), collapse = ","))
+      message(sprintf("  %s: %s", nm, substr(component_str, 1, 100)))  # Truncate long strings
+      if (nchar(component_str) > 100) message(sprintf("    ... (truncated, length: %d)", nchar(component_str)))
+    }
+    message("\nFull hash string:")
+    message(substr(hash_string, 1, 200))
+    if (nchar(hash_string) > 200) message(sprintf("... (truncated, full length: %d)", nchar(hash_string)))
+    message("\nFinal hash: ", digest::digest(hash_string, algo = "xxhash64"))
+    message("===============================\n")
   }
 
   digest::digest(hash_string, algo = "xxhash64")

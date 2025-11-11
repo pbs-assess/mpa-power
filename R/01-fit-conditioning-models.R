@@ -22,6 +22,8 @@ N_WORKERS <- 40        # Number of parallel workers (ignored if USE_PARALLEL = F
 # Setup directories
 fit_dir <- here::here("data-generated", "fits")
 dir.create(fit_dir, recursive = TRUE, showWarnings = FALSE)
+cleaned_data_dir <- here::here("data-generated", "cleaned-species-data")
+dir.create(cleaned_data_dir, recursive = TRUE, showWarnings = FALSE)
 
 # -----------------------------------------------------------------------------
 # Prepare data
@@ -33,11 +35,11 @@ simple_mpa <- readRDS(here::here("data-generated", "spatial", "simple-mpa.rds"))
 # Fitting parameters
 check_cache <- TRUE
 silent <- TRUE
-refit_on_collapse <- TRUE
+# refit_on_collapse <- TRUE
 
 # Fit models for a single species
 fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
-                        refit_on_collapse = TRUE) {
+                        save_cleaned_data = TRUE) {
   sp <- sp_to_hyphens(sp_name)
   message(paste0("Fitting conditioning models for ", sp))
   sp_dat0 <- readRDS(file.path(synopsis_cache, paste0(sp, ".rds")))$survey_sets
@@ -62,6 +64,14 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
   d_ON$weights <- d_ON$hook_count / mean(d_ON$hook_count)
   mesh_ON <- local(make_mesh(d_ON, xy_cols = c("X", "Y"), cutoff = 10))
 
+  # Save cleaned datasets
+  if (save_cleaned_data) {
+    saveRDS(d_ON, file.path(cleaned_data_dir, paste0(sp, "-HBLL-OUT-N.rds")))
+    saveRDS(d_OS, file.path(cleaned_data_dir, paste0(sp, "-HBLL-OUT-S.rds")))
+    saveRDS(d_IN, file.path(cleaned_data_dir, paste0(sp, "-HBLL-INS-N.rds")))
+    message("  Saved cleaned data for ", sp)
+  }
+
   # Beta binomial ----------------------------------------------------------------
   sprf <- "on"
   strf <- "iid"
@@ -77,7 +87,7 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
     time = "year",
     anisotropy = FALSE,
     weights = d_ON$hook_count,
-    refit_on_collapse = refit_on_collapse,
+    control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
     check_cache = check_cache,
     silent = silent
   )
@@ -94,7 +104,6 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
     time = "year",
     anisotropy = FALSE,
     weights = d_OS$hook_count,
-    refit_on_collapse = refit_on_collapse,
     check_cache = check_cache,
     silent = silent
   )
@@ -111,13 +120,16 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
     time = "year",
     anisotropy = FALSE,
     weights = d_IN$hook_count,
-    refit_on_collapse = refit_on_collapse,
+    control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
     check_cache = check_cache,
     silent = silent
   )
 
   message(paste0("Completed: ", sp_name))
-  return(invisible(list(fit_ON = fit_ON, fit_OS = fit_OS, fit_IN = fit_IN)))
+  return(invisible(list(
+    fit_ON = fit_ON,
+    fit_OS = fit_OS,
+    fit_IN = fit_IN)))
 }
 
 # -----------------------------------------------------------------------------
@@ -125,39 +137,40 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
 # -----------------------------------------------------------------------------
 
 # Single species (for testing)
-# fit_species("yelloweye rockfish")
+test <- fit_species("yelloweye rockfish", save_cleaned_data = FALSE)
+test2 <- fit_species("yelloweye rockfish", save_cleaned_data = FALSE, refit_on_collapse = TRUE)
+meep()
+
+test$fit_IN
+test2$fit_IN
 
 # Species list
-sp_list <- c(
-  "yelloweye rockfish",
-  "north pacific spiny dogfish",
-  "lingcod",
-  "quillback rockfish"
-)
+# sp_list <- c(
+#   "yelloweye rockfish",
+#   "north pacific spiny dogfish",
+#   "lingcod",
+#   "quillback rockfish",
+#   "pacific halibut"
+# )
 
-# All species in parallel (uncomment to run in parallel)
-n_workers <- floor(parallel::detectCores() / 2)
-future::plan(future::multisession, workers = n_workers)
-all_fits <- furrr::future_map(sp_list, fit_species, .options = furrr::furrr_options(seed = TRUE))
-future::plan(future::sequential)  # reset to sequential
-# meep()
+# # Setup parallel processing
+# map_fn <- setup_parallel(USE_PARALLEL, N_WORKERS)
 
-# Setup parallel processing
-map_fn <- setup_parallel(USE_PARALLEL, N_WORKERS)
-
-# Fit all species
-if (USE_PARALLEL) {
-  all_fits <- map_fn(sp_list, fit_species,
-                     check_cache = check_cache,
-                     silent = silent,
-                     refit_on_collapse = refit_on_collapse,
-                     .options = furrr::furrr_options(seed = TRUE))
-} else {
-  all_fits <- map_fn(sp_list, fit_species,
-                     check_cache = check_cache,
-                     silent = silent,
-                     refit_on_collapse = refit_on_collapse)
-}
+# # Fit all species
+# if (USE_PARALLEL) {
+#   all_fits <- map_fn(sp_list, fit_species,
+#                      check_cache = check_cache,
+#                      silent = silent,
+#                      refit_on_collapse = refit_on_collapse,
+#                      save_cleaned_data = TRUE,
+#                      .options = furrr::furrr_options(seed = TRUE))
+# } else {
+#   all_fits <- map_fn(sp_list, fit_species,
+#                      check_cache = check_cache,
+#                      silent = silent,
+#                      refit_on_collapse = refit_on_collapse,
+#                      save_cleaned_data = TRUE)
+# }
 
 # Reset to sequential
 future::plan(future::sequential)

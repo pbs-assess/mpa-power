@@ -1,7 +1,12 @@
+# Cache version - increment when cache format changes
+CACHE_VERSION <- "v1"
+
 prep_hbll_data <- function(dat, bait_counts) {
   dat |>
     rename(ssid = "survey_series_id.x") |>
     left_join(bait_counts, by = c("year", "fishing_event_id", "ssid")) |>
+    # Sort before distinct to ensure deterministic row selection across systems
+    arrange(ssid, year, fishing_event_id) |>
     distinct(ssid, fishing_event_id, year, .keep_all = TRUE) |>
     mutate(
       present = ifelse(catch_count > 0, 1, 0),
@@ -19,7 +24,7 @@ prep_hbll_data <- function(dat, bait_counts) {
 #' Fit sdmTMB model to HBLL survey data
 # TODO: document
 fit_cached_sdmTMB <- function(fit_dir, check_cache = TRUE, update_from = NULL,
-                              model_tag = NULL, refit_on_collapse = FALSE,
+                              model_tag = NULL, #refit_on_collapse = FALSE,
                               debug = FALSE, ...) {
 
   if (!is.null(update_from)) {
@@ -49,7 +54,7 @@ fit_cached_sdmTMB <- function(fit_dir, check_cache = TRUE, update_from = NULL,
 
   # Include refit_on_collapse in hash so we know this model may have simplified fields
   hash_params <- final_params
-  hash_params$refit_on_collapse <- refit_on_collapse
+  # hash_params$refit_on_collapse <- refit_on_collapse
   model_hash <- create_model_hash(hash_params, debug)
 
   # Generate model name
@@ -61,7 +66,7 @@ fit_cached_sdmTMB <- function(fit_dir, check_cache = TRUE, update_from = NULL,
 
   # Check cache first
   dir.create(fit_dir, showWarnings = FALSE, recursive = TRUE)
-  rds_file <- file.path(fit_dir, paste0(model_name, ".rds"))
+  rds_file <- file.path(fit_dir, paste0(model_name, "_", CACHE_VERSION, ".rds"))
 
   if (check_cache && file.exists(rds_file)) {
     message("Cache hit. Loading model from: ", rds_file)
@@ -69,23 +74,23 @@ fit_cached_sdmTMB <- function(fit_dir, check_cache = TRUE, update_from = NULL,
   }
 
   # Fit initial model (don't cache yet if refit_on_collapse = TRUE)
-  message("Cache missing. Fitting model for: ", model_name)
+  message("Cache missing. Fitting model for: ", model_name, "_", CACHE_VERSION)
 
   fit <- fit_function()
 
-  # Check for collapsed random fields and refit if needed
-  if (refit_on_collapse) {
-    rf_update <- update_collapsed_rf(fit)
+  # # Check for collapsed random fields and refit if needed
+  # if (refit_on_collapse) {
+  #   rf_update <- update_collapsed_rf(fit)
 
-    if (rf_update$needs_refit) {
-      message("Random field(s) collapsed. Refitting with spatial = '",
-              rf_update$spatial, "', spatiotemporal = '", rf_update$spatiotemporal, "'")
+  #   if (rf_update$needs_refit) {
+  #     message("Random field(s) collapsed. Refitting with spatial = '",
+  #             rf_update$spatial, "', spatiotemporal = '", rf_update$spatiotemporal, "'")
 
-      fit <- update(fit,
-                    spatial = rf_update$spatial,
-                    spatiotemporal = rf_update$spatiotemporal)
-    }
-  }
+  #     fit <- update(fit,
+  #                   spatial = rf_update$spatial,
+  #                   spatiotemporal = rf_update$spatiotemporal)
+  #   }
+  # }
 
   # Store sanity check results on final model
   sanity_result <- sdmTMB::sanity(fit, silent = TRUE)
@@ -607,6 +612,53 @@ sample_by_plan <- function(
     slice_sample(g, n = n_samps, replace = FALSE)
   })
   bind_rows(sampled_list)
+}
+
+#' Load sampled data for a specific parameter combination and sampling plan
+#'
+#' @param species Species name
+#' @param survey_abbrev Survey abbreviation
+#' @param plan Sampling plan name
+#' @param mpa_trend MPA trend value
+#' @param ar1_scenario AR1 scenario name
+#' @param time_scenario Time scenario name
+#' @param sampling_summary Sampling summary tibble
+#' @param sample_dir Directory containing sampled data
+#'
+#' @return Sampled data tibble
+load_sampled_data <- function(species, survey_abbrev, plan, mpa_trend,
+                              ar1_scenario, time_scenario,
+                              sampling_summary, sample_dir) {
+
+  # Find matching file
+  file_info <- sampling_summary |>
+    filter(
+      species == !!species,
+      survey_abbrev == !!survey_abbrev,
+      plan == !!plan,
+      mpa_trend == !!mpa_trend,
+      ar1_scenario == !!ar1_scenario,
+      time_scenario == !!time_scenario
+    )
+
+  if (nrow(file_info) == 0) {
+    stop("No sampled data found for: ", species, ", survey=", survey_abbrev,
+         ", plan=", plan, ", mpa=", mpa_trend,
+         ", ar1=", ar1_scenario, ", time=", time_scenario)
+  }
+
+  if (nrow(file_info) > 1) {
+    warning("Multiple files found, using first")
+    file_info <- file_info[1, ]
+  }
+
+  # Load data
+  fpath <- file.path(sample_dir, file_info$file)
+  sampled_dat <- readRDS(fpath)
+
+  message("Loaded: ", file_info$file, " (", file_info$n_replicates, " replicates)")
+
+  return(sampled_dat)
 }
 
 #' Simple function to plot sampling plans
