@@ -15,9 +15,18 @@ library(digest)
 # =============================================================================
 # Configuration
 # =============================================================================
+USE_PARALLEL <- FALSE
+N_WORKERS <- NULL
 
-USE_PARALLEL <- FALSE  # Set to TRUE for HPC
-N_WORKERS <- 40        # Number of parallel workers (ignored if USE_PARALLEL = FALSE)
+if (Sys.info()['user'] %in%% c("dunic", "anderson")) {
+  USE_PARALLEL <- TRUE
+  N_WORKERS <- 40 #NULL
+}
+
+if (Sys.info()['user'] == "jilliandunic") {
+  USE_PARALLEL <- TRUE
+  N_WORKERS <- 8
+}
 
 # Setup directories
 fit_dir <- here::here("data-generated", "fits")
@@ -39,7 +48,8 @@ silent <- TRUE
 
 # Fit models for a single species
 fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
-                        save_cleaned_data = TRUE) {
+                        save_cleaned_data = TRUE,
+                        .options = furrr::furrr_options(seed = TRUE)) {
   sp <- sp_to_hyphens(sp_name)
   message(paste0("Fitting conditioning models for ", sp))
   sp_dat0 <- readRDS(file.path(synopsis_cache, paste0(sp, ".rds")))$survey_sets
@@ -104,6 +114,7 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
     time = "year",
     anisotropy = FALSE,
     weights = d_OS$hook_count,
+    control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
     check_cache = check_cache,
     silent = silent
   )
@@ -137,40 +148,35 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
 # -----------------------------------------------------------------------------
 
 # Single species (for testing)
-test <- fit_species("yelloweye rockfish", save_cleaned_data = FALSE)
-test2 <- fit_species("yelloweye rockfish", save_cleaned_data = FALSE, refit_on_collapse = TRUE)
-meep()
-
-test$fit_IN
-test2$fit_IN
+# test <- fit_species("yelloweye rockfish", save_cleaned_data = FALSE)
 
 # Species list
-# sp_list <- c(
-#   "yelloweye rockfish",
-#   "north pacific spiny dogfish",
-#   "lingcod",
-#   "quillback rockfish",
-#   "pacific halibut"
-# )
+sp_list <- c(
+  "yelloweye rockfish",
+  "north pacific spiny dogfish",
+  "lingcod",
+  "quillback rockfish",
+  "pacific halibut"
+)
 
 # # Setup parallel processing
-# map_fn <- setup_parallel(USE_PARALLEL, N_WORKERS)
+map_fn <- setup_parallel(USE_PARALLEL, N_WORKERS)
 
-# # Fit all species
-# if (USE_PARALLEL) {
-#   all_fits <- map_fn(sp_list, fit_species,
-#                      check_cache = check_cache,
-#                      silent = silent,
-#                      refit_on_collapse = refit_on_collapse,
-#                      save_cleaned_data = TRUE,
-#                      .options = furrr::furrr_options(seed = TRUE))
-# } else {
-#   all_fits <- map_fn(sp_list, fit_species,
-#                      check_cache = check_cache,
-#                      silent = silent,
-#                      refit_on_collapse = refit_on_collapse,
-#                      save_cleaned_data = TRUE)
-# }
+# Fit all species
+if (USE_PARALLEL) {
+  all_fits <- map_fn(sp_list, fit_species,
+                     check_cache = check_cache,
+                     silent = silent,
+                     refit_on_collapse = refit_on_collapse,
+                     save_cleaned_data = TRUE,
+                     .options = furrr::furrr_options(seed = TRUE))
+} else {
+  all_fits <- map_fn(sp_list, fit_species,
+                     check_cache = check_cache,
+                     silent = silent,
+                     refit_on_collapse = refit_on_collapse,
+                     save_cleaned_data = TRUE)
+}
 
 # Reset to sequential
 future::plan(future::sequential)
