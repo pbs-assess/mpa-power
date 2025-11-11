@@ -8,6 +8,7 @@ source(here::here("R", "00-fit-sim-functions.R"))
 source(here::here("R", "00-setup.R"))
 
 library(purrr)
+library(tidyr)
 
 # =============================================================================
 # Configuration
@@ -26,19 +27,20 @@ hbll_allocations <- readRDS(here::here("data-generated", "hbll-allocations.rds")
 hbll_grid <- gfdata::load_survey_blocks(type = "XY") |>
   filter(stringr::str_detect(survey_abbrev, "HBLL"))
 
-if (!file.exists(file.path("data-generated", "grid-allocations.rds"))) {
-  grid_allocations <- left_join(hbll_grid, hbll_allocations) |>
-    XY_to_sf(crs_to = st_crs(simple_mpa) ) |>
-    st_join(simple_mpa, join = st_within) |>
-    mutate(restricted = ifelse(is.na(uid), 0, 1)) |>
-    st_drop_geometry()
-  saveRDS(grid_allocations, file.path("data-generated", "grid-allocations.rds"))
-} else {
-  grid_allocations <- readRDS(file.path("data-generated", "grid-allocations.rds"))
-}
+# Not needed because it is included in the simulated data
+# if (!file.exists(file.path("data-generated", "grid-allocations.rds"))) {
+#   grid_allocations <- left_join(hbll_grid, hbll_allocations) |>
+#     XY_to_sf(crs_to = st_crs(simple_mpa) ) |>
+#     st_join(simple_mpa, join = st_within) |>
+#     mutate(restricted = ifelse(is.na(uid), 0, 1)) |>
+#     st_drop_geometry()
+#   saveRDS(grid_allocations, file.path("data-generated", "grid-allocations.rds"))
+# } else {
+#   grid_allocations <- readRDS(file.path("data-generated", "grid-allocations.rds"))
+# }
 
 historical_locations <- readRDS(file.path("data-generated", "historical-locations.rds")) |>
-  drop_na(block_id) # needed because there are lat/lon locations that were surveyed
+  tidyr::drop_na(block_id) # needed because there are lat/lon locations that were surveyed
   # but that are not in the simulation grid.
 
 
@@ -55,25 +57,27 @@ historical_locations <- readRDS(file.path("data-generated", "historical-location
 #' @param sim_dir Directory containing simulated data
 #'
 #' @return Simulated data tibble
-load_sim_data <- function(species, mpa_trend, ar1_scenario, time_scenario,
-                         sim_summary, sim_dir) {
+load_sim_data <- function(species, survey_abbrev, mpa_trend, ar1_scenario,
+                          time_scenario, sim_summary, sim_dir) {
 
   # Find matching file
   file_info <- sim_summary |>
     filter(
       species == !!species,
+      survey_abbrev == !!survey_abbrev,
       mpa_trend == !!mpa_trend,
       ar1_scenario == !!ar1_scenario,
       time_scenario == !!time_scenario
     )
 
   if (nrow(file_info) == 0) {
-    stop("No simulation found for: ", species, ", mpa_trend=", mpa_trend,
+    stop("No simulation found for: ", species, ", survey_abbrev=", survey_abbrev,
+         ", mpa_trend=", mpa_trend,
          ", ar1=", ar1_scenario, ", time=", time_scenario)
   }
 
   if (nrow(file_info) > 1) {
-    warning("Multiple simulations found, using first")
+    warning("Multiple simulations found, using first - meaning you haven't accounted for some kind of parameter combo")
     file_info <- file_info[1, ]
   }
 
@@ -81,9 +85,46 @@ load_sim_data <- function(species, mpa_trend, ar1_scenario, time_scenario,
   fpath <- file.path(sim_dir, file_info$file)
   sim_dat <- readRDS(fpath)
 
+  historical_locations <- readRDS(file.path("data-generated", "historical-locations.rds")) |>
+    tidyr::drop_na(block_id) |>
+    mutate(historical_location = 1) |>
+    select(survey_abbrev, block_id, historical_location)
+
+  sim_dat <- sim_dat |>
+    mutate(historical_location = ifelse(block_id %in% historical_locations$block_id, 1, 0))
+
   message("Loaded: ", file_info$file)
 
   return(sim_dat)
+}
+
+#' Generate clean filename for sampled data
+#'
+#' @param species Species name
+#' @param survey_abbrev Survey abbreviation
+#' @param mpa_trend MPA trend value
+#' @param ar1_scenario AR1 scenario name
+#' @param time_scenario Time scenario name
+#' @param plan Sampling plan name
+#'
+#' @return Character string with filename
+generate_sample_filename <- function(species, survey_abbrev, mpa_trend,
+                                     ar1_scenario, time_scenario, plan) {
+  # Clean plan name for filename
+  plan_slug <- gsub("[^a-zA-Z0-9]", "-", plan) |>
+    gsub("-+", "-", x = _) |>
+    tolower()
+
+  # Build filename
+  paste0(
+    survey_abbrev, "_",
+    "mpa", mpa_trend, "_",
+    ar1_scenario, "_",
+    time_scenario, "_",
+    plan_slug,
+    ".rds"
+  ) |>
+    gsub(" ", "-", x = _)
 }
 
 filter_hbll_survey_years <- function(sim_dat) {
@@ -95,8 +136,7 @@ filter_hbll_survey_years <- function(sim_dat) {
   )
 }
 
-run_sampling <- function(sim_dat) {
-
+run_sampling <- function(sim_dat, replicates = NULL) {
   # Get replicates
   replicates <- unique(sim_dat$replicate)
 
@@ -108,10 +148,11 @@ run_sampling <- function(sim_dat) {
 
     # Historical location sampling plan ------------------------
     sample_effort_historical <- sim_rep |>
-      distinct(survey_abbrev, year) |>
-      left_join(grid_allocations, by = "survey_abbrev", relationship = "many-to-many") |>
-      filter(paste(survey_abbrev, block_id) %in% paste(historical_locations$survey_abbrev, historical_locations$block_id)) |>
+      filter(historical_location == 1) |>
       mutate(n_samps = allocation) |>
+      select(survey_series_id, survey_abbrev,
+             year, X, Y, block_id, grouping_code, pfma, strata_depth,
+             restricted, allocation, n_samps) |>
       filter_hbll_survey_years()
 
     sampled_historical <- sample_by_plan(
@@ -124,9 +165,10 @@ run_sampling <- function(sim_dat) {
 
     # Status quo sampling plan ------------------------
     sample_effort_status_quo <- sim_rep |>
-      distinct(survey_abbrev, year) |>
-      left_join(grid_allocations, by = "survey_abbrev", relationship = "many-to-many") |>
       mutate(n_samps = allocation) |>
+      select(survey_series_id, survey_abbrev,
+        year, X, Y, block_id, grouping_code, pfma, strata_depth,
+        restricted, allocation, n_samps) |>
       filter_hbll_survey_years()
 
     sampled_status_quo <- sample_by_plan(
@@ -169,13 +211,21 @@ run_sampling <- function(sim_dat) {
         TRUE ~ round(n_samps)
       ))
 
-    sampled_status_quo_5 <- sample_by_plan(
+    sampled_status_quo_5_year <- sample_by_plan(
       sim_dat = sim_rep,
       sampling_effort = sample_effort_status_quo_5,
       grouping_vars = c("survey_abbrev", "year", "grouping_code"),
       seed = rep + 4000
     ) |>
       mutate(plan = "status quo + 40% effort every 5 years")
+
+    sampled_status_quo_0_mpa <- sample_by_plan(
+      sim_dat = sim_rep,
+      sampling_effort = sample_effort_status_quo |> filter(restricted == 0), # no sampling in MPAs
+      grouping_vars = c("survey_abbrev", "year", "grouping_code"),
+      seed = rep + 5000
+    ) |>
+      mutate(plan = "status quo - no sampling in MPAs")
 
     # Combine all plans for this replicate
     bind_rows(
@@ -184,7 +234,8 @@ run_sampling <- function(sim_dat) {
       sampled_status_quo_1.1,
       sampled_status_quo_1.2,
       sampled_status_quo_1.4,
-      sampled_status_quo_5
+      sampled_status_quo_5_year,
+      sampled_status_quo_0_mpa
     ) |>
       mutate(replicate = rep)
   })
@@ -219,40 +270,84 @@ if (USE_PARALLEL) {
 species_list <- unique(sim_summary$species)
 message("\nProcessing ", length(species_list), " species")
 
+# Initialize sampling summary
+sampling_summary <- tibble()
+
 # Process each species
 purrr::walk(species_list, function(sp, check_cache = FALSE) {
-
-  # Generate output filename
-  sp_clean <- sp_to_hyphens(sp)
-  fname <- paste0(sp_clean, "-all-sampled.rds")
-  fpath <- file.path(sample_dir, fname)
-
-  # Check cache
-  if (check_cache) {
-    if (file.exists(fpath)) {
-      message("\n=== Cache hit: ", fname, " ===")
-      return(invisible(NULL))
-      }
-  }
 
   message("\n========================================")
   message("Sampling simulated data for species: ", sp)
   message("========================================")
+
+  # Create species subdirectory
+  sp_clean <- sp_to_hyphens(sp)
+  sp_dir <- file.path(sample_dir, sp_clean)
+  dir.create(sp_dir, showWarnings = FALSE, recursive = TRUE)
 
   # Get all parameter combinations for this species
   sp_sims <- sim_summary |> filter(species == sp)
   message("  ", nrow(sp_sims), " parameter combinations")
 
   # Process each parameter combination
-  sp_sampled <- map_fn(sp_sims, function(...) {
+  sp_metadata <- map_fn(sp_sims, function(...) {
+
     row <- list(...)
 
-    message("  - mpa=", row$mpa_trend, ", ar1=", row$ar1_scenario,
-            ", time=", row$time_scenario)
+    # Check if all plan files already exist for this parameter combination
+    plan_names <- c(
+      "historical locations only",
+      "status quo",
+      "status quo + 10% effort",
+      "status quo + 20% effort",
+      "status quo + 40% effort",
+      "status quo + 40% effort every 5 years",
+      "status quo - no sampling in MPAs"
+    )
+
+    expected_files <- sapply(plan_names, function(plan) {
+      fname <- generate_sample_filename(
+        species = sp_clean,
+        survey_abbrev = row$survey_abbrev,
+        mpa_trend = row$mpa_trend,
+        ar1_scenario = row$ar1_scenario,
+        time_scenario = row$time_scenario,
+        plan = plan
+      )
+      file.path(sp_dir, fname)
+    })
+
+    # If all files exist, skip sampling and load metadata
+    if (all(file.exists(expected_files))) {
+      message("  Cache hit: survey=", row$survey_abbrev, ", mpa=", row$mpa_trend,
+              ", ar1=", row$ar1_scenario, ", time=", row$time_scenario)
+
+      # Load metadata from existing files
+      file_metadata <- purrr::map_dfr(seq_along(expected_files), function(i) {
+        existing_data <- readRDS(expected_files[i])
+        tibble(
+          species = row$species,
+          survey_abbrev = row$survey_abbrev,
+          mpa_trend = row$mpa_trend,
+          ar1_scenario = row$ar1_scenario,
+          time_scenario = row$time_scenario,
+          plan = unique(existing_data$plan),
+          file = file.path(sp_clean, basename(expected_files[i])),
+          n_replicates = length(unique(existing_data$replicate))
+        )
+      })
+
+      return(file_metadata)
+    }
+
+    # At least one file missing - proceed with sampling
+    message("  - survey=", row$survey_abbrev, ", mpa=", row$mpa_trend,
+            ", ar1=", row$ar1_scenario, ", time=", row$time_scenario)
 
     # Load simulation
     sim_dat <- load_sim_data(
       species = row$species,
+      survey_abbrev = row$survey_abbrev,
       mpa_trend = row$mpa_trend,
       ar1_scenario = row$ar1_scenario,
       time_scenario = row$time_scenario,
@@ -261,29 +356,85 @@ purrr::walk(species_list, function(sp, check_cache = FALSE) {
     )
 
     # Apply all sampling designs
-    sampled <- run_sampling(sim_dat)
+    sampled <- run_sampling(sim_dat = sim_dat)
 
     # Add simulation metadata
-    sampled |>
+    sampled <- sampled |>
       mutate(
+        sim_species = row$species,
+        sim_survey_abbrev = row$survey_abbrev,
         sim_mpa_trend = row$mpa_trend,
         sim_ar1_scenario = row$ar1_scenario,
         sim_time_scenario = row$time_scenario
       )
+    # Split by plan and save separately
+    file_metadata <- sampled |>
+      group_by(plan) |>
+      group_split() |>
+      purrr::map_dfr(function(plan_data) {
+        plan_name <- unique(plan_data$plan)
+        n_reps <- length(unique(plan_data$replicate))
+
+        # Generate filename
+        fname <- generate_sample_filename(
+          species = sp_clean,
+          survey_abbrev = row$survey_abbrev,
+          mpa_trend = row$mpa_trend,
+          ar1_scenario = row$ar1_scenario,
+          time_scenario = row$time_scenario,
+          plan = plan_name
+        )
+
+        fpath <- file.path(sp_dir, fname)
+
+        # Save this plan
+        saveRDS(plan_data, fpath)
+        message("    Saved: ", fname, " (", n_reps, " replicates)")
+
+        # Return metadata for summary
+        tibble(
+          species = row$species,
+          survey_abbrev = row$survey_abbrev,
+          mpa_trend = row$mpa_trend,
+          ar1_scenario = row$ar1_scenario,
+          time_scenario = row$time_scenario,
+          plan = plan_name,
+          file = file.path(sp_clean, fname),
+          n_replicates = n_reps
+        )
+      })
+
+    return(file_metadata)
   }, .options = if (USE_PARALLEL) furrr::furrr_options(seed = TRUE) else list())
 
-  # Save species file
-  saveRDS(sp_sampled, fpath)
-
-  message("  Saved: ", fname)
+  # Add to overall summary
+  sampling_summary <<- bind_rows(sampling_summary, sp_metadata)
 })
 
+# Save sampling summary catalog
+summary_file <- file.path(sample_dir, "sampling-summary.rds")
+saveRDS(sampling_summary, summary_file)
 message("\n=== All sampling complete ===")
 message("Files saved to: ", sample_dir)
+message("Summary saved to: ", summary_file)
+message("Total files created: ", nrow(sampling_summary))
 
 # Reset to sequential processing
 future::plan(future::sequential)
 
-ye_samps <- readRDS(file.path(sample_dir, "yelloweye-rockfish-all-sampled.rds"))
-glimpse(ye_samps)
-distinct(ye_samps, plan, sim_mpa_trend, sim_ar1_scenario, sim_time_scenario)
+# Example: inspect sampling summary
+glimpse(sampling_summary)
+head(sampling_summary)
+
+# Example: load a specific sampling scenario using the new helper function
+# ye_sample <- load_sampled_data(
+#   species = "yelloweye rockfish",
+#   survey_abbrev = "HBLL OUT N",
+#   plan = "status quo",
+#   mpa_trend = 1.01,
+#   ar1_scenario = "no_AR1",
+#   time_scenario = "twenty_years",
+#   sampling_summary = sampling_summary,
+#   sample_dir = sample_dir
+# )
+# glimpse(ye_sample)

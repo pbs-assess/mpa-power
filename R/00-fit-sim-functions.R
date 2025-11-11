@@ -614,6 +614,53 @@ sample_by_plan <- function(
   bind_rows(sampled_list)
 }
 
+#' Load sampled data for a specific parameter combination and sampling plan
+#'
+#' @param species Species name
+#' @param survey_abbrev Survey abbreviation
+#' @param plan Sampling plan name
+#' @param mpa_trend MPA trend value
+#' @param ar1_scenario AR1 scenario name
+#' @param time_scenario Time scenario name
+#' @param sampling_summary Sampling summary tibble
+#' @param sample_dir Directory containing sampled data
+#'
+#' @return Sampled data tibble
+load_sampled_data <- function(species, survey_abbrev, plan, mpa_trend,
+                              ar1_scenario, time_scenario,
+                              sampling_summary, sample_dir) {
+
+  # Find matching file
+  file_info <- sampling_summary |>
+    filter(
+      species == !!species,
+      survey_abbrev == !!survey_abbrev,
+      plan == !!plan,
+      mpa_trend == !!mpa_trend,
+      ar1_scenario == !!ar1_scenario,
+      time_scenario == !!time_scenario
+    )
+
+  if (nrow(file_info) == 0) {
+    stop("No sampled data found for: ", species, ", survey=", survey_abbrev,
+         ", plan=", plan, ", mpa=", mpa_trend,
+         ", ar1=", ar1_scenario, ", time=", time_scenario)
+  }
+
+  if (nrow(file_info) > 1) {
+    warning("Multiple files found, using first")
+    file_info <- file_info[1, ]
+  }
+
+  # Load data
+  fpath <- file.path(sample_dir, file_info$file)
+  sampled_dat <- readRDS(fpath)
+
+  message("Loaded: ", file_info$file, " (", file_info$n_replicates, " replicates)")
+
+  return(sampled_dat)
+}
+
 #' Simple function to plot sampling plans
 #'
 #' @param sampled_data sampled `sim_dat`

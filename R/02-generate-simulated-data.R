@@ -4,16 +4,25 @@
 # This script generates simulated data across multiple species and parameter
 # combinations. The simulations are cached for reuse in sampling experiments.
 
+source(here::here("R", "00-setup.R"))
 # source(here::here("R", "01-fit-conditioning-models.R"))
 source(here::here("R", "00-fit-sim-functions.R"))
 
 # =============================================================================
 # Configuration
 # =============================================================================
+USE_PARALLEL <- FALSE
+N_WORKERS <- NULL
 
-USE_PARALLEL <- FALSE  # Set to TRUE for HPC
-# N_WORKERS <- if (USE_PARALLEL) 40 else 1
-N_WORKERS <- 8 #NULL
+if (Sys.info()['user'] %in%% c("dunic", "anderson")) {
+  USE_PARALLEL <- TRUE
+  N_WORKERS <- 40 #NULL
+}
+
+if (Sys.info()['user'] == "jilliandunic") {
+  USE_PARALLEL <- TRUE
+  N_WORKERS <- 8
+}
 
 # Output directory
 sim_dir <- here::here("data-generated", "sim-data")
