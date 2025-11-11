@@ -24,7 +24,7 @@ prep_hbll_data <- function(dat, bait_counts) {
 #' Fit sdmTMB model to HBLL survey data
 # TODO: document
 fit_cached_sdmTMB <- function(fit_dir, check_cache = TRUE, update_from = NULL,
-                              model_tag = NULL, refit_on_collapse = FALSE,
+                              model_tag = NULL, #refit_on_collapse = FALSE,
                               debug = FALSE, ...) {
 
   if (!is.null(update_from)) {
@@ -54,7 +54,7 @@ fit_cached_sdmTMB <- function(fit_dir, check_cache = TRUE, update_from = NULL,
 
   # Include refit_on_collapse in hash so we know this model may have simplified fields
   hash_params <- final_params
-  hash_params$refit_on_collapse <- refit_on_collapse
+  # hash_params$refit_on_collapse <- refit_on_collapse
   model_hash <- create_model_hash(hash_params, debug)
 
   # Generate model name
@@ -74,23 +74,23 @@ fit_cached_sdmTMB <- function(fit_dir, check_cache = TRUE, update_from = NULL,
   }
 
   # Fit initial model (don't cache yet if refit_on_collapse = TRUE)
-  message("Cache missing. Fitting model for: ", model_name)
+  message("Cache missing. Fitting model for: ", model_name, "_", CACHE_VERSION)
 
   fit <- fit_function()
 
-  # Check for collapsed random fields and refit if needed
-  if (refit_on_collapse) {
-    rf_update <- update_collapsed_rf(fit)
+  # # Check for collapsed random fields and refit if needed
+  # if (refit_on_collapse) {
+  #   rf_update <- update_collapsed_rf(fit)
 
-    if (rf_update$needs_refit) {
-      message("Random field(s) collapsed. Refitting with spatial = '",
-              rf_update$spatial, "', spatiotemporal = '", rf_update$spatiotemporal, "'")
+  #   if (rf_update$needs_refit) {
+  #     message("Random field(s) collapsed. Refitting with spatial = '",
+  #             rf_update$spatial, "', spatiotemporal = '", rf_update$spatiotemporal, "'")
 
-      fit <- update(fit,
-                    spatial = rf_update$spatial,
-                    spatiotemporal = rf_update$spatiotemporal)
-    }
-  }
+  #     fit <- update(fit,
+  #                   spatial = rf_update$spatial,
+  #                   spatiotemporal = rf_update$spatiotemporal)
+  #   }
+  # }
 
   # Store sanity check results on final model
   sanity_result <- sdmTMB::sanity(fit, silent = TRUE)

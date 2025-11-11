@@ -35,11 +35,11 @@ simple_mpa <- readRDS(here::here("data-generated", "spatial", "simple-mpa.rds"))
 # Fitting parameters
 check_cache <- TRUE
 silent <- TRUE
-refit_on_collapse <- TRUE
+# refit_on_collapse <- TRUE
 
 # Fit models for a single species
 fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
-                        refit_on_collapse = TRUE, save_cleaned_data = TRUE) {
+                        save_cleaned_data = TRUE) {
   sp <- sp_to_hyphens(sp_name)
   message(paste0("Fitting conditioning models for ", sp))
   sp_dat0 <- readRDS(file.path(synopsis_cache, paste0(sp, ".rds")))$survey_sets
@@ -87,7 +87,7 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
     time = "year",
     anisotropy = FALSE,
     weights = d_ON$hook_count,
-    refit_on_collapse = refit_on_collapse,
+    control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
     check_cache = check_cache,
     silent = silent
   )
@@ -104,7 +104,6 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
     time = "year",
     anisotropy = FALSE,
     weights = d_OS$hook_count,
-    refit_on_collapse = refit_on_collapse,
     check_cache = check_cache,
     silent = silent
   )
@@ -121,13 +120,16 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
     time = "year",
     anisotropy = FALSE,
     weights = d_IN$hook_count,
-    refit_on_collapse = refit_on_collapse,
+    control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
     check_cache = check_cache,
     silent = silent
   )
 
   message(paste0("Completed: ", sp_name))
-  return(invisible(list(fit_ON = fit_ON, fit_OS = fit_OS, fit_IN = fit_IN)))
+  return(invisible(list(
+    fit_ON = fit_ON,
+    fit_OS = fit_OS,
+    fit_IN = fit_IN)))
 }
 
 # -----------------------------------------------------------------------------
@@ -135,35 +137,40 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
 # -----------------------------------------------------------------------------
 
 # Single species (for testing)
-# fit_species("yelloweye rockfish")
+test <- fit_species("yelloweye rockfish", save_cleaned_data = FALSE)
+test2 <- fit_species("yelloweye rockfish", save_cleaned_data = FALSE, refit_on_collapse = TRUE)
+meep()
+
+test$fit_IN
+test2$fit_IN
 
 # Species list
-sp_list <- c(
-  "yelloweye rockfish",
-  "north pacific spiny dogfish",
-  "lingcod",
-  "quillback rockfish",
-  "pacific halibut"
-)
+# sp_list <- c(
+#   "yelloweye rockfish",
+#   "north pacific spiny dogfish",
+#   "lingcod",
+#   "quillback rockfish",
+#   "pacific halibut"
+# )
 
-# Setup parallel processing
-map_fn <- setup_parallel(USE_PARALLEL, N_WORKERS)
+# # Setup parallel processing
+# map_fn <- setup_parallel(USE_PARALLEL, N_WORKERS)
 
-# Fit all species
-if (USE_PARALLEL) {
-  all_fits <- map_fn(sp_list, fit_species,
-                     check_cache = check_cache,
-                     silent = silent,
-                     refit_on_collapse = refit_on_collapse,
-                     save_cleaned_data = TRUE,
-                     .options = furrr::furrr_options(seed = TRUE))
-} else {
-  all_fits <- map_fn(sp_list, fit_species,
-                     check_cache = check_cache,
-                     silent = silent,
-                     refit_on_collapse = refit_on_collapse,
-                     save_cleaned_data = TRUE)
-}
+# # Fit all species
+# if (USE_PARALLEL) {
+#   all_fits <- map_fn(sp_list, fit_species,
+#                      check_cache = check_cache,
+#                      silent = silent,
+#                      refit_on_collapse = refit_on_collapse,
+#                      save_cleaned_data = TRUE,
+#                      .options = furrr::furrr_options(seed = TRUE))
+# } else {
+#   all_fits <- map_fn(sp_list, fit_species,
+#                      check_cache = check_cache,
+#                      silent = silent,
+#                      refit_on_collapse = refit_on_collapse,
+#                      save_cleaned_data = TRUE)
+# }
 
 # Reset to sequential
 future::plan(future::sequential)
