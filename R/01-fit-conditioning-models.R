@@ -18,7 +18,7 @@ library(digest)
 USE_PARALLEL <- FALSE
 N_WORKERS <- NULL
 
-if (Sys.info()['user'] %in%% c("dunic", "anderson")) {
+if (Sys.info()['user'] %in% c("dunic", "anderson")) {
   USE_PARALLEL <- TRUE
   N_WORKERS <- 40 #NULL
 }
@@ -44,7 +44,6 @@ simple_mpa <- readRDS(here::here("data-generated", "spatial", "simple-mpa.rds"))
 # Fitting parameters
 check_cache <- TRUE
 silent <- TRUE
-# refit_on_collapse <- TRUE
 
 # Fit models for a single species
 fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
@@ -167,14 +166,12 @@ if (USE_PARALLEL) {
   all_fits <- map_fn(sp_list, fit_species,
                      check_cache = check_cache,
                      silent = silent,
-                     refit_on_collapse = refit_on_collapse,
                      save_cleaned_data = TRUE,
                      .options = furrr::furrr_options(seed = TRUE))
 } else {
   all_fits <- map_fn(sp_list, fit_species,
                      check_cache = check_cache,
                      silent = silent,
-                     refit_on_collapse = refit_on_collapse,
                      save_cleaned_data = TRUE)
 }
 
