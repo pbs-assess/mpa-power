@@ -14,7 +14,7 @@ source(here::here("R", "00-fit-sim-functions.R"))
 USE_PARALLEL <- FALSE
 N_WORKERS <- NULL
 
-if (Sys.info()['user'] %in%% c("dunic", "anderson")) {
+if (Sys.info()['user'] %in% c("dunic", "anderson")) {
   USE_PARALLEL <- TRUE
   N_WORKERS <- 40 #NULL
 }
@@ -28,6 +28,10 @@ if (Sys.info()['user'] == "jilliandunic") {
 sim_dir <- here::here("data-generated", "sim-data")
 dir.create(sim_dir, showWarnings = FALSE, recursive = TRUE)
 
+# Load and validate recovery rates
+# ---------------------------------
+recovery_rates <- readRDS(here::here("data-generated", "recovery-rates.rds"))
+message("Loaded recovery rates for ", length(unique(recovery_rates$species)), " species")
 
 # Grid for data simulation
 # ------------------------
@@ -309,7 +313,7 @@ run_survey_simulation <- function(sp_name,
 # Main execution
 # =============================================================================
 
-# Species list
+# Define species list
 species_list <- c(
   "yelloweye rockfish",
   "north pacific spiny dogfish",
@@ -317,6 +321,25 @@ species_list <- c(
   "quillback rockfish",
   "pacific halibut"
 )
+
+# Filter to species with recovery rates
+missing_rates <- setdiff(species_list, unique(recovery_rates$species))
+if (length(missing_rates) > 0) {
+  warning("Skipping species without recovery rates: ", paste(missing_rates, collapse = ", "))
+  species_list <- setdiff(species_list, missing_rates)
+}
+
+if (length(species_list) == 0) {
+  stop("No species with recovery rates available. Cannot proceed.")
+}
+
+extra_rates <- setdiff(unique(recovery_rates$species), species_list)
+if (length(extra_rates) > 0) {
+  message("Note: Recovery rates available but not used for: ",
+          paste(extra_rates, collapse = ", "))
+}
+
+message("Running simulations for ", length(species_list), " species")
 
 # species_list <- "yelloweye rockfish"
 
@@ -352,21 +375,8 @@ formula_scenarios <- tribble(
 
 nreps <- 50
 
-# Create parameter grid
-# This creates all combinations of:
-#   - 3 MPA trends (no change, 2%, 5% annual increase)
-#   - 2 AR1 scenarios (none, moderate)
-#   - 1 time scenario (21 years, from default)
-#   - 1 formula scenario (restricted:year_covariate interaction, from default)
-#   - 5 replicates per combination
-# Total: 3 × 2 × 1 × 1 × 5 = 30 simulations per species
-param_grid <- create_sim_param_grid(
-  mpa_trend = c(1.01, 1.02, 1.05),           # Multiplicative annual trend in MPAs
-  ar1_scenarios = ar1_scenarios,          # Explicitly defined above
-  time_scenarios = time_scenarios,        # Explicitly defined above
-  formula_scenarios = formula_scenarios,  # Explicitly defined above
-  nreps = nreps                               # Use 5 for testing, increase to 20+ for production
-)
+# Note: Parameter grids are now created per-species using recovery rates
+# See task grid creation below for species-specific implementation
 
 # =============================================================================
 # Prepare fits and create flattened task grid
@@ -384,33 +394,52 @@ if (length(all_species_fits) == 0) {
   stop("No valid fits for any species. Stopping.")
 }
 
-# Get unique parameter combinations (excluding replicate)
-param_combos <- param_grid |>
-  distinct(mpa_trend, ar1_scenario, time_scenario, formula_scenario,
-           phi, rho_V, sigma_V, formula, year_covariate)
+# Create species-specific task grid
+message("\n=== Creating Species-Specific Parameter Grids ===")
 
-# Create flattened task grid: species × survey × param_combo
 task_grid <- purrr::map_dfr(names(all_species_fits), function(sp_name) {
+  # Get species-specific recovery rates
+  sp_rates <- recovery_rates |>
+    filter(species == sp_name) |>
+    pull(linear_mpa_rate)
+
+  message("Species: ", sp_name, " - Rates: ", paste(round(sp_rates, 4), collapse = ", "))
+
+  # Create parameter grid for this species
+  sp_param_grid <- create_sim_param_grid(
+    mpa_trend = sp_rates,
+    ar1_scenarios = ar1_scenarios,
+    time_scenarios = time_scenarios,
+    formula_scenarios = formula_scenarios,
+    nreps = nreps
+  )
+
+  # Get unique parameter combinations (excluding replicate)
+  sp_param_combos <- sp_param_grid |>
+    distinct(mpa_trend, ar1_scenario, time_scenario, formula_scenario,
+             phi, rho_V, sigma_V, formula, year_covariate)
+
+  # Get survey fits for this species
   survey_fits <- all_species_fits[[sp_name]]
 
+  # Create tasks for each survey × param combination
   purrr::map_dfr(survey_fits, function(survey_config) {
-    purrr::pmap_dfr(param_combos, function(...) {
+    purrr::pmap_dfr(sp_param_combos, function(...) {
       param_combo <- tibble(...)
       tibble(
         species = sp_name,
         survey_config = list(survey_config),
-        param_combo = list(param_combo)
+        param_combo = list(param_combo),
+        param_grid = list(sp_param_grid)  # Store full grid for this species
       )
     })
   })
 })
 
-# message("\n=== Task Grid Summary ===")
-# message("Total tasks: ", nrow(task_grid))
-# message("  Species: ", length(unique(task_grid$species)))
-# message("  Tasks per species: ~", round(nrow(task_grid) / length(unique(task_grid$species))))
-# message("  Replicates per task: ", max(param_grid$replicate))
-# message("  Total simulations: ", nrow(param_grid) * length(species_list))
+message("\n=== Task Grid Summary ===")
+message("Total tasks: ", nrow(task_grid))
+message("  Species: ", length(unique(task_grid$species)))
+message("  Average tasks per species: ", round(nrow(task_grid) / length(unique(task_grid$species)), 1))
 
 # Setup parallel processing
 map_fn <- setup_parallel(USE_PARALLEL, N_WORKERS)
@@ -420,12 +449,12 @@ message("\n=== Running Simulations ===")
 if (USE_PARALLEL) {
   all_results <- furrr::future_pmap(
     task_grid,
-    function(species, survey_config, param_combo) {
+    function(species, survey_config, param_combo, param_grid) {
       run_survey_simulation(
         sp_name = species,
         survey_config = survey_config,
         param_combo = param_combo,
-        param_grid = param_grid,
+        param_grid = param_grid,  # Now species-specific from task_grid
         restricted_df = restricted_df,
         hbll_grid = hbll_grid,
         hbll_last_sampled_year = hbll_last_sampled_year,
@@ -439,12 +468,12 @@ if (USE_PARALLEL) {
 } else {
   all_results <- purrr::pmap(
     task_grid,
-    function(species, survey_config, param_combo) {
+    function(species, survey_config, param_combo, param_grid) {
       run_survey_simulation(
         sp_name = species,
         survey_config = survey_config,
         param_combo = param_combo,
-        param_grid = param_grid,
+        param_grid = param_grid,  # Now species-specific from task_grid
         restricted_df = restricted_df,
         hbll_grid = hbll_grid,
         hbll_last_sampled_year = hbll_last_sampled_year,
