@@ -17,21 +17,82 @@ activity_status_lu <- tibble::enframe(c(
   rename(activity_status = name, activity_status_label = value)
 saveRDS(activity_status_lu, file.path("data-generated", "spatial", "activity_status_lu.rds"))
 
-# MPA polygons (double check what layer to use - I am assuming the most up to date one)
+# Subregion shapefiles
+subregion_lu <-
+  tibble(
+    subregion = c("HG", "CC", "NC", "NVI"),
+    subregion_name = c("Haida Gwaii", "Central Coast", "North Coast", "North Vancouver Island")
+  )
+saveRDS(subregion_lu, here::here("data-generated", "spatial", "subregion-lu.rds"))
+
+layers <- st_layers(here::here("data-raw", "spatial", "Boundaries.gdb"))$name
+boundary_names <- layers[grepl("boundary", layers)]
+mask_names <- layers[grepl("mask", layers)]
+boundary_layers0 <- map(boundary_names, ~st_read(here::here("data-raw", "spatial", "Boundaries.gdb"), layer = .x)) |>
+  set_names(boundary_names)
+boundary_layers <- boundary_layers0 |>
+  map(st_transform, crs = 3005) |>
+  map(st_zm, drop = TRUE, what = "ZM") |>
+  map(\(x) {st_geometry(x) <- "geometry"; x}) |>
+  bind_rows(.id = "layer_name") |>
+  mutate(Shape_Length = coalesce(Shape_Length, SHAPE_Length),
+         subregion = str_extract(layer_name, "^[A-Z]+(?=_)")) |>
+  select(-line, -SHAPE_Length) |>
+  left_join(subregion_lu, by = "subregion") |>
+  drop_na(subregion_name) # omit the NSB boundary layer
+saveRDS(boundary_layers, here::here("data-generated", "spatial", "subregion-boundaries.rds"))
+
+subregion_layers <- map(mask_names, ~st_read(here::here("data-raw", "spatial", "Boundaries.gdb"), layer = .x)) |>
+  set_names(mask_names)
+subregion_masks <- bind_rows(subregion_layers, .id = "layer_name") |>
+  mutate(
+    area_ha = coalesce(Area_Ha, Area_HA),
+    subregion = str_remove(layer_name, "_mask$") |>
+      str_replace_all("_", " ")
+  ) |>
+  select(layer_name, subregion, area_ha, Shape) |>
+  left_join(subregion_lu, by = "subregion")
+saveRDS(subregion_masks, here::here("data-generated", "spatial", "subregion-masks.rds"))
+
+# MPA polygons 2025 public layer
 # st_layers(here::here("data-raw", "spatial", "Public", "Spatial2025_Public_Network_footprint.gdb"))
-public_mpa <- st_read(here::here("data-raw", "spatial", "Public",
+public_mpa0 <- st_read(here::here("data-raw", "spatial", "Public",
   "Spatial2025_Public_Network_footprint.gdb"), layer = "Spatial2025_Public_Network_footprint") |>
   janitor::clean_names()
 
-simple_mpa <- public_mpa |>
-  select(uid, map_label, common_site_name_site_profile, category_simple, name_2025) |>
+# Split CC and NC polygons that are missing subregions (double check these are
+# the only ones that need to have the analytical subregions applied)
+missing_mpa_subregions <- public_mpa0 |>
+  filter(is.na(subregion)) |>
+  pull(uid)
+
+split_cc_nc_polygon <- st_intersection(
+  public_mpa0 |> filter(uid %in% missing_mpa_subregions),
+  subregion_masks |> select(subregion, subregion_name)
+)
+
+simple_mpa <- public_mpa0 |>
+  select(uid, subregion, map_label, common_site_name_site_profile, category_simple, name_2025) |>
     st_cast("MULTIPOLYGON")  # Convert MULTISURFACE
 saveRDS(simple_mpa, file.path("data-generated", "spatial", "simple-mpa.rds"))
 
-mpa_500 <- simple_mpa |>
-  st_simplify(dTolerance = 500)
-saveRDS(mpa_500, file.path("data-generated", "spatial", "simple-mpa-500m.rds"))
+simple_analytical <- simple_mpa |>
+  filter(!uid %in% missing_mpa_subregions) |>
+  bind_rows(split_cc_nc_polygon) |>
+  mutate(subregion = ifelse(is.na(subregion), subregion.1, subregion)) |>
+  select(-subregion.1, -subregion_name) |>
+  st_cast("MULTIPOLYGON")
+saveRDS(simple_analytical, file.path("data-generated", "spatial", "simple-analytical-mpa.rds"))
 
+mpa_100 <- simple_analytical |>
+  st_simplify(dTolerance = 100)
+saveRDS(mpa_100, file.path("data-generated", "spatial", "simple-mpa-100m.rds"))
+
+# ggplot() +
+#   geom_sf(data = mpa_100) +
+#   geom_sf(data = subregion_masks |> st_simplify(dTolerance = 100), aes(fill = subregion_name), alpha = 0.5) +
+#   guides(fill = "none") +
+#   gfplot::coord_sf_auto(mpa_100)
 
 comm_ll_activity_status <- public_mpa |>
   select(uid, hu_commercial_harvest_bottom_longline_demersal_hookand_line,
@@ -44,13 +105,39 @@ comm_ll_activity_status <- public_mpa |>
 
 saveRDS(comm_ll_activity_status, file.path("data-generated", "spatial", "comm-ll-draft-activity-status.rds"))
 
+
+# nsb <- st_read(here::here("data-raw", "spatial", "NSB outline", "NSB_Outline_BCAlbers.shp"))
+# nsb_poly <- nsb |>
+#   st_union() |> # merge linestrings into one
+#   st_polygonize() |>
+#   st_collection_extract("POLYGON")
+# nsb_poly_sf <- nsb_poly %>%
+#   st_sf(polygon_id = 1:length(.), geometry = "geometry")
+# nsb_poly_sf$area_km2 <- st_area(nsb_poly_sf) / 1e6 # in km2
+# nsb_water <- nsb_poly_sf |>
+#   arrange(desc(area_km2)) |>
+#   slice(1)
+
+
 stop()
 # Human use layers
 # human_layers <- st_layers(here::here("data-raw", "spatial", "mpatt_hu_10.gdb"))
 # human_layers$name
 
+public_df <- public_mpa |> st_drop_geometry()
+public_df |> filter(is.na(subregion))
+
 # hu_ll <- st_read(here::here("data-raw", "spatial", "mpatt_hu_10.gdb"),
 #   layer = "hu_co_demersalfishing_bottomlongline_d")
+ggplot(data = public_mpa) +
+  geom_sf(aes(fill = subregion)) +
+    coord_sf_auto(simple_mpa)
+
+library(gfplot)
+ggplot(data = public_mpa |> filter(uid == "S2_CC_99") |> st_cast("POLYGON")) +
+  geom_sf(colour = "black", fill = "black") +
+  geom_sf(data = pacea::bc_coast, fill = "grey99") +
+  coord_sf_auto(mpa_500 |> filter(uid == "S2_CC_99"), buffer = 100000)
 
 
 # -----------------------------------------------------------------------------
