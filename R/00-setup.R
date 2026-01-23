@@ -2,7 +2,7 @@
 library(sdmTMB)
 library(dplyr)
 library(ggplot2)
-library(here)
+# library(here)
 library(sf)
 
 theme_set(gfplot::theme_pbs())
@@ -11,6 +11,7 @@ source(here::here("R", "00-utils.R"))
 
 # Species data cache
 if (Sys.info()['user'] == "jilliandunic") synopsis_cache <- "~/R_DFO/gfsynopsis-2024-data/report/data-cache-2025-03"
+if (Sys.info()['user'] %in% c("dunic", "anderson")) synopsis_cache <- "/srv/anderson/src/gfsynopsis-2024/report/data-cache-2025-03"
 if (Sys.info()['user'] == "seananderson") synopsis_cache <- "../gfsynopsis-2024/report/data-cache-2025-03"
 
 # so that there is a place to put some of the data dependencies

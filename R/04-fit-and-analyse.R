@@ -18,7 +18,8 @@ sample_dir <- here::here("data-generated", "sampled-data")
 results_dir <- here::here("data-generated", "power-results")
 dir.create(results_dir, showWarnings = FALSE, recursive = TRUE)
 
-USE_PARALLEL <- FALSE
+USE_PARALLEL <- TRUE
+#N_WORKERS <- if (USE_PARALLEL) 20 else 1
 N_WORKERS <- NULL
 
 if (Sys.info()['user'] %in% c("dunic", "anderson")) {
