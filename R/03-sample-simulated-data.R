@@ -29,8 +29,8 @@ dir.create(sample_dir, showWarnings = FALSE, recursive = TRUE)
 # Load simulation summary
 sim_summary0 <- readRDS(file.path(sim_dir, "simulation-summary.rds"))
 sim_summary <- sim_summary0 |>
-  mutate(mpa_trend = round(mpa_trend, digits = 3)) |>
-  left_join(hbll_last_sampled_years, by = "survey_abbrev")
+  mutate(mpa_trend = round(mpa_trend, digits = 3)) #|>
+  # left_join(hbll_last_sampled_years, by = "survey_abbrev")
 
 # Load required spatial data
 hbll_allocations <- readRDS(here::here("data-generated", "hbll-allocations.rds")) |>
