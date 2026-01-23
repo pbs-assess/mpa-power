@@ -30,7 +30,7 @@ dir.create(sim_dir, showWarnings = FALSE, recursive = TRUE)
 
 # Load and validate recovery rates
 # ---------------------------------
-recovery_rates <- readRDS(here::here("data-generated", "recovery-rates.rds"))
+recovery_rates <- readRDS(here::here("data-generated", "recovery-rates-lambda.rds"))
 message("Loaded recovery rates for ", length(unique(recovery_rates$species)), " species")
 
 # Grid for data simulation
@@ -353,8 +353,8 @@ message("Running simulations for ", length(species_list), " species")
 # - sigma_V: marginal standard deviation for AR(1) process
 ar1_scenarios <- tribble(
   ~ar1_scenario, ~rho_V, ~sigma_V,
-  "no_AR1", NA_real_, NA_real_#,           # No temporal AR1 variation
-  # "moderate_AR1", 0.5, 0.2                # Moderate temporal autocorrelation
+  "no_AR1", NA_real_, NA_real_,           # No temporal AR1 variation
+  "moderate_AR1", 0.3, 0.2                # Some temporal autocorrelation; 0.2 similar to sd on year effects from conditioning models
 )
 
 # Time scenarios
@@ -490,7 +490,7 @@ sim_summary <- purrr::map_dfr(all_results, function(x) {
   tibble(
     species = x$species,
     survey_abbrev = x$survey_abbrev,
-    mpa_trend = x$param_combo$mpa_trend,
+    mpa_trend = round(x$param_combo$mpa_trend, digits = 3),
     ar1_scenario = x$param_combo$ar1_scenario,
     time_scenario = x$param_combo$time_scenario,
     file = basename(x$file),

@@ -18,14 +18,26 @@ sim_dir <- here::here("data-generated", "sim-data")
 sample_dir <- here::here("data-generated", "sampled-data")
 dir.create(sample_dir, showWarnings = FALSE, recursive = TRUE)
 
+# Not used, but sometimes usefulf or me to see
+# hbll_last_sampled_years <- tribble(
+#   ~survey_abbrev, ~last_sampled_year, ~start_year,
+#   "HBLL OUT N", 2024, 2026,
+#   "HBLL OUT S", 2025, 2027,
+#   "HBLL INS N", 2024, 2026
+# )
+
 # Load simulation summary
-sim_summary <- readRDS(file.path(sim_dir, "simulation-summary.rds"))
+sim_summary0 <- readRDS(file.path(sim_dir, "simulation-summary.rds"))
+sim_summary <- sim_summary0 |>
+  mutate(mpa_trend = round(mpa_trend, digits = 3)) |>
+  left_join(hbll_last_sampled_years, by = "survey_abbrev")
 
 # Load required spatial data
 hbll_allocations <- readRDS(here::here("data-generated", "hbll-allocations.rds")) |>
   as_tibble()
 hbll_grid <- gfdata::load_survey_blocks(type = "XY") |>
   filter(stringr::str_detect(survey_abbrev, "HBLL"))
+
 
 # Not needed because it is included in the simulated data
 # if (!file.exists(file.path("data-generated", "grid-allocations.rds"))) {
@@ -63,11 +75,11 @@ load_sim_data <- function(species, survey_abbrev, mpa_trend, ar1_scenario,
   # Find matching file
   file_info <- sim_summary |>
     filter(
-      species == !!species,
-      survey_abbrev == !!survey_abbrev,
-      mpa_trend == !!mpa_trend,
-      ar1_scenario == !!ar1_scenario,
-      time_scenario == !!time_scenario
+      species == .env$species,
+      survey_abbrev == .env$survey_abbrev,
+      mpa_trend == .env$mpa_trend,
+      ar1_scenario == .env$ar1_scenario,
+      time_scenario == .env$time_scenario
     )
 
   if (nrow(file_info) == 0) {
@@ -118,7 +130,7 @@ generate_sample_filename <- function(species, survey_abbrev, mpa_trend,
   # Build filename
   paste0(
     survey_abbrev, "_",
-    "mpa", mpa_trend, "_",
+    "mpa", round(mpa_trend, digits = 3), "_",
     ar1_scenario, "_",
     time_scenario, "_",
     plan_slug,
@@ -147,23 +159,24 @@ run_sampling <- function(sim_dat, replicates = NULL) {
     sim_rep <- sim_dat |> filter(replicate == rep)
 
     # Historical location sampling plan ------------------------
-    sample_effort_historical <- sim_rep |>
-      filter(historical_location == 1) |>
-      mutate(n_samps = allocation) |>
-      select(survey_series_id, survey_abbrev,
-             year, X, Y, block_id, grouping_code, pfma, strata_depth,
-             restricted, allocation, n_samps) |>
-      filter_hbll_survey_years()
+    # This was useful for testing accuracy of simulated data
+    # sample_effort_historical <- sim_rep |>
+    #   filter(historical_location == 1) |>
+    #   mutate(n_samps = allocation) |>
+    #   select(survey_series_id, survey_abbrev,
+    #          year, X, Y, block_id, grouping_code, pfma, strata_depth,
+    #          restricted, allocation, n_samps) |>
+    #   filter_hbll_survey_years()
 
-    sampled_historical <- sample_by_plan(
-      sim_dat = sim_rep,
-      sampling_effort = sample_effort_historical,
-      grouping_vars = c("survey_abbrev", "year", "grouping_code"),
-      seed = rep  # Use replicate number as seed
-    ) |>
-      mutate(plan = "historical locations only")
+    # sampled_historical <- sample_by_plan(
+    #   sim_dat = sim_rep,
+    #   sampling_effort = sample_effort_historical,
+    #   grouping_vars = c("survey_abbrev", "year", "grouping_code"),
+    #   seed = rep  # Use replicate number as seed
+    # ) |>
+    #   mutate(plan = "historical locations only")
 
-    # Status quo sampling plan ------------------------
+    # Case 1: Status quo sampling plan ------------------------
     sample_effort_status_quo <- sim_rep |>
       mutate(n_samps = allocation) |>
       select(survey_series_id, survey_abbrev,
@@ -179,63 +192,74 @@ run_sampling <- function(sim_dat, replicates = NULL) {
     ) |>
       mutate(plan = "status quo")
 
-    sampled_status_quo_1.1 <- sample_by_plan(
+    # Case 2: MPA sampling every 5 years; Status quo reallocated outside MPAs in off years
+    sampled_mpas_5_years <- sample_by_plan(
       sim_dat = sim_rep,
-      sampling_effort = sample_effort_status_quo |> mutate(n_samps = round(n_samps * 1.1)),
+      sampling_effort = sample_effort_status_quo |>
+        group_by(survey_abbrev) |>
+        mutate(first_year = min(year)) |>
+        filter(restricted == 0 | (year - first_year) %% 4 == 0) |>
+        select(-first_year) |>
+        ungroup(),
       grouping_vars = c("survey_abbrev", "year", "grouping_code"),
-      seed = rep + 1000  # Offset seed for different plan
+      seed = rep + 6000
     ) |>
-      mutate(plan = "status quo + 10% effort")
+      mutate(plan = "MPAs at 5 year intervals")
 
+    # Case 3: Status quo + 20% effort ------------------------
+    # For low power species, does increasing sampling make a difference to power?
     sampled_status_quo_1.2 <- sample_by_plan(
       sim_dat = sim_rep,
       sampling_effort = sample_effort_status_quo |> mutate(n_samps = round(n_samps * 1.2)),
       grouping_vars = c("survey_abbrev", "year", "grouping_code"),
-      seed = rep + 2000
+      seed = rep + 2000 # Offset seed for different plan
     ) |>
       mutate(plan = "status quo + 20% effort")
 
-    sampled_status_quo_1.4 <- sample_by_plan(
-      sim_dat = sim_rep,
-      sampling_effort = sample_effort_status_quo |> mutate(n_samps = round(n_samps * 1.4)),
-      grouping_vars = c("survey_abbrev", "year", "grouping_code"),
-      seed = rep + 3000
-    ) |>
-      mutate(plan = "status quo + 40% effort")
+    # # Case X: Status quo - no sampling in MPAs ------------------------
+    # # Would show nothing because all MPA values are empty. Could do an extrapolation example
+    # sampled_status_quo_0_mpa <- sample_by_plan(
+    #   sim_dat = sim_rep,
+    #   sampling_effort = sample_effort_status_quo |> filter(restricted == 0), # no sampling in MPAs
+    #   grouping_vars = c("survey_abbrev", "year", "grouping_code"),
+    #   seed = rep + 5000
+    # ) |>
+    #   mutate(plan = "status quo - no sampling in MPAs")
 
-    # Increased sampling effort every 5 years
-    sample_effort_status_quo_5 <- sample_effort_status_quo |>
-      mutate(n_samps = case_when(
-        survey_abbrev %in% c("HBLL INS N", "HBLL OUT N") & year %% 5 == 0 ~ round(n_samps * 1.4),
-        survey_abbrev == "HBLL OUT S" & (year - 1) %% 5 == 0 ~ round(n_samps * 1.4),
-        TRUE ~ round(n_samps)
-      ))
+    # sampled_status_quo_1.1 <- sample_by_plan(
+    #   sim_dat = sim_rep,
+    #   sampling_effort = sample_effort_status_quo |> mutate(n_samps = round(n_samps * 1.1)),
+    #   grouping_vars = c("survey_abbrev", "year", "grouping_code"),
+    #   seed = rep + 1000  # Offset seed for different plan
+    # ) |>
+    #   mutate(plan = "status quo + 10% effort")
 
-    sampled_status_quo_5_year <- sample_by_plan(
-      sim_dat = sim_rep,
-      sampling_effort = sample_effort_status_quo_5,
-      grouping_vars = c("survey_abbrev", "year", "grouping_code"),
-      seed = rep + 4000
-    ) |>
-      mutate(plan = "status quo + 40% effort every 5 years")
 
-    sampled_status_quo_0_mpa <- sample_by_plan(
-      sim_dat = sim_rep,
-      sampling_effort = sample_effort_status_quo |> filter(restricted == 0), # no sampling in MPAs
-      grouping_vars = c("survey_abbrev", "year", "grouping_code"),
-      seed = rep + 5000
-    ) |>
-      mutate(plan = "status quo - no sampling in MPAs")
+    # Increased sampling effort every 5 years ------------------------
+    # sample_effort_status_quo_5 <- sample_effort_status_quo |>
+    #   mutate(n_samps = case_when(
+    #     survey_abbrev %in% c("HBLL INS N", "HBLL OUT N") & year %% 5 == 0 ~ round(n_samps * 1.4),
+    #     survey_abbrev == "HBLL OUT S" & (year - 1) %% 5 == 0 ~ round(n_samps * 1.4),
+    #     TRUE ~ round(n_samps)
+    #   ))
+
+    # sampled_status_quo_5_year <- sample_by_plan(
+    #   sim_dat = sim_rep,
+    #   sampling_effort = sample_effort_status_quo_5,
+    #   grouping_vars = c("survey_abbrev", "year", "grouping_code"),
+    #   seed = rep + 4000
+    # ) |>
+    #   mutate(plan = "status quo + 40% effort every 5 years")
 
     # Combine all plans for this replicate
     bind_rows(
-      sampled_historical,
+      # sampled_historical,
       sampled_status_quo,
-      sampled_status_quo_1.1,
+      # sampled_status_quo_1.1,
       sampled_status_quo_1.2,
-      sampled_status_quo_1.4,
-      sampled_status_quo_5_year,
-      sampled_status_quo_0_mpa
+      # sampled_status_quo_1.4,
+      # sampled_status_quo_5_year,
+      sampled_mpas_5_years
     ) |>
       mutate(replicate = rep)
   })
@@ -296,13 +320,11 @@ purrr::walk(species_list, function(sp, check_cache = FALSE) {
 
     # Check if all plan files already exist for this parameter combination
     plan_names <- c(
-      "historical locations only",
+      # "historical locations only",
       "status quo",
-      "status quo + 10% effort",
-      "status quo + 20% effort",
-      "status quo + 40% effort",
-      "status quo + 40% effort every 5 years",
-      "status quo - no sampling in MPAs"
+      "MPAs at 5 year intervals"
+      # "status quo + 20% effort"
+      # "status quo - no sampling in MPAs"
     )
 
     expected_files <- sapply(plan_names, function(plan) {
@@ -408,7 +430,7 @@ purrr::walk(species_list, function(sp, check_cache = FALSE) {
   }, .options = if (USE_PARALLEL) furrr::furrr_options(seed = TRUE) else list())
 
   # Add to overall summary
-  sampling_summary <<- bind_rows(sampling_summary, sp_metadata)
+  sampling_summary <- bind_rows(sampling_summary, sp_metadata)
 })
 
 # Save sampling summary catalog
@@ -438,3 +460,29 @@ head(sampling_summary)
 #   sample_dir = sample_dir
 # )
 # glimpse(ye_sample)
+
+# Test scenario buildng:
+
+# test <- load_sim_data(
+#   species = "yelloweye rockfish",
+#   survey_abbrev = "HBLL OUT N",
+#   mpa_trend = 1.015,
+#   ar1_scenario = "no_AR1",
+#   time_scenario = "twenty_years",
+#   sim_summary = sim_summary,
+#   sim_dir = sim_dir
+# ) |> filter(replicate == 1)
+
+# display_mpa <- readRDS(here::here("data-generated", "spatial", "simple-mpa-500m.rds"))
+# test2 <- run_sampling(test) |> XY_to_sf()
+
+# test2 |>
+#   ggplot(data = _) +
+#   geom_sf(data = pacea::bc_coast, fill = "grey94", colour = "grey90") +
+#   geom_sf(data = display_mpa, fill = "grey85", colour = "grey85") +
+#   geom_sf(aes(colour = factor(restricted)), shape = 21, size = 1.2) +
+#   # scale_colour_manual(name = "Restricted", values = c(`0` = 21, `1` = 19)) +
+#   facet_grid(plan ~ year) +
+#   gfplot::coord_sf_auto(test2)
+
+# ggsave(here::here("figures", "test2.png"), test2, width = 10, height = 10)
