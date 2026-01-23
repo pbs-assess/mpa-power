@@ -33,11 +33,15 @@ get_marginal_sigma_E <- function(fit) {
     filter(term == "sigma_E") |> pull(estimate)
 }
 
-#' Convert sdmTMB XY (km) to sf object
+#' Convert coordinates to sf object
+#'
+#' Converts sdmTMB XY coordinates(km) to sf object. Also works for general
+#' conversions of point data to coordinates.
 #'
 #' @param data Data frame containing coordinate columns
 #' @param coords Vector of coordinate column names (default: c("X", "Y"))
-#' @param mult Multiplier for coordinates (default: 1000, unless crs_from is 4326 then 1)
+#' @param mult Multiplier for coordinates (default: 1000, converts km to m).
+#'   Automatically set to 1 if crs_from = 4326.
 #' @param crs_from Source coordinate reference system (default: 32609)
 #' @param crs_to Target coordinate reference system (default: 4326)
 #'
@@ -46,6 +50,11 @@ get_marginal_sigma_E <- function(fit) {
 XY_to_sf <- function(data, coords = c("X", "Y"),
                      mult = 1000,
                      crs_from = 32609, crs_to = 4326) {
+  if (!all(coords %in% names(data))) {
+    missing <- coords[!coords %in% names(data)]
+    stop("Coordinate column(s) not found: ", paste(missing, collapse = ", "))
+  }
+
   if (crs_from == 4326) mult <- 1
 
   df <- data |>
@@ -85,18 +94,29 @@ get_plot_limits <- function(sf_obj, xlim = NULL, ylim = NULL, buffer = 1000, crs
   coord_sf(xlim = xlim, ylim = ylim, crs = st_crs(sf_obj))
 }
 
-#' Rotate spatial features while maintaining appropriate coordinate reference system
+#' Rotate spatial features for plotting BC coastline
+#'
+#' Rotates sf objects using oblique Mercator projection to align BC's
+#' northwest-southeast coastline with plot axes.
 #'
 #' @param sf_obj An sf object to rotate
-#' @param a Angle in degrees to rotate (default: 90)
+#' @param angle Rotation angle in degrees (default: -40). Negative values rotate clockwise.
+#' @param lonc Central meridian longitude (default: -129)
 #'
-#' @return Rotated sf object in oblique Mercator projection
+#' @return sf object in rotated oblique Mercator projection, or original if angle is NULL
 #' @export
-rotate_a <- function(sf_obj, a = 90){
-  if (is.null(a)) return(sf_obj)
+#'
+#' @examples
+#' \dontrun{
+#' coast <- pacea::bc_coast
+#' coast_rotated <- rotate_sf(coast, angle = -40, lonc = -129)
+#'
+#' ggplot(coast_rotated) + geom_sf()
+#' }
+rotate_sf <- function(sf_obj, angle = -40, lonc = -129) {
+  rotated_crs <- paste0("+proj=omerc +lat_0=0 +lonc=", lonc, " +gamma=", -angle)
 
-  rotated_crs <- paste0("+proj=omerc +lat_0=0 +lonc=-9 +gamma=", -a)
-  sf_obj <- sf_obj |> st_transform(rotated_crs)
+  sf_obj |> sf::st_transform(rotated_crs)
 }
 
 #' Beep only for a specific user.

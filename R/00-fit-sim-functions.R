@@ -159,7 +159,7 @@ plot_hbll_predictions <- function(pred,
 
     pred_sf <- st_transform(pred_sf, crs = crs)
   } else {
-    pred_sf <- pred_sf |> rotate_a(a = rotation)
+    pred_sf <- pred_sf |> rotate_sf(angle = rotation)
 
     bbox <- pred_sf |>
       st_buffer(dist = buffer) |>
@@ -171,7 +171,7 @@ plot_hbll_predictions <- function(pred,
 
   # Create plot
   ggplot() +
-    geom_sf(data = pacea::bc_coast |> rotate_a(a = rotation), fill = "grey90") +
+    geom_sf(data = pacea::bc_coast |> rotate_sf(angle = rotation), fill = "grey90") +
     geom_sf(data = pred_sf, aes(colour = pred_value)) +
     viridis::scale_colour_viridis(option = "plasma") +
     theme_light() +
@@ -651,10 +651,10 @@ load_sampled_data <- function(species, survey_abbrev, plan, mpa_trend,
 #'
 #' @return ggplot object
 #'
-plot_sampling_plan <- function(sampled_data, plan_name) {
+plot_sampling_plan <- function(sampled_data, plan_name, groups = c("year", "restricted")) {
   # Create summary for text labels
   samp_summary <- sampled_data |>
-    group_by(year, restricted) |>
+    group_by(!!!syms(groups)) |>
     summarise(n = n(), .groups = "drop") |>
     filter(restricted == 1)
 
@@ -665,7 +665,7 @@ plot_sampling_plan <- function(sampled_data, plan_name) {
   # Create the plot
   ggplot(data = plot_dat) +
     geom_sf(
-      data = mpa_shape_simplified, fill = "#0072B2",
+      data = display_mpa, fill = "#0072B2",
       colour = NA, alpha = 0.3
     ) +
     # scale_fill_manual(name = "MPA status",
@@ -679,7 +679,7 @@ plot_sampling_plan <- function(sampled_data, plan_name) {
     scale_shape_manual(name = "Restricted", values = c(`0` = 21, `1` = 19)) +
     scale_colour_viridis_c(name = "eta", option = "A", end = 0.8) +
     facet_wrap(~year, nrow = 5) +
-    plot_limits_combined +
+    gfplot::coord_sf_auto(plot_dat) +
     theme(
       legend.position = "bottom",
       # legend.position.inside = c(0.87, 0.1),
