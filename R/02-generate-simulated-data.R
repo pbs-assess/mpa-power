@@ -401,7 +401,7 @@ task_grid <- purrr::map_dfr(names(all_species_fits), function(sp_name) {
   # Get species-specific recovery rates
   sp_rates <- recovery_rates |>
     filter(species == sp_name) |>
-    pull(linear_mpa_rate)
+    pull(lambda)
 
   message("Species: ", sp_name, " - Rates: ", paste(round(sp_rates, 4), collapse = ", "))
 

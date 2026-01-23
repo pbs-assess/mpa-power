@@ -42,7 +42,7 @@ bait_counts <- readRDS(file.path(synopsis_cache, "bait-counts.rds"))
 simple_mpa <- readRDS(here::here("data-generated", "spatial", "simple-mpa.rds"))
 
 # Fitting parameters
-check_cache <- FALSE
+check_cache <- TRUE
 silent <- TRUE
 
 # Fit models for a single species
