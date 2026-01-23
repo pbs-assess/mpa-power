@@ -46,10 +46,8 @@ if (USE_PARALLEL) {
     future::plan(future::multisession, workers = N_WORKERS)
     message("Using ", N_WORKERS, " parallel workers (multisession)")
   }
-  map_fn <- furrr::future_map_dfr
 } else {
   future::plan(future::sequential)
-  map_fn <- purrr::map_dfr
   message("Using sequential processing")
 }
 
@@ -150,26 +148,10 @@ extract_trend_estimate <- function(fit, trend_param = "restricted:year_covariate
 #' @param species Species name
 #' @param survey_abbrev Survey abbreviation (e.g., "HBLL-OUT-N")
 #' @param sim_data Simulated data for one replicate
-#' @param cleaned_data_dir Directory with cleaned historical data
+#' @param historical_data Pre-loaded and prepared historical data for this survey
 #'
 #' @return Combined data ready for model fitting
-prepare_combined_data <- function(species, survey_abbrev, sim_data, cleaned_data_dir) {
-  # Load MPA spatial data
-  simple_mpa <- readRDS(file.path("data-generated", "spatial", "simple-mpa.rds"))
-
-  # Load historical data
-  hdat0 <- readRDS(file.path(cleaned_data_dir, paste0(sp_to_hyphens(species), "-", survey_abbrev, ".rds")))
-
-  # Join with MPA and prepare
-  hdat <- st_join(XY_to_sf(hdat0, crs_to = st_crs(simple_mpa)), simple_mpa, join = st_within) |>
-    mutate(
-      restricted = ifelse(is.na(uid), 0, 1),
-      last_sampled_year = max(year),
-      year_covariate = 0,
-      historical = TRUE
-    ) |>
-    st_drop_geometry()
-
+prepare_combined_data <- function(species, survey_abbrev, sim_data, historical_data) {
   # Prepare simulated data
   sim_data_prep <- sim_data |>
     mutate(
@@ -178,7 +160,7 @@ prepare_combined_data <- function(species, survey_abbrev, sim_data, cleaned_data
     )
 
   # Combine and create final structure
-  combined_data <- bind_rows(hdat, sim_data_prep) |>
+  combined_data <- bind_rows(historical_data, sim_data_prep) |>
     select(survey_abbrev, X, Y, block_id, restricted, historical,
            year, year_covariate, last_sampled_year,
            catch_count, hook_count, offset) |>
@@ -305,75 +287,167 @@ scenario_files <- tidyr::expand_grid(
     filepath = file.path(species_dir, filename)
   ) |>
   filter(!is.na(filename)) |>
-  select(rate_case, rate, survey, plan, filename, filepath) |>
-  slice(1)
+  select(rate_case, rate, survey, plan, filename, filepath)
 
-message("\n=== Starting Power Analysis Fitting ===")
+# =============================================================================
+# Pre-load historical data for all surveys (sf joins expensive on hake)
+# =============================================================================
+# Directory with pre-processed historical data
+hist_data_dir <- here::here("data-generated", "historical-data-processed")
+
+# Get unique surveys from scenario files
+unique_surveys <- unique(scenario_files$survey)
+
+# Load pre-processed historical data for each survey
+historical_data_list <- purrr::map(unique_surveys, function(survey_abbrev) {
+cache_file <- file.path(hist_data_dir, paste0(sp_to_hyphens(species), "-", survey_abbrev, "-processed.rds"))
+
+  if (!file.exists(cache_file)) {
+    stop("Pre-processed data not found: ", cache_file, "\n",
+         "Run R/00-preprocess-historical-data.R on your local machine first!")
+  }
+
+  message("  Loading: ", survey_abbrev)
+  hdat <- readRDS(cache_file)
+  message("    ", nrow(hdat), " rows, ", sum(hdat$restricted), " in MPAs")
+
+  return(hdat)
+}) |>
+  setNames(unique_surveys)
+
+message("  Loaded ", length(historical_data_list), " historical datasets\n")
+
+# =============================================================================
+# Check existing caches for resume capability
+# =============================================================================
+
+message("=== Checking Existing Caches ===")
+
+# Add cache filenames and check completion status
+scenario_files <- scenario_files |>
+  mutate(
+    plan_clean = gsub("-", "_", plan),
+    rate_clean = gsub("\\.", "", as.character(rate)),
+    cache_file = file.path(
+      results_dir,
+      paste0(
+        sp_to_hyphens(species), "-",
+        survey, "-",
+        "mpa", rate_clean, "-",
+        ar1_scenario, "-",
+        time_scenario, "-",
+        plan_clean,
+        "-trend-estimates.rds"
+      )
+    ),
+    cache_exists = file.exists(cache_file)
+  )
+
+# For each scenario, determine which replicates are already complete
+scenario_files <- scenario_files |>
+  rowwise() |>
+  mutate(
+    completed_reps = list(
+      if (cache_exists) {
+        cached_results <- readRDS(cache_file)
+        unique(cached_results$replicate)
+      } else {
+        integer(0)
+      }
+    ),
+    n_complete = length(completed_reps),
+    n_remaining = N_REPLICATES - n_complete
+  ) |>
+  ungroup()
+
+# Summary of resume status
+total_complete <- sum(scenario_files$n_complete)
+total_remaining <- sum(scenario_files$n_remaining)
+message("  Complete: ", total_complete, " replicate fits")
+message("  Remaining: ", total_remaining, " replicate fits")
+message("  Resume: ", sum(scenario_files$n_complete > 0), " scenarios have partial results\n")
+
+message("=== Starting Power Analysis Fitting ===")
 message("Species: ", species)
 message("Found ", nrow(scenario_files), " scenario files to process")
 message("  Rates: ", length(unique(scenario_files$rate)))
 message("  Surveys: ", length(unique(scenario_files$survey)))
 message("  Plans: ", length(unique(scenario_files$plan)))
-message("Processing ", N_REPLICATES, " replicates per scenario\n")
+message("Processing ", N_REPLICATES, " replicates per scenario")
+message("Total jobs: ", total_remaining, " (", total_complete, " already complete)\n")
 
-# Process each scenario
-all_fitted_results <- purrr::map_dfr(1:nrow(scenario_files), function(i) {
-  scenario <- scenario_files[i, ]
+# =============================================================================
+# Create flattened job grid (scenario × incomplete replicates)
+# =============================================================================
 
-  message("========================================")
-  message("Scenario ", i, "/", nrow(scenario_files))
-  message("Rate: ", scenario$rate, " (", scenario$rate_case, ")")
-  message("Survey: ", scenario$survey, " | Plan: ", scenario$plan)
-  message("========================================")
+message("=== Creating Job Grid ===")
 
-  # Create cache filename
-  plan_clean <- scenario$plan |>
-    gsub("-", "_", x = _)
-  rate_clean <- gsub("\\.", "", as.character(scenario$rate))
+# Expand scenario_files to create one row per incomplete replicate
+job_grid <- scenario_files |>
+  rowwise() |>
+  mutate(
+    # Get incomplete replicate numbers for this scenario
+    incomplete_reps = list(setdiff(1:N_REPLICATES, completed_reps))
+  ) |>
+  ungroup() |>
+  # Filter to scenarios with incomplete work
+  filter(n_remaining > 0) |>
+  # Expand to one row per incomplete replicate
+  tidyr::unnest(incomplete_reps) |>
+  rename(replicate = incomplete_reps) |>
+  # Add job ID for progress tracking
+  mutate(job_id = row_number())
 
-  cache_file <- file.path(
-    results_dir,
-    paste0(
-      sp_to_hyphens(species), "-",
-      scenario$survey, "-",
-      "mpa", rate_clean, "-",
-      ar1_scenario, "-",
-      time_scenario, "-",
-      plan_clean,
-      "-trend-estimates.rds"
-    )
-  )
+message("  Created ", nrow(job_grid), " jobs\n")
 
-  # Check cache
-  if (file.exists(cache_file)) {
-    message("  Cache hit\n")
-    return(readRDS(cache_file))
-  }
+# Exit early if no work to do
+if (nrow(job_grid) == 0) {
+  message("=== All scenarios complete! ===")
+  # Load existing results
+  all_fitted_results <- purrr::map_dfr(scenario_files$cache_file, readRDS)
+} else {
 
-  message("  Loading sampled data...")
-  # Load sampled data (all replicates)
-  sampled_data <- readRDS(scenario$filepath)
+  # =============================================================================
+  # Pre-load sampled data for incomplete scenarios
+  # =============================================================================
 
-  # Subset replicates
-  available_reps <- unique(sampled_data$replicate)
-  selected_reps <- head(available_reps, N_REPLICATES)
+  message("=== Pre-loading Sampled Data ===")
 
-  message("  Processing ", length(selected_reps), " of ", length(available_reps), " replicates")
+  unique_filepaths <- unique(job_grid$filepath)
+  message("  Loading ", length(unique_filepaths), " scenario files...")
 
-  # Fit each replicate (in parallel if enabled)
-  rep_results <- map_fn(selected_reps, function(rep) {
-    # Filter to this replicate
-    rep_sim_data <- sampled_data |> filter(replicate == rep)
+  sampled_data_list <- purrr::map(unique_filepaths, function(fp) {
+    readRDS(fp)
+  }) |>
+    setNames(unique_filepaths)
 
-    # Combine with historical data
+  message("  Loaded sampled data for ", length(sampled_data_list), " scenarios\n")
+
+  # =============================================================================
+  # Process all incomplete jobs in parallel
+  # =============================================================================
+
+  message("=== Processing Jobs ===")
+  message("  Running ", nrow(job_grid), " jobs across ", if (USE_PARALLEL) N_WORKERS else 1, " workers\n")
+
+  # Define the worker function (same for both parallel and sequential)
+  process_job <- function(i) {
+    job <- job_grid[i, ]
+
+    # Get data for this job
+    sim_data_all_reps <- sampled_data_list[[job$filepath]]
+    rep_sim_data <- sim_data_all_reps |> filter(replicate == job$replicate)
+    hist_data <- historical_data_list[[job$survey]]
+
+    # Combine data
     combined_data <- prepare_combined_data(
       species = species,
-      survey_abbrev = scenario$survey,
+      survey_abbrev = job$survey,
       sim_data = rep_sim_data,
-      cleaned_data_dir = cleaned_data_dir
+      historical_data = hist_data
     )
 
-    # Fit model with collapse_spatial_variance = TRUE (handles collapsed fields automatically)
+    # Fit model
     fit <- fit_simulation(
       dat = combined_data,
       formula = catch_prop ~ fyear + restricted + year_covariate + restricted:year_covariate,
@@ -390,13 +464,13 @@ all_fitted_results <- purrr::map_dfr(1:nrow(scenario_files), function(i) {
     # Return results
     tibble(
       species = species,
-      survey_abbrev = scenario$survey,
-      sim_mpa_trend = scenario$rate,
-      sim_mpa_case = scenario$rate_case,
+      survey_abbrev = job$survey,
+      sim_mpa_trend = job$rate,
+      sim_mpa_case = job$rate_case,
       sim_ar1_scenario = ar1_scenario,
       sim_time_scenario = time_scenario,
-      plan = scenario$plan,
-      replicate = rep,
+      plan = job$plan,
+      replicate = job$replicate,
       estimate = trend$estimate,
       se = trend$se,
       ci_lower = trend$ci_lower,
@@ -409,24 +483,75 @@ all_fitted_results <- purrr::map_dfr(1:nrow(scenario_files), function(i) {
       fit_spatiotemporal = fit$spatiotemporal,
       formula = deparse(fit$formula)
     )
-  }, .options = if (USE_PARALLEL) {
-    furrr::furrr_options(
-      seed = TRUE,
-      packages = c("sdmTMB", "dplyr", "tibble", "broom.mixed", "sf"),
-      globals = c("fit_simulation", "extract_trend_estimate",
-                  "summarise_sanity", "clean_family_name", "prepare_combined_data",
-                  "sp_to_hyphens", "XY_to_sf", "cleaned_data_dir", "species")
+  }
+
+  # Run jobs (parallel or sequential)
+  if (USE_PARALLEL) {
+    new_results <- furrr::future_map_dfr(
+      1:nrow(job_grid),
+      process_job,
+      .options = furrr::furrr_options(
+        seed = TRUE,
+        packages = c("sdmTMB", "dplyr", "tibble", "broom.mixed", "sf"),
+        globals = c("fit_simulation", "extract_trend_estimate",
+                    "summarise_sanity", "clean_family_name", "prepare_combined_data",
+                    "sp_to_hyphens", "XY_to_sf", "species", "ar1_scenario", "time_scenario",
+                    "sampled_data_list", "historical_data_list", "job_grid", "process_job")
+      ),
+      .progress = TRUE
     )
   } else {
-    list()
+    new_results <- purrr::map_dfr(1:nrow(job_grid), process_job, .progress = TRUE)
+  }
+
+  message("\n=== Merging and Caching Results ===")
+
+  # Group new results by scenario
+  new_results_df <- bind_rows(new_results)
+
+  # Get unique scenario identifiers from job_grid
+  scenarios_to_update <- job_grid |>
+    distinct(rate, rate_case, survey, plan, cache_file)
+
+  # For each scenario, merge new results with existing cache (if any) and save
+  all_fitted_results <- purrr::map_dfr(1:nrow(scenarios_to_update), function(i) {
+    scenario <- scenarios_to_update[i, ]
+
+    # Get new results for this scenario
+    scenario_new_results <- new_results_df |>
+      filter(
+        sim_mpa_trend == scenario$rate,
+        survey_abbrev == scenario$survey,
+        plan == scenario$plan
+      )
+
+    # Merge with existing results if cache exists
+    if (file.exists(scenario$cache_file)) {
+      scenario_existing_results <- readRDS(scenario$cache_file)
+      scenario_all_results <- bind_rows(scenario_existing_results, scenario_new_results)
+      n_new <- nrow(scenario_new_results)
+      n_existing <- nrow(scenario_existing_results)
+      message("  ", basename(scenario$cache_file), ": ", n_new, " new + ", n_existing, " existing = ", nrow(scenario_all_results), " total")
+    } else {
+      scenario_all_results <- scenario_new_results
+      message("  ", basename(scenario$cache_file), ": ", nrow(scenario_all_results), " new")
+    }
+
+    # Save updated cache
+    saveRDS(scenario_all_results, scenario$cache_file)
+
+    return(scenario_all_results)
   })
 
-  # Save cache
-  saveRDS(rep_results, cache_file)
-  message("  Saved: ", basename(cache_file), "\n")
+  # Also add any scenarios that were already 100% complete
+  complete_scenarios <- scenario_files |>
+    filter(n_remaining == 0)
 
-  return(rep_results)
-})
+  if (nrow(complete_scenarios) > 0) {
+    complete_results <- purrr::map_dfr(complete_scenarios$cache_file, readRDS)
+    all_fitted_results <- bind_rows(all_fitted_results, complete_results)
+  }
+}
 
 message("=== All fitting complete ===")
 message("Fitted results cached in: ", results_dir)
