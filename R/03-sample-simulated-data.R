@@ -298,7 +298,7 @@ message("\nProcessing ", length(species_list), " species")
 sampling_summary <- tibble()
 
 # Process each species
-purrr::walk(species_list, function(sp, check_cache = FALSE) {
+purrr::map_dfr(species_list, function(sp) {
 
   message("\n========================================")
   message("Sampling simulated data for species: ", sp)
@@ -322,8 +322,8 @@ purrr::walk(species_list, function(sp, check_cache = FALSE) {
     plan_names <- c(
       # "historical locations only",
       "status quo",
-      "MPAs at 5 year intervals"
-      # "status quo + 20% effort"
+      "MPAs at 5 year intervals",
+      "status quo + 20% effort"
       # "status quo - no sampling in MPAs"
     )
 
@@ -428,9 +428,6 @@ purrr::walk(species_list, function(sp, check_cache = FALSE) {
 
     return(file_metadata)
   }, .options = if (USE_PARALLEL) furrr::furrr_options(seed = TRUE) else list())
-
-  # Add to overall summary
-  sampling_summary <- bind_rows(sampling_summary, sp_metadata)
 })
 
 # Save sampling summary catalog
