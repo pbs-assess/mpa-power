@@ -1,13 +1,12 @@
 # =============================================================================
-# Fit sampled data and analyze power
+# Fit sampled data
 # =============================================================================
-# This script fits models to sampled data and evaluates power to detect
-# MPA recovery trends under different scenarios.
 
 source(here::here("R", "00-fit-sim-functions.R"))
 source(here::here("R", "00-setup.R"))
 
 library(purrr)
+library(progressr)
 
 # =============================================================================
 # Configuration
@@ -16,51 +15,154 @@ library(purrr)
 cleaned_data_dir <- here::here("data-generated", "cleaned-species-data")
 sample_dir <- here::here("data-generated", "sampled-data")
 results_dir <- here::here("data-generated", "power-results")
+historical_data_path <- here::here("data-generated", "historical-data-processed")
 dir.create(results_dir, showWarnings = FALSE, recursive = TRUE)
 
-USE_PARALLEL <- TRUE
-#N_WORKERS <- if (USE_PARALLEL) 20 else 1
-N_WORKERS <- NULL
+USE_PARALLEL <- TRUE#FALSE
+N_WORKERS <- 8 #NULL
+N_REPLICATES <- 25
 
 if (Sys.info()['user'] %in% c("dunic", "anderson")) {
   USE_PARALLEL <- TRUE
   N_WORKERS <- 40
+  N_REPLICATES <- 50
 }
 
 if (Sys.info()['user'] == "jilliandunic") {
   USE_PARALLEL <- TRUE
   N_WORKERS <- 8
+  N_REPLICATES <- 50
 }
 
-# Number of replicates to process (default 10 for testing, set to 50 for full run)
-N_REPLICATES <- 10
+# Testing
+# sample_summary <- readRDS(file.path(sample_dir,  "sampling-summary.rds"))
 
-# Setup parallel processing
-if (USE_PARALLEL) {
-  if (is.null(N_WORKERS)) N_WORKERS <- future::availableCores() / 2
+# species <- "lingcod"
+# ar1_scenarios <- c("no_AR1", "moderate_AR1")
+# time_scenarios <- c("twenty_years")
+# plans <- c(
+#   "status quo",
+#   "MPAs at 5 year intervals"#,
+#   # "status quo + 20% effort"
+# )
 
-  if (Sys.info()['user'] %in% c("dunic", "anderson")) {
-    future::plan(future::multicore, workers = N_WORKERS)
-    message("Using ", N_WORKERS, " parallel workers (multicore)")
-  } else {
-    future::plan(future::multisession, workers = N_WORKERS)
-    message("Using ", N_WORKERS, " parallel workers (multisession)")
+# # f <- list.files(file.path(sample_dir, sp_to_hyphens(species)))
+
+# ling_files <- filter(sample_summary,
+#   species %in% .env$species,
+#   ar1_scenario %in% .env$ar1_scenarios,
+#   time_scenario %in% .env$time_scenarios,
+#   plan %in% .env$plans
+# ) |>
+#   pull(file)
+
+# sim_dat0 <- readRDS(file.path(sample_dir, ling_files[2]))
+# sim_dat <- combine_hist_sim_data(sim_dat0) |>
+#   filter(replicate %in% 0:1)
+
+# test <- fit_simulation(
+#   dat = sim_dat,
+#   formula = catch_prop ~ 0 + fyear*restricted + year_covariate + restricted:year_covariate,
+#   spatial = "on",
+#   spatiotemporal = "iid",
+#   cutoff = 20,
+#   control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
+#   silent = FALSE
+#   )
+# meep()
+# sanity(test)
+# test
+
+
+# =============================================================================
+# Helper Functions
+# =============================================================================
+
+#' Create standardized error row
+create_error_row <- function(combo, replicate, error_message) {
+  tibble(
+    species = combo$species,
+    survey_abbrev = combo$survey_abbrev,
+    sim_mpa_trend = combo$mpa_trend,
+    sim_ar1_scenario = combo$ar1_scenario,
+    sim_time_scenario = combo$time_scenario,
+    sampling_plan = combo$plan,
+    replicate = replicate,
+    estimate = NA_real_,
+    se = NA_real_,
+    ci_lower = NA_real_,
+    ci_upper = NA_real_,
+    converged = FALSE,
+    sanity = NA_character_,
+    error_msg = error_message,
+    fit_formula = NA_character_,
+    fit_family = NA_character_,
+    fit_spatial = NA_character_,
+    fit_spatiotemporal = NA_character_
+  )
+}
+
+#' Generate result filename matching sampling data convention
+generate_result_filename <- function(species, survey_abbrev, mpa_trend,
+                                    ar1_scenario, time_scenario, plan) {
+  plan_slug <- gsub("[^a-zA-Z0-9]", "-", plan) |>
+    gsub("-+", "-", x = _) |>
+    tolower()
+
+  paste0(
+    survey_abbrev, "_",
+    "mpa", round(mpa_trend, digits = 3), "_",
+    ar1_scenario, "_",
+    time_scenario, "_",
+    plan_slug,
+    "_results.rds"
+  ) |>
+    gsub(" ", "-", x = _)
+}
+
+#' Lazy load historical data with per-worker caching
+get_hist_data <- function(species, survey_abbrev, historical_data_path, cache_env) {
+  key <- paste(species, survey_abbrev, sep = "___")
+  if (exists(key, envir = cache_env, inherits = FALSE)) {
+    return(get(key, envir = cache_env, inherits = FALSE))
   }
-} else {
-  future::plan(future::sequential)
-  message("Using sequential processing")
+
+  sp_hyp <- sp_to_hyphens(species)
+  survey_hyp <- sp_to_hyphens(survey_abbrev)
+  fname <- file.path(historical_data_path,
+                     paste0(sp_hyp, "-", survey_hyp, "-processed.rds"))
+  if (!file.exists(fname)) {
+    stop("Historical data not found: ", fname)
+  }
+
+  hist_data <- readRDS(fname)
+  assign(key, hist_data, envir = cache_env)
+  hist_data
+}
+
+#' Combine historical and simulated data (cached version)
+combine_hist_sim_data_cached <- function(sim_data, hist_data) {
+  sim_data_prep <- sim_data |>
+    mutate(
+      catch_count = observed,
+      historical = FALSE
+    )
+
+  combined_data <- bind_rows(hist_data, sim_data_prep) |>
+    select(replicate, survey_abbrev, X, Y, block_id, restricted, historical,
+           year, year_covariate, last_sampled_year,
+           catch_count, hook_count, offset) |>
+    mutate(
+      replicate = ifelse(historical, 0, replicate),
+      catch_prop = catch_count / hook_count,
+      fyear_value = ifelse(historical, year, last_sampled_year),
+      fyear = as.factor(fyear_value)
+    )
+
+  return(combined_data)
 }
 
 #' Fit sdmTMB model to sampled data
-#'
-#' @param dat Sampled data for one replicate
-#' @param formula Model formula
-#' @param spatial Spatial random field specification
-#' @param spatiotemporal Spatiotemporal random field specification
-#' @param family Distribution family
-#' @param silent Suppress sdmTMB messages
-#'
-#' @return Fitted sdmTMB model or error object
 fit_simulation <- function(dat,
                            formula = catch_prop ~ 0 + fyear + restricted:year_covariate,
                            spatial = "on",
@@ -72,45 +174,40 @@ fit_simulation <- function(dat,
 
   survey_type <- unique(dat$survey_abbrev)
 
-  # Prepare data
-  if (grepl("HBLL", survey_type)) { # future proofing to allow use of SYN surveys
+  if (grepl("HBLL", survey_type)) {
     weights <- dat$hook_count
     offset <- NULL
   } else {
     weights <- NULL
     offset <- dat$offset
   }
-  # Create mesh
+
   mesh <- make_mesh(dat, xy_cols = c("X", "Y"), cutoff = cutoff)
 
-  # Fit model
-  fit <- local(tryCatch({
-    sdmTMB(
-      formula = formula,
-      data = dat,
-      mesh = mesh,
-      family = family,
-      spatial = spatial,
-      spatiotemporal = spatiotemporal,
-      time = "year",
-      weights = weights, # if HBLL use weights, otherwise use offset
-      offset = offset,
-      silent = silent,
-      control = control
-    )
-  }, error = function(e) {
-    list(error = TRUE, message = e$message)
-  }))
+  params <- list(
+    formula = formula,
+    data = dat,
+    mesh = mesh,
+    family = family,
+    spatial = spatial,
+    spatiotemporal = spatiotemporal,
+    time = "year",
+    weights = weights,
+    offset = offset,
+    silent = silent,
+    control = control
+  )
 
-  return(fit)
+  fit <- local({
+    tryCatch({
+      do.call(sdmTMB, params)
+    }, error = function(e) {
+      list(error = TRUE, message = e$message)
+    })
+  })
 }
 
 #' Extract MPA trend estimate from fitted model
-#'
-#' @param fit Fitted sdmTMB model
-#' @param trend_param Name of trend parameter in model
-#'
-#' @return List with estimate, se, and confidence interval
 extract_trend_estimate <- function(fit, trend_param = "restricted:year_covariate") {
   if (!is.null(fit$error) && fit$error) {
     return(list(
@@ -124,7 +221,6 @@ extract_trend_estimate <- function(fit, trend_param = "restricted:year_covariate
     ))
   }
 
-  # Extract coefficient
   coefs <- tidy(fit, conf.int = TRUE)
   trend_row <- coefs |> filter(term == trend_param)
 
@@ -143,422 +239,298 @@ extract_trend_estimate <- function(fit, trend_param = "restricted:year_covariate
   ))
 }
 
-#' Prepare combined historical and simulated data for model fitting
-#'
-#' @param species Species name
-#' @param survey_abbrev Survey abbreviation (e.g., "HBLL-OUT-N")
-#' @param sim_data Simulated data for one replicate
-#' @param historical_data Pre-loaded and prepared historical data for this survey
-#'
-#' @return Combined data ready for model fitting
-prepare_combined_data <- function(species, survey_abbrev, sim_data, historical_data) {
-  # Prepare simulated data
-  sim_data_prep <- sim_data |>
-    mutate(
-      catch_count = observed,
-      historical = FALSE
-    )
+#' Process one parameter combo (all replicates)
+fit_parameter_combo <- function(combo, sample_file, results_dir,
+                               historical_data_path, n_replicates = 50,
+                               hist_cache_env = new.env(parent = emptyenv())) {
 
-  # Combine and create final structure
-  combined_data <- bind_rows(historical_data, sim_data_prep) |>
-    select(survey_abbrev, X, Y, block_id, restricted, historical,
-           year, year_covariate, last_sampled_year,
-           catch_count, hook_count, offset) |>
-    mutate(
-      catch_prop = catch_count / hook_count,
-      fyear_value = ifelse(historical, year, last_sampled_year),
-      fyear = as.factor(fyear_value)
-    )
-
-  return(combined_data)
-}
-
-
-# # Testing
-# species <- "yelloweye rockfish"
-# f <- list.files(file.path(sample_dir, sp_to_hyphens(species)))
-#
-# scenario <- "HBLL-OUT-N_mpa1.01509500351865_no_AR1_twenty_years_status-quo.rds"
-#
-# sim_dat0 <- readRDS(file.path(sample_dir, sp_to_hyphens(species), scenario)) |>
-#   mutate(catch_count = observed, historical = FALSE)
-#
-# sim_dat <- sim_dat0 |> filter(replicate == 1)
-#
-# simple_mpa <- readRDS(file.path("data-generated", "spatial", "simple-mpa.rds"))
-# hdat0 <- readRDS(file.path(cleaned_data_dir, paste0(sp_to_hyphens(species), "-HBLL-OUT-N.rds")))
-# hdat <- st_join(XY_to_sf(hdat0, crs_to = st_crs(simple_mpa)), simple_mpa, join = st_within) |>
-#   mutate(restricted = ifelse(is.na(uid), 0, 1),
-#          last_sampled_year = max(year),
-#          year_covariate = 0,
-#          historical = TRUE) |>
-#   st_drop_geometry()
-#
-# d <- bind_rows(hdat, sim_dat) |>
-#   select(survey_abbrev, X, Y, block_id, restricted, historical,
-#          year, year_covariate, last_sampled_year, # year_covariate is time since implementation
-#          catch_count, hook_count, offset) |>
-#   mutate(catch_prop = catch_count / hook_count,
-#          weights = hook_count / mean(hook_count),
-#          fyear_value = ifelse(historical, year, last_sampled_year), # last sampled year should be the intercept for the future simulated years
-#          fyear = as.factor(fyear_value))
-#
-# test <- fit_simulation(
-#   dat = d,
-#   formula = catch_prop ~ fyear + restricted + year_covariate + restricted:year_covariate,
-#   spatial = "on",
-#   spatiotemporal = "iid",
-#   cutoff = 10,
-#   control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
-#   silent = FALSE
-#   )
-# meep()
-# sanity(test)
-# test
-#
-# extract_trend_estimate(test)
-
-# I want to load in the models that fit these scenarios
-# Then extract the trend estimates for each model
-# I want to do this for each of the three surveys, so this is the part of the
-# filenames I will probably need to capture: _mpa1.01509500351865_no_AR1_twenty_years_status-quo.rds
-# "HBLL-INS-N_mpa1.01509500351865_no_AR1_twenty_years_status-quo.rds"
-# "HBLL-INS-N_mpa1.01509500351865_no_AR1_twenty_years_status-quo-20-effort.rds"
-# "HBLL-INS-N_mpa1.01509500351865_no_AR1_twenty_years_status-quo-40-effort-every-5-years.rds"
-# "HBLL-INS-N_mpa1.01509500351865_no_AR1_twenty_years_status-quo-40-effort.rds"
-# "HBLL-INS-N_mpa1.01509500351865_no_AR1_twenty_years_status-quo-no-sampling-in-mpas.rds"
-
-# I want to fit the model to each of the replicates and extract the trend estimates
-# I want to make this efficient to run on a 40 core server
-
-
-# =============================================================================
-# Main Execution
-# =============================================================================
-
-# Load recovery rates
-recovery_rates <- readRDS(file.path("data-generated", "recovery-rates.rds"))
-
-# Define scope
-species <- "yelloweye rockfish"
-surveys <- c("HBLL-OUT-N", "HBLL-OUT-S", "HBLL-INS-N")
-plans <- c(
-  "status-quo",
-  "status-quo-20-effort",
-  "status-quo-40-effort-every-5-years",
-  "status-quo-40-effort",
-  "status-quo-no-sampling-in-mpas"
-)
-
-# Get MPA rates for this species
-species_rates <- recovery_rates |>
-  filter(species == !!species) |>
-  select(species, case, linear_mpa_rate)
-
-message("\n=== Recovery rates for ", species, " ===")
-print(species_rates)
-
-# Build scenario file list by finding files that match patterns
-species_dir <- file.path(sample_dir, sp_to_hyphens(species))
-ar1_scenario <- "no_AR1"
-time_scenario <- "twenty_years"
-
-# Get all files in species directory
-all_files <- list.files(species_dir, pattern = "\\.rds$", full.names = FALSE)
-
-# Create expected scenarios and match to existing files
-scenario_files <- tidyr::expand_grid(
-  rate_case = species_rates$case,
-  rate = species_rates$linear_mpa_rate,
-  survey = surveys,
-  plan = plans
-) |>
-  mutate(
-    # Create pattern to match files (rate might have different precision in filename)
-    file_pattern = paste0(
-      "^", survey, "_mpa", rate, ".*_", ar1_scenario, "_", time_scenario, "_", plan, "\\.rds$"
-    ),
-    # Find matching file
-    filename = purrr::map_chr(file_pattern, function(pattern) {
-      matches <- grep(pattern, all_files, value = TRUE)
-      if (length(matches) > 0) return(matches[1])
-      return(NA_character_)
-    }),
-    filepath = file.path(species_dir, filename)
-  ) |>
-  filter(!is.na(filename)) |>
-  select(rate_case, rate, survey, plan, filename, filepath)
-
-# =============================================================================
-# Pre-load historical data for all surveys (sf joins expensive on hake)
-# =============================================================================
-# Directory with pre-processed historical data
-hist_data_dir <- here::here("data-generated", "historical-data-processed")
-
-# Get unique surveys from scenario files
-unique_surveys <- unique(scenario_files$survey)
-
-# Load pre-processed historical data for each survey
-historical_data_list <- purrr::map(unique_surveys, function(survey_abbrev) {
-cache_file <- file.path(hist_data_dir, paste0(sp_to_hyphens(species), "-", survey_abbrev, "-processed.rds"))
-
-  if (!file.exists(cache_file)) {
-    stop("Pre-processed data not found: ", cache_file, "\n",
-         "Run R/00-preprocess-historical-data.R on your local machine first!")
-  }
-
-  message("  Loading: ", survey_abbrev)
-  hdat <- readRDS(cache_file)
-  message("    ", nrow(hdat), " rows, ", sum(hdat$restricted), " in MPAs")
-
-  return(hdat)
-}) |>
-  setNames(unique_surveys)
-
-message("  Loaded ", length(historical_data_list), " historical datasets\n")
-
-# =============================================================================
-# Check existing caches for resume capability
-# =============================================================================
-
-message("=== Checking Existing Caches ===")
-
-# Add cache filenames and check completion status
-scenario_files <- scenario_files |>
-  mutate(
-    plan_clean = gsub("-", "_", plan),
-    rate_clean = gsub("\\.", "", as.character(rate)),
-    cache_file = file.path(
-      results_dir,
-      paste0(
-        sp_to_hyphens(species), "-",
-        survey, "-",
-        "mpa", rate_clean, "-",
-        ar1_scenario, "-",
-        time_scenario, "-",
-        plan_clean,
-        "-trend-estimates.rds"
-      )
-    ),
-    cache_exists = file.exists(cache_file)
+  result_file <- generate_result_filename(
+    combo$species, combo$survey_abbrev, combo$mpa_trend,
+    combo$ar1_scenario, combo$time_scenario, combo$plan
   )
+  result_path <- file.path(results_dir, sp_to_hyphens(combo$species), result_file)
 
-# For each scenario, determine which replicates are already complete
-scenario_files <- scenario_files |>
-  rowwise() |>
-  mutate(
-    completed_reps = list(
-      if (cache_exists) {
-        cached_results <- readRDS(cache_file)
-        unique(cached_results$replicate)
-      } else {
-        integer(0)
-      }
-    ),
-    n_complete = length(completed_reps),
-    n_remaining = N_REPLICATES - n_complete
-  ) |>
-  ungroup()
-
-# Summary of resume status
-total_complete <- sum(scenario_files$n_complete)
-total_remaining <- sum(scenario_files$n_remaining)
-message("  Complete: ", total_complete, " replicate fits")
-message("  Remaining: ", total_remaining, " replicate fits")
-message("  Resume: ", sum(scenario_files$n_complete > 0), " scenarios have partial results\n")
-
-message("=== Starting Power Analysis Fitting ===")
-message("Species: ", species)
-message("Found ", nrow(scenario_files), " scenario files to process")
-message("  Rates: ", length(unique(scenario_files$rate)))
-message("  Surveys: ", length(unique(scenario_files$survey)))
-message("  Plans: ", length(unique(scenario_files$plan)))
-message("Processing ", N_REPLICATES, " replicates per scenario")
-message("Total jobs: ", total_remaining, " (", total_complete, " already complete)\n")
-
-# =============================================================================
-# Create flattened job grid (scenario × incomplete replicates)
-# =============================================================================
-
-message("=== Creating Job Grid ===")
-
-# Expand scenario_files to create one row per incomplete replicate
-job_grid <- scenario_files |>
-  rowwise() |>
-  mutate(
-    # Get incomplete replicate numbers for this scenario
-    incomplete_reps = list(setdiff(1:N_REPLICATES, completed_reps))
-  ) |>
-  ungroup() |>
-  # Filter to scenarios with incomplete work
-  filter(n_remaining > 0) |>
-  # Expand to one row per incomplete replicate
-  tidyr::unnest(incomplete_reps) |>
-  rename(replicate = incomplete_reps) |>
-  # Add job ID for progress tracking
-  mutate(job_id = row_number())
-
-message("  Created ", nrow(job_grid), " jobs\n")
-
-# Exit early if no work to do
-if (nrow(job_grid) == 0) {
-  message("=== All scenarios complete! ===")
-  # Load existing results
-  all_fitted_results <- purrr::map_dfr(scenario_files$cache_file, readRDS)
-} else {
-
-  # =============================================================================
-  # Pre-load sampled data for incomplete scenarios
-  # =============================================================================
-
-  message("=== Pre-loading Sampled Data ===")
-
-  unique_filepaths <- unique(job_grid$filepath)
-  message("  Loading ", length(unique_filepaths), " scenario files...")
-
-  sampled_data_list <- purrr::map(unique_filepaths, function(fp) {
-    readRDS(fp)
-  }) |>
-    setNames(unique_filepaths)
-
-  message("  Loaded sampled data for ", length(sampled_data_list), " scenarios\n")
-
-  # =============================================================================
-  # Process all incomplete jobs in parallel
-  # =============================================================================
-
-  message("=== Processing Jobs ===")
-  message("  Running ", nrow(job_grid), " jobs across ", if (USE_PARALLEL) N_WORKERS else 1, " workers\n")
-
-  # Define the worker function (same for both parallel and sequential)
-  process_job <- function(i) {
-    job <- job_grid[i, ]
-
-    # Get data for this job
-    sim_data_all_reps <- sampled_data_list[[job$filepath]]
-    rep_sim_data <- sim_data_all_reps |> filter(replicate == job$replicate)
-    hist_data <- historical_data_list[[job$survey]]
-
-    # Combine data
-    combined_data <- prepare_combined_data(
-      species = species,
-      survey_abbrev = job$survey,
-      sim_data = rep_sim_data,
-      historical_data = hist_data
-    )
-
-    # Fit model
-    fit <- fit_simulation(
-      dat = combined_data,
-      formula = catch_prop ~ fyear + restricted + year_covariate + restricted:year_covariate,
-      spatial = "on",
-      spatiotemporal = "iid",
-      cutoff = 10,
-      control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
-      silent = TRUE
-    )
-
-    # Extract trend
-    trend <- extract_trend_estimate(fit)
-
-    # Return results
-    tibble(
-      species = species,
-      survey_abbrev = job$survey,
-      sim_mpa_trend = job$rate,
-      sim_mpa_case = job$rate_case,
-      sim_ar1_scenario = ar1_scenario,
-      sim_time_scenario = time_scenario,
-      plan = job$plan,
-      replicate = job$replicate,
-      estimate = trend$estimate,
-      se = trend$se,
-      ci_lower = trend$ci_lower,
-      ci_upper = trend$ci_upper,
-      converged = trend$converged,
-      sanity = trend$sanity,
-      error_msg = trend$error_msg,
-      fit_family = clean_family_name(fit),
-      fit_spatial = fit$spatial,
-      fit_spatiotemporal = fit$spatiotemporal,
-      formula = deparse(fit$formula)
-    )
-  }
-
-  # Run jobs (parallel or sequential)
-  if (USE_PARALLEL) {
-    new_results <- furrr::future_map_dfr(
-      1:nrow(job_grid),
-      process_job,
-      .options = furrr::furrr_options(
-        seed = TRUE,
-        packages = c("sdmTMB", "dplyr", "tibble", "broom.mixed", "sf"),
-        globals = c("fit_simulation", "extract_trend_estimate",
-                    "summarise_sanity", "clean_family_name", "prepare_combined_data",
-                    "sp_to_hyphens", "XY_to_sf", "species", "ar1_scenario", "time_scenario",
-                    "sampled_data_list", "historical_data_list", "job_grid", "process_job")
-      ),
-      .progress = TRUE
-    )
+  if (file.exists(result_path)) {
+    existing_results <- readRDS(result_path)
+    completed_reps <- unique(existing_results$replicate)
+    reps_to_run <- setdiff(1:n_replicates, completed_reps)
+    message("  Resume: ", length(completed_reps), " done, ",
+            length(reps_to_run), " remaining")
   } else {
-    new_results <- purrr::map_dfr(1:nrow(job_grid), process_job, .progress = TRUE)
+    existing_results <- NULL
+    reps_to_run <- 1:n_replicates
+    message("  Starting: ", n_replicates, " replicates")
   }
 
-  message("\n=== Merging and Caching Results ===")
+  if (length(reps_to_run) == 0) {
+    message("  Complete: skipping")
+    return(tibble(n_new = 0, n_total = nrow(existing_results), n_errors = 0))
+  }
 
-  # Group new results by scenario
-  new_results_df <- bind_rows(new_results)
+  sampled_data_all <- readRDS(sample_file)
+  hist_data <- get_hist_data(combo$species, combo$survey_abbrev,
+                             historical_data_path, hist_cache_env)
 
-  # Get unique scenario identifiers from job_grid
-  scenarios_to_update <- job_grid |>
-    distinct(rate, rate_case, survey, plan, cache_file)
+  new_results <- purrr::map_dfr(reps_to_run, function(rep) {
+    tryCatch({
+      sampled_data_rep <- sampled_data_all |> filter(replicate == rep)
 
-  # For each scenario, merge new results with existing cache (if any) and save
-  all_fitted_results <- purrr::map_dfr(1:nrow(scenarios_to_update), function(i) {
-    scenario <- scenarios_to_update[i, ]
+      if (nrow(sampled_data_rep) == 0) {
+        return(create_error_row(combo, rep,
+                               "Missing replicate in sampled data"))
+      }
 
-    # Get new results for this scenario
-    scenario_new_results <- new_results_df |>
-      filter(
-        sim_mpa_trend == scenario$rate,
-        survey_abbrev == scenario$survey,
-        plan == scenario$plan
+      combined_data <- combine_hist_sim_data_cached(sampled_data_rep, hist_data)
+
+      fit <- fit_simulation(
+        dat = combined_data,
+        formula = catch_prop ~ 0 + fyear + restricted:year_covariate,
+        spatial = "on",
+        spatiotemporal = "iid",
+        family = betabinomial(link = "cloglog"),
+        cutoff = 20,
+        control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
+        silent = FALSE
       )
 
-    # Merge with existing results if cache exists
-    if (file.exists(scenario$cache_file)) {
-      scenario_existing_results <- readRDS(scenario$cache_file)
-      scenario_all_results <- bind_rows(scenario_existing_results, scenario_new_results)
-      n_new <- nrow(scenario_new_results)
-      n_existing <- nrow(scenario_existing_results)
-      message("  ", basename(scenario$cache_file), ": ", n_new, " new + ", n_existing, " existing = ", nrow(scenario_all_results), " total")
-    } else {
-      scenario_all_results <- scenario_new_results
-      message("  ", basename(scenario$cache_file), ": ", nrow(scenario_all_results), " new")
-    }
+      trend_results <- extract_trend_estimate(fit, "restricted:year_covariate")
 
-    # Save updated cache
-    saveRDS(scenario_all_results, scenario$cache_file)
+      tibble(
+        species = combo$species,
+        survey_abbrev = combo$survey_abbrev,
+        sim_mpa_trend = combo$mpa_trend,
+        sim_ar1_scenario = combo$ar1_scenario,
+        sim_time_scenario = combo$time_scenario,
+        sampling_plan = combo$plan,
+        replicate = rep,
+        estimate = trend_results$estimate,
+        se = trend_results$se,
+        ci_lower = trend_results$ci_lower,
+        ci_upper = trend_results$ci_upper,
+        converged = trend_results$converged,
+        sanity = trend_results$sanity,
+        error_msg = trend_results$error_msg,
+        fit_formula = if (!is.null(fit$error)) NA_character_ else deparse1(formula(fit)),
+        fit_family = if (!is.null(fit$error)) NA_character_ else clean_family_name(fit),
+        fit_spatial = if (!is.null(fit$error)) NA_character_ else fit$spatial,
+        fit_spatiotemporal = if (!is.null(fit$error)) NA_character_ else fit$spatiotemporal
+      )
 
-    return(scenario_all_results)
+    }, error = function(e) {
+      create_error_row(combo, rep, paste("Worker error:", e$message))
+    })
   })
 
-  # Also add any scenarios that were already 100% complete
-  complete_scenarios <- scenario_files |>
-    filter(n_remaining == 0)
-
-  if (nrow(complete_scenarios) > 0) {
-    complete_results <- purrr::map_dfr(complete_scenarios$cache_file, readRDS)
-    all_fitted_results <- bind_rows(all_fitted_results, complete_results)
+  if (!is.null(existing_results)) {
+    combined_results <- bind_rows(new_results, existing_results) |>
+      distinct(replicate, .keep_all = TRUE) |>
+      arrange(replicate)
+  } else {
+    combined_results <- new_results
   }
+
+  dir.create(dirname(result_path), showWarnings = FALSE, recursive = TRUE)
+  saveRDS(combined_results, result_path)
+
+  tibble(
+    n_new = nrow(new_results),
+    n_total = nrow(combined_results),
+    n_errors = sum(!is.na(new_results$error_msg))
+  )
 }
 
-message("=== All fitting complete ===")
-message("Fitted results cached in: ", results_dir)
+#' Create combo-level task grid
+create_task_grid <- function(sampling_summary, sample_dir) {
+  task_grid <- sampling_summary |>
+    distinct(species, survey_abbrev, mpa_trend, ar1_scenario,
+             time_scenario, plan, file, n_replicates) |>
+    mutate(
+      sample_file = file.path(sample_dir, file)
+    ) |>
+    select(species, survey_abbrev, mpa_trend, ar1_scenario,
+           time_scenario, plan, sample_file, n_replicates)
 
-# Save combined results
-saveRDS(all_fitted_results, file.path(results_dir, "all-fitted-results.rds"))
-message("Combined results saved: ", file.path(results_dir, "all-fitted-results.rds"))
+  return(task_grid)
+}
 
-# Reset to sequential processing
+#' Execute parallel fitting with progress reporting
+execute_parallel_fitting <- function(task_grid, results_dir,
+                                    historical_data_path, n_reps_to_fit = 50) {
+
+  progressr::handlers(global = TRUE)
+  progressr::handlers("txtprogressbar")
+
+  summary_stats <- progressr::with_progress({
+    p <- progressr::progressor(steps = nrow(task_grid))
+
+    furrr::future_pmap_dfr(
+      task_grid,
+      function(species, survey_abbrev, mpa_trend, ar1_scenario,
+               time_scenario, plan, sample_file, n_replicates, ...) {
+
+        combo <- tibble(
+          species = species,
+          survey_abbrev = survey_abbrev,
+          mpa_trend = mpa_trend,
+          ar1_scenario = ar1_scenario,
+          time_scenario = time_scenario,
+          plan = plan
+        )
+
+        result_summary <- fit_parameter_combo(
+          combo = combo,
+          sample_file = sample_file,
+          results_dir = results_dir,
+          historical_data_path = historical_data_path,
+          n_replicates = n_reps_to_fit
+        )
+
+        p()
+
+        result_summary |>
+          mutate(
+            species = species,
+            survey_abbrev = survey_abbrev,
+            mpa_trend = mpa_trend,
+            ar1_scenario = ar1_scenario,
+            time_scenario = time_scenario,
+            plan = plan
+          )
+      },
+      .options = furrr::furrr_options(
+        seed = TRUE,
+        globals = c("fit_parameter_combo", "get_hist_data",
+                   "fit_simulation", "extract_trend_estimate",
+                   "combine_hist_sim_data_cached", "create_error_row",
+                   "generate_result_filename", "sp_to_hyphens",
+                   "clean_family_name", "summarise_sanity",
+                   "results_dir", "historical_data_path", "n_reps_to_fit", "p"),
+        packages = c("dplyr", "sdmTMB")
+      )
+    )
+  })
+
+  return(summary_stats)
+}
+
+#' Create summary catalog from results
+create_summary_catalog <- function(results_dir) {
+  result_files <- list.files(results_dir, pattern = "_results\\.rds$",
+                             recursive = TRUE, full.names = TRUE)
+
+  if (length(result_files) == 0) {
+    message("No result files found")
+    return(tibble())
+  }
+
+  catalog <- purrr::map_dfr(result_files, function(fpath) {
+    results <- readRDS(fpath)
+
+    summary_row <- results |>
+      summarise(
+        n_replicates = n(),
+        n_converged = sum(converged, na.rm = TRUE),
+        n_errors = sum(!is.na(error_msg)),
+        mean_estimate = mean(estimate, na.rm = TRUE),
+        sd_estimate = sd(estimate, na.rm = TRUE),
+        power = mean(ci_lower > 0, na.rm = TRUE),
+        file = basename(fpath),
+        .groups = "drop"
+      )
+
+    param_row <- results |>
+      slice(1) |>
+      select(species, survey_abbrev, sim_mpa_trend,
+             sim_ar1_scenario, sim_time_scenario, sampling_plan)
+
+    bind_cols(param_row, summary_row)
+  })
+
+  saveRDS(catalog, file.path(results_dir, "power-results-summary.rds"))
+  message("\nSummary catalog saved: power-results-summary.rds")
+
+  return(catalog)
+}
+
+#' Combine all individual result files into one dataset
+combine_all_results <- function(results_dir) {
+  result_files <- list.files(results_dir, pattern = "_results\\.rds$",
+                             recursive = TRUE, full.names = TRUE)
+
+  if (length(result_files) == 0) {
+    warning("No result files found to combine")
+    return(tibble())
+  }
+
+  message("Combining ", length(result_files), " result files...")
+
+  all_results <- purrr::map_dfr(result_files, function(fpath) {
+    tryCatch({
+      readRDS(fpath)
+    }, error = function(e) {
+      warning("Failed to load: ", fpath, " - ", e$message)
+      tibble()
+    })
+  })
+
+  message("Total rows: ", nrow(all_results))
+  message("Unique species: ", length(unique(all_results$species)))
+  message("Unique plans: ", length(unique(all_results$sampling_plan)))
+  if (length(result_files) > 0 && nrow(all_results) > 0) {
+    message("Replicates per combo: ", round(nrow(all_results) / length(result_files), 1))
+  }
+
+  output_file <- file.path(results_dir, "all-fitted-results.rds")
+  saveRDS(all_results, output_file)
+  message("Saved combined results: ", output_file)
+
+  return(all_results)
+}
+
+# =============================================================================
+# Main Workflow
+# =============================================================================
+
+message("\n=== Power Analysis: Model Fitting ===")
+
+setup_parallel(USE_PARALLEL, N_WORKERS)
+
+sampling_summary <- readRDS(file.path(sample_dir, "sampling-summary.rds"))
+
+task_grid <- create_task_grid(sampling_summary, sample_dir) |>
+  filter(species == "yelloweye rockfish", survey_abbrev == "HBLL OUT N")
+message("Parameter combinations: ", nrow(task_grid))
+message("Replicates per combination: ", N_REPLICATES)
+message("Total models to fit: ", nrow(task_grid) * N_REPLICATES)
+message("Parallel workers: ", if (is.null(N_WORKERS)) "auto" else N_WORKERS)
+
+message("\n=== Executing Parallel Fitting ===")
+summary_stats <- execute_parallel_fitting(
+  task_grid = task_grid,
+  results_dir = results_dir,
+  historical_data_path = historical_data_path,
+  n_reps_to_fit = N_REPLICATES
+)
+meep()
+message("\n=== Creating Summary Catalog ===")
+catalog <- create_summary_catalog(results_dir)
+
+message("\n=== Combining All Results ===")
+all_results <- combine_all_results(results_dir)
+
+message("\n=== Fitting Complete ===")
+message("Combos processed: ", nrow(summary_stats))
+message("Total new fits: ", sum(summary_stats$n_new))
+message("Total errors: ", sum(summary_stats$n_errors))
+if (nrow(summary_stats) > 0 && sum(summary_stats$n_total) > 0) {
+  message("Mean convergence rate: ",
+          round(100 * sum(summary_stats$n_new - summary_stats$n_errors) / sum(summary_stats$n_new), 1), "%")
+}
+
+message("\n=== Summary ===")
+if (nrow(summary_stats) > 0) {
+  print(summary_stats |> select(species, plan, n_new, n_total, n_errors))
+}
+message("\nResults saved to: ", results_dir)
+
 future::plan(future::sequential)
