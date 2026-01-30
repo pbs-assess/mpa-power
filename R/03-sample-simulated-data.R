@@ -269,7 +269,7 @@ run_sampling <- function(sim_dat, replicates = NULL) {
 # Main execution
 # =============================================================================
 
-USE_PARALLEL <- TRUE# Set to TRUE for HPC
+USE_PARALLEL <- FALSE
 N_WORKERS <- NULL
 
 # Setup parallel processing
@@ -294,11 +294,8 @@ if (USE_PARALLEL) {
 species_list <- unique(sim_summary$species)
 message("\nProcessing ", length(species_list), " species")
 
-# Initialize sampling summary
-sampling_summary <- tibble()
-
 # Process each species
-purrr::map_dfr(species_list, function(sp) {
+sampling_summary <- purrr::map_dfr(species_list, function(sp) {
 
   message("\n========================================")
   message("Sampling simulated data for species: ", sp)
