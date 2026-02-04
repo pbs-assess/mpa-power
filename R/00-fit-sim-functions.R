@@ -378,36 +378,6 @@ simulate_hbll <- function(fit,
     # B[grep("poly(log_depth, 2)2", coef_names)] <- b$estimate[b$term == "poly(log_depth, 2)2"]
   }
 
-  if (!is.null(rho_V)) {
-    if (is.null(sigma_V)) {
-      stop("sigma_V must be provided if rho_V is provided")
-    } else {
-      message("Simulating with AR1 process: rho = ", round(rho_V, 2), ", sigma_V = ", round(sigma_V, 2))
-    }
-
-    # generate AR1 deviations
-    message("- Generating AR1 deviations for ", length(year_covariate))
-    year_devs <- sim_ar1_deviations(
-      rho = rho_V,
-      sigma = sigma_V,
-      years = year_covariate
-    )
-    year_indices <- grep("fyear", coef_names)
-
-    if (length(year_indices) > 0) {
-      message("- Using ", length(year_indices), " year factors")
-      if ("(Intercept)" %in% coef_names) {
-        stop("Don't use both intercept and factor years. Use either '~ 0 + as.factor(year) + ...' or '~ 1 + restricted * year_covariate'")
-      }
-      # Year coefficients (for each factor level)
-      last_year_intercept <- b |>
-        filter(grepl("^fyear", term)) |>
-        mutate(year = as.numeric(gsub("fyear", "", term))) |>
-        filter(year == max(year))
-      B[year_indices] <- year_devs + last_year_intercept$estimate # add AR1 deviations starting from last year intercept
-    }
-  }
-
   # Generate offsets or weights using draws from original data
   if (!is.null(offset) && family(fit)$family != "betabinomial") {
     if (!is.null(seed)) set.seed(seed)
@@ -447,6 +417,8 @@ simulate_hbll <- function(fit,
     fixed_spatiotemporal_re = fixed_spatiotemporal_re,
     rho_V = rho_V,
     sigma_V = sigma_V,
+    time_varying = if (!is.null(rho_V)) ~ 1 else NULL,
+    time_varying_type = "ar1",
     phi = phi,
     range = range_val,
     B = B,
@@ -468,12 +440,16 @@ simulate_hbll <- function(fit,
   message("Cache missing. Running simulation for: ", fname)
 
   # Simulate data --------------------------------------------------------------
-  sim_dat <- sdmTMB::sdmTMB_simulate(
+  sim_dat <- sdmTMB::simulate_new(
     formula = formula,
     data = input_dat,
     mesh = input_mesh,
     family = family,
     time = "year",
+    time_varying = if (!is.null(rho_V)) ~ 1 else NULL,
+    time_varying_type = "ar1",
+    sigma_V = sigma_V,
+    rho_time = rho_V,
     # rho = ar1_rho, # affects AR1 deviations of the GMRF
     sigma_E = if (fixed_spatiotemporal_re) epsilon_st_sd else 0,
     phi = phi,
