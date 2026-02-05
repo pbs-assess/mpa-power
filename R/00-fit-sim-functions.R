@@ -1,6 +1,3 @@
-# Cache version - increment when cache format changes
-CACHE_VERSION <- "v1"
-
 prep_hbll_data <- function(dat, bait_counts) {
   dat |>
     rename(ssid = "survey_series_id.x") |>
@@ -63,7 +60,7 @@ fit_cached_sdmTMB <- function(fit_dir, check_cache = TRUE, update_from = NULL,
 
   # /Check cache first
   dir.create(fit_dir, showWarnings = FALSE, recursive = TRUE)
-  rds_file <- file.path(fit_dir, paste0(model_name, "_", CACHE_VERSION, ".rds"))
+  rds_file <- file.path(fit_dir, paste0(model_name, ".rds"))
 
   if (check_cache && file.exists(rds_file)) {
     message("Cache hit. Loading model from: ", rds_file)
@@ -71,7 +68,7 @@ fit_cached_sdmTMB <- function(fit_dir, check_cache = TRUE, update_from = NULL,
   }
 
   # Fit initial model
-  message("Cache missing. Fitting model for: ", model_name, "_", CACHE_VERSION)
+  message("Cache missing. Fitting model for: ", model_name)
 
   fit <- fit_function()
 
