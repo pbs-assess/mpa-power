@@ -497,8 +497,8 @@ setup_parallel(USE_PARALLEL, N_WORKERS)
 
 sampling_summary <- readRDS(file.path(sample_dir, "sampling-summary.rds"))
 
-task_grid <- create_task_grid(sampling_summary, sample_dir) |>
-  filter(species == "yelloweye rockfish", survey_abbrev == "HBLL OUT N")
+task_grid <- create_task_grid(sampling_summary, sample_dir) 
+  
 message("Parameter combinations: ", nrow(task_grid))
 message("Replicates per combination: ", N_REPLICATES)
 message("Total models to fit: ", nrow(task_grid) * N_REPLICATES)
@@ -511,8 +511,9 @@ summary_stats <- execute_parallel_fitting(
   historical_data_path = historical_data_path,
   n_reps_to_fit = N_REPLICATES
 )
-meep()
+# meep()
 message("\n=== Creating Summary Catalog ===")
+
 catalog <- create_summary_catalog(results_dir)
 
 message("\n=== Combining All Results ===")
