@@ -12,6 +12,15 @@ data-cache/
 data-generated/
 memory-bank/
 draft-figures/
+R/scratch/
+notes/
+assessments/
+decision-tree/
+plans/
+presentations/
+working-paper/
+figures/
+
 *.rds
 *.RData
 
