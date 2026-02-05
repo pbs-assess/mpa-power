@@ -208,13 +208,13 @@ run_sampling <- function(sim_dat, replicates = NULL) {
 
     # Case 3: Status quo + 20% effort ------------------------
     # For low power species, does increasing sampling make a difference to power?
-    sampled_status_quo_1.2 <- sample_by_plan(
-      sim_dat = sim_rep,
-      sampling_effort = sample_effort_status_quo |> mutate(n_samps = round(n_samps * 1.2)),
-      grouping_vars = c("survey_abbrev", "year", "grouping_code"),
-      seed = rep + 2000 # Offset seed for different plan
-    ) |>
-      mutate(plan = "status quo + 20% effort")
+    # sampled_status_quo_1.2 <- sample_by_plan(
+    #   sim_dat = sim_rep,
+    #   sampling_effort = sample_effort_status_quo |> mutate(n_samps = round(n_samps * 1.2)),
+    #   grouping_vars = c("survey_abbrev", "year", "grouping_code"),
+    #   seed = rep + 2000 # Offset seed for different plan
+    # ) |>
+    #   mutate(plan = "status quo + 20% effort")
 
     # # Case X: Status quo - no sampling in MPAs ------------------------
     # # Would show nothing because all MPA values are empty. Could do an extrapolation example
@@ -256,7 +256,7 @@ run_sampling <- function(sim_dat, replicates = NULL) {
       # sampled_historical,
       sampled_status_quo,
       # sampled_status_quo_1.1,
-      sampled_status_quo_1.2,
+      # sampled_status_quo_1.2,
       # sampled_status_quo_1.4,
       # sampled_status_quo_5_year,
       sampled_mpas_5_years
@@ -319,16 +319,16 @@ sampling_summary <- purrr::map_dfr(species_list, function(sp) {
     plan_names <- c(
       # "historical locations only",
       "status quo",
-      "MPAs at 5 year intervals",
-      "status quo + 20% effort"
+      "MPAs at 5 year intervals"#,
+      # "status quo + 20% effort"
       # "status quo - no sampling in MPAs"
-    )
+    # )
 
-    expected_files <- sapply(plan_names, function(plan) {
-      fname <- generate_sample_filename(
-        species = sp_clean,
-        survey_abbrev = row$survey_abbrev,
-        mpa_trend = row$mpa_trend,
+    # expected_files <- sapply(plan_names, function(plan) {
+    #   fname <- generate_sample_filename(
+    #     species = sp_clean,
+    #     survey_abbrev = row$survey_abbrev,
+    #     mpa_trend = row$mpa_trend,
         ar1_scenario = row$ar1_scenario,
         time_scenario = row$time_scenario,
         plan = plan
