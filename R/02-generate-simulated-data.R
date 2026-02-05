@@ -362,7 +362,7 @@ ar1_scenarios <- tribble(
 # - Example with multiple: tribble(~time_scenario, ~year_covariate, "short", list(1:11), "long", list(1:21))
 time_scenarios <- tribble(
   ~time_scenario, ~year_covariate,
-  "twenty_years", list(1:21)                      # 21 years of simulated data
+  "twenty-five_years", list(1:25)                      # 25 years of simulated data
 )
 
 # Formula scenarios
