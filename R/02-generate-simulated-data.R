@@ -99,7 +99,7 @@ generate_sim_filename <- function(species, survey_abbrev, param_row, sim_hash) {
   sp <- sp_to_hyphens(species)
 
   # Create descriptive name parts
-  mpa_str <- paste0("mpa", param_row$mpa_trend)
+  mpa_str <- paste0("mpa", round(param_row$mpa_trend, digits = 3))
   ar1_str <- param_row$ar1_scenario
   time_str <- param_row$time_scenario
   formula_str <- if (param_row$formula_scenario != "standard") {
@@ -373,7 +373,7 @@ formula_scenarios <- tribble(
   "standard", list(~ 1 + restricted * year_covariate)  # MPA × time interaction
 )
 
-nreps <- 50
+nreps <- 70
 
 # Note: Parameter grids are now created per-species using recovery rates
 # See task grid creation below for species-specific implementation
@@ -506,6 +506,6 @@ message("\nSummary saved to: ", file.path(sim_dir, "simulation-summary.rds"))
 
 # Reset to sequential processing
 future::plan(future::sequential)
-
+meep()
 
 test <- readRDS(file.path(sim_dir, "simulation-summary.rds"))

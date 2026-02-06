@@ -322,13 +322,13 @@ sampling_summary <- purrr::map_dfr(species_list, function(sp) {
       "MPAs at 5 year intervals"#,
       # "status quo + 20% effort"
       # "status quo - no sampling in MPAs"
-    # )
+    )
 
-    # expected_files <- sapply(plan_names, function(plan) {
-    #   fname <- generate_sample_filename(
-    #     species = sp_clean,
-    #     survey_abbrev = row$survey_abbrev,
-    #     mpa_trend = row$mpa_trend,
+    expected_files <- sapply(plan_names, function(plan) {
+      fname <- generate_sample_filename(
+        species = sp_clean,
+        survey_abbrev = row$survey_abbrev,
+        mpa_trend = row$mpa_trend,
         ar1_scenario = row$ar1_scenario,
         time_scenario = row$time_scenario,
         plan = plan
