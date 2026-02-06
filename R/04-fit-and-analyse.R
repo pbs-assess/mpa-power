@@ -15,7 +15,7 @@ library(progressr)
 cleaned_data_dir <- here::here("data-generated", "cleaned-species-data")
 sample_dir <- here::here("data-generated", "sampled-data")
 results_dir <- here::here("data-generated", "power-results")
-historical_data_path <- here::here("data-generated", "historical-data-processed")
+hist_path <- here::here("data-generated", "historical-data-processed")
 dir.create(results_dir, showWarnings = FALSE, recursive = TRUE)
 
 USE_PARALLEL <- TRUE#FALSE
@@ -34,44 +34,73 @@ if (Sys.info()['user'] == "jilliandunic") {
   N_REPLICATES <- 50
 }
 
-# Testing
-# sample_summary <- readRDS(file.path(sample_dir,  "sampling-summary.rds"))
+FORMULA <- catch_prop ~ 0 + fyear + restricted + restricted:year_covariate
+evaluation_years <- c(2030, 2034, 2038, 2042, 2046)
+
+# # Testing
+sample_summary <- readRDS(file.path(sample_dir,  "sampling-summary.rds"))
 
 # species <- "lingcod"
-# ar1_scenarios <- c("no_AR1", "moderate_AR1")
-# time_scenarios <- c("twenty_years")
-# plans <- c(
-#   "status quo",
-#   "MPAs at 5 year intervals"#,
-#   # "status quo + 20% effort"
-# )
+species <- "yelloweye rockfish"
+ar1_scenarios <- c("no_AR1", "moderate_AR1")
+# time_scenarios <- c("twentyfive_years")
+plans <- c(
+  "status quo",
+  "MPAs at 5 year intervals"#,
+  # "status quo + 20% effort"
+)
 
-# # f <- list.files(file.path(sample_dir, sp_to_hyphens(species)))
+# f <- list.files(file.path(sample_dir, sp_to_hyphens(species)))
 
-# ling_files <- filter(sample_summary,
-#   species %in% .env$species,
-#   ar1_scenario %in% .env$ar1_scenarios,
-#   time_scenario %in% .env$time_scenarios,
-#   plan %in% .env$plans
-# ) |>
-#   pull(file)
+sp_files <- filter(sample_summary,
+  species %in% .env$species,
+  ar1_scenario %in% .env$ar1_scenarios,
+  # time_scenario %in% time_scenarios,
+  plan %in% .env$plans
+) |>
+  pull(file)
 
-# sim_dat0 <- readRDS(file.path(sample_dir, ling_files[2]))
-# sim_dat <- combine_hist_sim_data(sim_dat0) |>
-#   filter(replicate %in% 0:1)
+# Create a cache environment (can reuse for multiple calls)
+hist_cache <- new.env(parent = emptyenv())
+# Load historical data
+hist_data <- purrr::map_dfr(c("HBLL OUT N", "HBLL OUT S"), function(survey_abbrev) {
+  get_hist_data(
+  species = species,
+  survey_abbrev = survey_abbrev,  # or whatever survey you're testing
+  hist_path = hist_path,
+  cache_env = hist_cache
+)
+})
+# Combine with your simulated data (sim_dat0 from line 59)
 
-# test <- fit_simulation(
-#   dat = sim_dat,
-#   formula = catch_prop ~ 0 + fyear*restricted + year_covariate + restricted:year_covariate,
-#   spatial = "on",
-#   spatiotemporal = "iid",
-#   cutoff = 20,
-#   control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
-#   silent = FALSE
-#   )
-# meep()
-# sanity(test)
-# test
+test_f <- sp_files[grepl("mpas-at-5-year-intervals", sp_files)]
+sim_dat0 <- readRDS(file.path(sample_dir, test_f[1]))
+sim_dat0 <- bind_rows(
+  readRDS(file.path(sample_dir, "yelloweye-rockfish/HBLL-OUT-N_mpa1.011_no_AR1_twenty-five_years_mpas-at-5-year-intervals.rds")),
+  readRDS(file.path(sample_dir, "yelloweye-rockfish/HBLL-OUT-S_mpa1.011_no_AR1_twenty-five_years_mpas-at-5-year-intervals.rds"))
+)
+sim_dat <- combine_hist_sim_data(sim_dat0, hist_data) |>
+  filter(replicate %in% 0:1)
+
+ggplot(data = sim_dat |> filter(year >= last_sampled_year)) +
+  geom_point(aes(x = X, y = Y, colour = factor(restricted), shape = factor(historical))) +
+  geom_text(data = tibble(year = evaluation_years, X = 500, Y = 5900),
+    aes(x = X, y = Y, label = year), size = 5) +
+  scale_shape_manual(values = c(19, 21)) +
+  facet_wrap(~ year)
+
+test <- fit_simulation(
+  dat = sim_dat,
+  formula = catch_prop ~ 0 + fyear + restricted + restricted:year_covariate,
+  spatial = "on",
+  spatiotemporal = "iid",
+  cutoff = 20,
+  control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
+  silent = FALSE
+  )
+meep()
+sanity(test)
+test
 
 
 # =============================================================================
@@ -121,7 +150,7 @@ generate_result_filename <- function(species, survey_abbrev, mpa_trend,
 }
 
 #' Lazy load historical data with per-worker caching
-get_hist_data <- function(species, survey_abbrev, historical_data_path, cache_env) {
+get_hist_data <- function(species, survey_abbrev, hist_path, cache_env) {
   key <- paste(species, survey_abbrev, sep = "___")
   if (exists(key, envir = cache_env, inherits = FALSE)) {
     return(get(key, envir = cache_env, inherits = FALSE))
@@ -129,7 +158,7 @@ get_hist_data <- function(species, survey_abbrev, historical_data_path, cache_en
 
   sp_hyp <- sp_to_hyphens(species)
   survey_hyp <- sp_to_hyphens(survey_abbrev)
-  fname <- file.path(historical_data_path,
+  fname <- file.path(hist_path,
                      paste0(sp_hyp, "-", survey_hyp, "-processed.rds"))
   if (!file.exists(fname)) {
     stop("Historical data not found: ", fname)
@@ -140,8 +169,8 @@ get_hist_data <- function(species, survey_abbrev, historical_data_path, cache_en
   hist_data
 }
 
-#' Combine historical and simulated data (cached version)
-combine_hist_sim_data_cached <- function(sim_data, hist_data) {
+#' Combine historical and simulated data
+combine_hist_sim_data <- function(sim_data, hist_data) {
   sim_data_prep <- sim_data |>
     mutate(
       catch_count = observed,
@@ -151,7 +180,8 @@ combine_hist_sim_data_cached <- function(sim_data, hist_data) {
   combined_data <- bind_rows(hist_data, sim_data_prep) |>
     select(replicate, survey_abbrev, X, Y, block_id, restricted, historical,
            year, year_covariate, last_sampled_year,
-           catch_count, hook_count, offset) |>
+           catch_count, hook_count, offset,
+           plan, sim_mpa_trend, sim_ar1_scenario, sim_time_scenario) |>
     mutate(
       replicate = ifelse(historical, 0, replicate),
       catch_prop = catch_count / hook_count,
@@ -164,7 +194,7 @@ combine_hist_sim_data_cached <- function(sim_data, hist_data) {
 
 #' Fit sdmTMB model to sampled data
 fit_simulation <- function(dat,
-                           formula = catch_prop ~ 0 + fyear + restricted:year_covariate,
+                           formula = catch_prop ~ 0 + fyear + restricted + restricted:year_covariate,
                            spatial = "on",
                            spatiotemporal = "iid",
                            family = betabinomial(link = "cloglog"),
@@ -240,8 +270,10 @@ extract_trend_estimate <- function(fit, trend_param = "restricted:year_covariate
 }
 
 #' Process one parameter combo (all replicates)
-fit_parameter_combo <- function(combo, sample_file, results_dir,
-                               historical_data_path, n_replicates = 50,
+fit_parameter_combo <- function(combo,
+                               .formula = catch_prop ~ 0 + fyear + restricted + restricted:year_covariate,
+                               sample_file, results_dir,
+                               hist_path, n_replicates = 50,
                                hist_cache_env = new.env(parent = emptyenv())) {
 
   result_file <- generate_result_filename(
@@ -269,7 +301,7 @@ fit_parameter_combo <- function(combo, sample_file, results_dir,
 
   sampled_data_all <- readRDS(sample_file)
   hist_data <- get_hist_data(combo$species, combo$survey_abbrev,
-                             historical_data_path, hist_cache_env)
+                             hist_path, hist_cache_env)
 
   new_results <- purrr::map_dfr(reps_to_run, function(rep) {
     tryCatch({
@@ -280,11 +312,11 @@ fit_parameter_combo <- function(combo, sample_file, results_dir,
                                "Missing replicate in sampled data"))
       }
 
-      combined_data <- combine_hist_sim_data_cached(sampled_data_rep, hist_data)
+      combined_data <- combine_hist_sim_data(sampled_data_rep, hist_data)
 
       fit <- fit_simulation(
         dat = combined_data,
-        formula = catch_prop ~ 0 + fyear + restricted:year_covariate,
+        formula = .formula,
         spatial = "on",
         spatiotemporal = "iid",
         family = betabinomial(link = "cloglog"),
@@ -355,7 +387,8 @@ create_task_grid <- function(sampling_summary, sample_dir) {
 
 #' Execute parallel fitting with progress reporting
 execute_parallel_fitting <- function(task_grid, results_dir,
-                                    historical_data_path, n_reps_to_fit = 50) {
+                                    hist_path, n_reps_to_fit = 50,
+                                    .formula = catch_prop ~ 0 + fyear + restricted:year_covariate) {
 
   progressr::handlers(global = TRUE)
   progressr::handlers("txtprogressbar")
@@ -381,8 +414,9 @@ execute_parallel_fitting <- function(task_grid, results_dir,
           combo = combo,
           sample_file = sample_file,
           results_dir = results_dir,
-          historical_data_path = historical_data_path,
-          n_replicates = n_reps_to_fit
+          hist_path = hist_path,
+          n_replicates = n_reps_to_fit,
+          .formula = .formula
         )
 
         p()
@@ -401,10 +435,11 @@ execute_parallel_fitting <- function(task_grid, results_dir,
         seed = TRUE,
         globals = c("fit_parameter_combo", "get_hist_data",
                    "fit_simulation", "extract_trend_estimate",
-                   "combine_hist_sim_data_cached", "create_error_row",
+                   "combine_hist_sim_data", "create_error_row",
                    "generate_result_filename", "sp_to_hyphens",
                    "clean_family_name", "summarise_sanity",
-                   "results_dir", "historical_data_path", "n_reps_to_fit", "p"),
+                   "results_dir", "hist_path", "n_reps_to_fit", "p",
+                   ".formula"),
         packages = c("dplyr", "sdmTMB")
       )
     )
@@ -497,8 +532,8 @@ setup_parallel(USE_PARALLEL, N_WORKERS)
 
 sampling_summary <- readRDS(file.path(sample_dir, "sampling-summary.rds"))
 
-task_grid <- create_task_grid(sampling_summary, sample_dir) 
-  
+task_grid <- create_task_grid(sampling_summary, sample_dir)
+
 message("Parameter combinations: ", nrow(task_grid))
 message("Replicates per combination: ", N_REPLICATES)
 message("Total models to fit: ", nrow(task_grid) * N_REPLICATES)
@@ -508,8 +543,9 @@ message("\n=== Executing Parallel Fitting ===")
 summary_stats <- execute_parallel_fitting(
   task_grid = task_grid,
   results_dir = results_dir,
-  historical_data_path = historical_data_path,
-  n_reps_to_fit = N_REPLICATES
+  hist_path = hist_path,
+  n_reps_to_fit = N_REPLICATES,
+  .formula = FORMULA
 )
 # meep()
 message("\n=== Creating Summary Catalog ===")
