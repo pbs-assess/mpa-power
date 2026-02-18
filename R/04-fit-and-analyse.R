@@ -20,7 +20,7 @@ dir.create(results_dir, showWarnings = FALSE, recursive = TRUE)
 
 USE_PARALLEL <- TRUE#FALSE
 N_WORKERS <- 8 #NULL
-N_REPLICATES <- 25
+N_REPLICATES <- 70
 
 if (Sys.info()['user'] %in% c("dunic", "anderson")) {
   USE_PARALLEL <- TRUE
@@ -35,7 +35,7 @@ if (Sys.info()['user'] %in% c("jillian", "jilliandunic")) {
 }
 
 FORMULA <- catch_prop ~ 0 + fyear + restricted:year_covariate
-evaluation_years <- c(2030, 2034, 2038, 2042, 2046)
+EVALUATION_YEARS <- c(2030, 2034, 2038, 2042, 2046)
 
 # # Testing
 sample_summary <- readRDS(file.path(sample_dir,  "sampling-summary.rds"))
@@ -79,12 +79,12 @@ sim_dat0 <- bind_rows(
   readRDS(file.path(sample_dir, "yelloweye-rockfish/HBLL-OUT-N_mpa1.011_no_AR1_twenty-five_years_mpas-at-5-year-intervals.rds")),
   readRDS(file.path(sample_dir, "yelloweye-rockfish/HBLL-OUT-S_mpa1.011_no_AR1_twenty-five_years_mpas-at-5-year-intervals.rds"))
 )
-sim_dat <- combine_hist_sim_data(sim_dat0, hist_data) |>
+sim_dat <- combine_hist_sim_data(sim_dat0, hist_data, 2030) |>
   filter(replicate %in% 0:1)
 
 ggplot(data = sim_dat |> filter(year >= last_sampled_year)) +
   geom_point(aes(x = X, y = Y, colour = factor(restricted), shape = factor(historical))) +
-  geom_text(data = tibble(year = evaluation_years, X = 500, Y = 5900),
+  geom_text(data = tibble(year = EVALUATION_YEARS, X = 500, Y = 5900),
     aes(x = X, y = Y, label = year), size = 5) +
   scale_shape_manual(values = c(19, 21)) +
   facet_wrap(~ year)
@@ -108,7 +108,7 @@ test
 # =============================================================================
 
 #' Create standardized error row
-create_error_row <- function(combo, replicate, error_message) {
+create_error_row <- function(combo, replicate, eval_year, error_message) {
   tibble(
     species = combo$species,
     survey_abbrev = combo$survey_abbrev,
@@ -117,6 +117,7 @@ create_error_row <- function(combo, replicate, error_message) {
     sim_time_scenario = combo$time_scenario,
     sampling_plan = combo$plan,
     replicate = replicate,
+    eval_year = eval_year,
     estimate = NA_real_,
     se = NA_real_,
     ci_lower = NA_real_,
@@ -170,7 +171,7 @@ get_hist_data <- function(species, survey_abbrev, hist_path, cache_env) {
 }
 
 #' Combine historical and simulated data
-combine_hist_sim_data <- function(sim_data, hist_data) {
+combine_hist_sim_data <- function(sim_data, hist_data, eval_year) {
   sim_data_prep <- sim_data |>
     mutate(
       catch_count = observed,
@@ -187,7 +188,12 @@ combine_hist_sim_data <- function(sim_data, hist_data) {
       catch_prop = catch_count / hook_count,
       fyear_value = ifelse(historical, year, last_sampled_year),
       fyear = as.factor(fyear_value)
-    )
+    ) |>
+    filter(year <= eval_year)
+
+  if (nrow(combined_data) == 0) {
+    stop("No data remaining after filtering to eval_year = ", eval_year)
+  }
 
   return(combined_data)
 }
@@ -274,6 +280,7 @@ fit_parameter_combo <- function(combo,
                                .formula = catch_prop ~ 0 + fyear + restricted + restricted:year_covariate,
                                sample_file, results_dir,
                                hist_path, n_replicates = 50,
+                               evaluation_years = EVALUATION_YEARS,
                                hist_cache_env = new.env(parent = emptyenv())) {
 
   result_file <- generate_result_filename(
@@ -284,17 +291,33 @@ fit_parameter_combo <- function(combo,
 
   if (file.exists(result_path)) {
     existing_results <- readRDS(result_path)
-    completed_reps <- unique(existing_results$replicate)
-    reps_to_run <- setdiff(1:n_replicates, completed_reps)
-    message("  Resume: ", length(completed_reps), " done, ",
-            length(reps_to_run), " remaining")
+    completed_combos <- existing_results |>
+      distinct(replicate, eval_year) |>
+      mutate(combo_id = paste(replicate, eval_year, sep = "_"))
+
+    expected_combos <- expand.grid(
+      replicate = 1:n_replicates,
+      eval_year = evaluation_years
+    ) |>
+      mutate(combo_id = paste(replicate, eval_year, sep = "_"))
+
+    combos_to_run <- expected_combos |>
+      filter(!combo_id %in% completed_combos$combo_id)
+
+    message("  Resume: ", nrow(completed_combos), " done, ",
+            nrow(combos_to_run), " remaining")
   } else {
     existing_results <- NULL
-    reps_to_run <- 1:n_replicates
-    message("  Starting: ", n_replicates, " replicates")
+    combos_to_run <- expand.grid(
+      replicate = 1:n_replicates,
+      eval_year = evaluation_years
+    )
+    message("  Starting: ", n_replicates, " replicates × ",
+            length(evaluation_years), " eval years = ",
+            nrow(combos_to_run), " fits")
   }
 
-  if (length(reps_to_run) == 0) {
+  if (nrow(combos_to_run) == 0) {
     message("  Complete: skipping")
     return(tibble(n_new = 0, n_total = nrow(existing_results), n_errors = 0))
   }
@@ -303,62 +326,74 @@ fit_parameter_combo <- function(combo,
   hist_data <- get_hist_data(combo$species, combo$survey_abbrev,
                              hist_path, hist_cache_env)
 
-  new_results <- purrr::map_dfr(reps_to_run, function(rep) {
-    tryCatch({
-      sampled_data_rep <- sampled_data_all |> filter(replicate == rep)
+  combos_by_rep <- combos_to_run |>
+    group_by(replicate) |>
+    summarise(eval_years = list(sort(eval_year)), .groups = "drop")
 
-      if (nrow(sampled_data_rep) == 0) {
-        return(create_error_row(combo, rep,
-                               "Missing replicate in sampled data"))
-      }
+  new_results <- purrr::map_dfr(seq_len(nrow(combos_by_rep)), function(i) {
+    rep <- combos_by_rep$replicate[i]
+    eval_years_to_fit <- combos_by_rep$eval_years[[i]]
 
-      combined_data <- combine_hist_sim_data(sampled_data_rep, hist_data)
+    sampled_data_rep <- sampled_data_all |> filter(replicate == rep)
 
-      fit <- fit_simulation(
-        dat = combined_data,
-        formula = .formula,
-        spatial = "on",
-        spatiotemporal = "iid",
-        family = betabinomial(link = "cloglog"),
-        cutoff = 20,
-        control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
-        silent = FALSE
-      )
+    if (nrow(sampled_data_rep) == 0) {
+      return(purrr::map_dfr(eval_years_to_fit, function(ey) {
+        create_error_row(combo, rep, ey, "Missing replicate in sampled data")
+      }))
+    }
 
-      trend_results <- extract_trend_estimate(fit, "restricted:year_covariate")
+    purrr::map_dfr(eval_years_to_fit, function(eval_year) {
+      tryCatch({
+        combined_data <- combine_hist_sim_data(sampled_data_rep, hist_data, eval_year)
 
-      tibble(
-        species = combo$species,
-        survey_abbrev = combo$survey_abbrev,
-        sim_mpa_trend = combo$mpa_trend,
-        sim_ar1_scenario = combo$ar1_scenario,
-        sim_time_scenario = combo$time_scenario,
-        sampling_plan = combo$plan,
-        replicate = rep,
-        estimate = trend_results$estimate,
-        se = trend_results$se,
-        ci_lower = trend_results$ci_lower,
-        ci_upper = trend_results$ci_upper,
-        converged = trend_results$converged,
-        sanity = trend_results$sanity,
-        error_msg = trend_results$error_msg,
-        fit_formula = if (!is.null(fit$error)) NA_character_ else deparse1(formula(fit)),
-        fit_family = if (!is.null(fit$error)) NA_character_ else clean_family_name(fit),
-        fit_spatial = if (!is.null(fit$error)) NA_character_ else fit$spatial,
-        fit_spatiotemporal = if (!is.null(fit$error)) NA_character_ else fit$spatiotemporal
-      )
+        fit <- fit_simulation(
+          dat = combined_data,
+          formula = .formula,
+          spatial = "on",
+          spatiotemporal = "iid",
+          family = betabinomial(link = "cloglog"),
+          cutoff = 20,
+          control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
+          silent = FALSE
+        )
 
-    }, error = function(e) {
-      create_error_row(combo, rep, paste("Worker error:", e$message))
+        trend_results <- extract_trend_estimate(fit, "restricted:year_covariate")
+
+        tibble(
+          species = combo$species,
+          survey_abbrev = combo$survey_abbrev,
+          sim_mpa_trend = combo$mpa_trend,
+          sim_ar1_scenario = combo$ar1_scenario,
+          sim_time_scenario = combo$time_scenario,
+          sampling_plan = combo$plan,
+          replicate = rep,
+          eval_year = eval_year,
+          estimate = trend_results$estimate,
+          se = trend_results$se,
+          ci_lower = trend_results$ci_lower,
+          ci_upper = trend_results$ci_upper,
+          converged = trend_results$converged,
+          sanity = trend_results$sanity,
+          error_msg = trend_results$error_msg,
+          fit_formula = if (!is.null(fit$error)) NA_character_ else deparse1(formula(fit)),
+          fit_family = if (!is.null(fit$error)) NA_character_ else clean_family_name(fit),
+          fit_spatial = if (!is.null(fit$error)) NA_character_ else fit$spatial,
+          fit_spatiotemporal = if (!is.null(fit$error)) NA_character_ else fit$spatiotemporal
+        )
+
+      }, error = function(e) {
+        create_error_row(combo, rep, eval_year, paste("Worker error:", e$message))
+      })
     })
   })
 
   if (!is.null(existing_results)) {
     combined_results <- bind_rows(new_results, existing_results) |>
-      distinct(replicate, .keep_all = TRUE) |>
-      arrange(replicate)
+      distinct(replicate, eval_year, .keep_all = TRUE) |>
+      arrange(replicate, eval_year)
   } else {
-    combined_results <- new_results
+    combined_results <- new_results |>
+      arrange(replicate, eval_year)
   }
 
   dir.create(dirname(result_path), showWarnings = FALSE, recursive = TRUE)
@@ -388,6 +423,7 @@ create_task_grid <- function(sampling_summary, sample_dir) {
 #' Execute parallel fitting with progress reporting
 execute_parallel_fitting <- function(task_grid, results_dir,
                                     hist_path, n_reps_to_fit = 50,
+                                    evaluation_years = EVALUATION_YEARS,
                                     .formula = catch_prop ~ 0 + fyear + restricted:year_covariate) {
 
   progressr::handlers(global = TRUE)
@@ -416,6 +452,7 @@ execute_parallel_fitting <- function(task_grid, results_dir,
           results_dir = results_dir,
           hist_path = hist_path,
           n_replicates = n_reps_to_fit,
+          evaluation_years = evaluation_years,
           .formula = .formula
         )
 
@@ -438,8 +475,8 @@ execute_parallel_fitting <- function(task_grid, results_dir,
                    "combine_hist_sim_data", "create_error_row",
                    "generate_result_filename", "sp_to_hyphens",
                    "clean_family_name", "summarise_sanity",
-                   "results_dir", "hist_path", "n_reps_to_fit", "p",
-                   ".formula"),
+                   "results_dir", "hist_path", "n_reps_to_fit",
+                   "evaluation_years", "p", ".formula"),
         packages = c("dplyr", "sdmTMB")
       )
     )
@@ -462,6 +499,7 @@ create_summary_catalog <- function(results_dir) {
     results <- readRDS(fpath)
 
     summary_row <- results |>
+      group_by(eval_year) |>
       summarise(
         n_replicates = n(),
         n_converged = sum(converged, na.rm = TRUE),
@@ -469,7 +507,6 @@ create_summary_catalog <- function(results_dir) {
         mean_estimate = mean(estimate, na.rm = TRUE),
         sd_estimate = sd(estimate, na.rm = TRUE),
         power = mean(ci_lower > 0, na.rm = TRUE),
-        file = basename(fpath),
         .groups = "drop"
       )
 
@@ -478,7 +515,8 @@ create_summary_catalog <- function(results_dir) {
       select(species, survey_abbrev, sim_mpa_trend,
              sim_ar1_scenario, sim_time_scenario, sampling_plan)
 
-    bind_cols(param_row, summary_row)
+    tidyr::crossing(param_row, summary_row) |>
+      mutate(file = basename(fpath))
   })
 
   saveRDS(catalog, file.path(results_dir, "power-results-summary.rds"))
@@ -528,11 +566,15 @@ combine_all_results <- function(results_dir) {
 
 message("\n=== Power Analysis: Model Fitting ===")
 
+future::plan(future::sequential)
 setup_parallel(USE_PARALLEL, N_WORKERS)
 
 sampling_summary <- readRDS(file.path(sample_dir, "sampling-summary.rds"))
 
-task_grid <- create_task_grid(sampling_summary, sample_dir)
+task_grid <- create_task_grid(sampling_summary, sample_dir) |>
+  filter(species == "yelloweye rockfish",
+         survey_abbrev == "HBLL OUT N")
+N_REPLICATES <- 30
 
 message("Parameter combinations: ", nrow(task_grid))
 message("Replicates per combination: ", N_REPLICATES)
@@ -540,11 +582,13 @@ message("Total models to fit: ", nrow(task_grid) * N_REPLICATES)
 message("Parallel workers: ", if (is.null(N_WORKERS)) "auto" else N_WORKERS)
 
 message("\n=== Executing Parallel Fitting ===")
+message("Evaluation years: ", paste(EVALUATION_YEARS, collapse = ", "))
 summary_stats <- execute_parallel_fitting(
   task_grid = task_grid,
   results_dir = results_dir,
   hist_path = hist_path,
   n_reps_to_fit = N_REPLICATES,
+  evaluation_years = EVALUATION_YEARS,
   .formula = FORMULA
 )
 # meep()

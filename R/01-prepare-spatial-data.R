@@ -3,7 +3,7 @@ library(ggplot2)
 library(sf)
 library(stringr)
 
-source(here::here("R", "00-setup.R"))
+# source(here::here("R", "00-setup.R"))
 
 # Prepare spatial data (MPA polygons and human use layers)
 dir.create(file.path("data-generated", "spatial"), recursive = TRUE, showWarnings = FALSE)
