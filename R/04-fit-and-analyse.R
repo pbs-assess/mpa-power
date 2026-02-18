@@ -28,13 +28,13 @@ if (Sys.info()['user'] %in% c("dunic", "anderson")) {
   N_REPLICATES <- 50
 }
 
-if (Sys.info()['user'] == "jilliandunic") {
+if (Sys.info()['user'] %in% c("jillian", "jilliandunic")) {
   USE_PARALLEL <- TRUE
   N_WORKERS <- 8
   N_REPLICATES <- 50
 }
 
-FORMULA <- catch_prop ~ 0 + fyear + restricted + restricted:year_covariate
+FORMULA <- catch_prop ~ 0 + fyear + restricted:year_covariate
 evaluation_years <- c(2030, 2034, 2038, 2042, 2046)
 
 # # Testing
