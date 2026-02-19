@@ -19,9 +19,9 @@ if (Sys.info()['user'] %in% c("dunic", "anderson")) {
   N_WORKERS <- 40 #NULL
 }
 
-if (Sys.info()['user'] == "jilliandunic") {
+if (Sys.info()['user'] %in% c("jillian", "jilliandunic")) {
   USE_PARALLEL <- TRUE
-  N_WORKERS <- 8
+  N_WORKERS <- ifelse(Sys.info()['user'] == "jillian", 10, 8)
 }
 
 # Output directory
@@ -373,7 +373,7 @@ formula_scenarios <- tribble(
   "standard", list(~ 1 + restricted * year_covariate)  # MPA × time interaction
 )
 
-nreps <- 70
+nreps <- 100
 
 # Note: Parameter grids are now created per-species using recovery rates
 # See task grid creation below for species-specific implementation
