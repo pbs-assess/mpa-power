@@ -1,98 +1,38 @@
-# Fit models for a single species
-fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
-                        save_cleaned_data = TRUE,
-                        .options = furrr::furrr_options(seed = TRUE)) {
+#' Load cached conditioning models for a species
+#'
+#' @param sp_name Species name (will be converted to hyphens)
+#' @param fit_dir Directory containing cached model files
+#'
+#' @return List with fit_ON, fit_OS, fit_IN (same structure as fit_species)
+load_cached_species <- function(sp_name, fit_dir = here::here("data-generated", "fits")) {
   sp <- sp_to_hyphens(sp_name)
-  message(paste0("Fitting conditioning models for ", sp))
-  sp_dat0 <- readRDS(file.path(synopsis_cache, paste0(sp, ".rds")))$survey_sets
 
-  sp_dat <- filter(sp_dat0, stringr::str_detect(survey_abbrev, "HBLL")) |>
-    filter(survey_abbrev != "HBLL INS S") |> # may as well remove this up here
-    prep_hbll_data(bait_counts = bait_counts) |>
-    mutate(
-      obs_id = factor(row_number()),
-      catch_prop = catch_count / hook_count,
-      log_depth = log(depth_m)
-    )
-
-  # Prepare data and meshes
-  d_IN <- sp_dat |> filter(survey_abbrev == "HBLL INS N")
-  d_IN$weights <- d_IN$hook_count / mean(d_IN$hook_count)
-  mesh_IN <- local(make_mesh(d_IN, xy_cols = c("X", "Y"), cutoff = 10))
-  d_OS <- sp_dat |> filter(survey_abbrev == "HBLL OUT S")
-  d_OS$weights <- d_OS$hook_count / mean(d_OS$hook_count)
-  mesh_OS <- local(make_mesh(d_OS, xy_cols = c("X", "Y"), cutoff = 10))
-  d_ON <- sp_dat |> filter(survey_abbrev == "HBLL OUT N")
-  d_ON$weights <- d_ON$hook_count / mean(d_ON$hook_count)
-  mesh_ON <- local(make_mesh(d_ON, xy_cols = c("X", "Y"), cutoff = 10))
-
-  # Save cleaned datasets
-  if (save_cleaned_data) {
-    saveRDS(d_ON, file.path(cleaned_data_dir, paste0(sp, "-HBLL-OUT-N.rds")))
-    saveRDS(d_OS, file.path(cleaned_data_dir, paste0(sp, "-HBLL-OUT-S.rds")))
-    saveRDS(d_IN, file.path(cleaned_data_dir, paste0(sp, "-HBLL-INS-N.rds")))
-    message("  Saved cleaned data for ", sp)
-  }
-
-  # Beta binomial ----------------------------------------------------------------
-  sprf <- "on"
-  strf <- "iid"
-  fit_ON <- fit_cached_sdmTMB(
-    model_tag = paste0(sp, "-HBLL-OUT-N-betabinomial-", sprf, "-", strf),
-    fit_dir = fit_dir,
-    data = d_ON,
-    formula = catch_prop ~ 0 + fyear,
-    mesh = mesh_ON,
-    family = betabinomial(link = "cloglog"),
-    spatial = sprf,
-    spatiotemporal = strf,
-    time = "year",
-    anisotropy = FALSE,
-    weights = d_ON$hook_count,
-    control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
-    check_cache = check_cache,
-    silent = silent
+  # Pattern for each survey's betabinomial models
+  patterns <- c(
+    fit_ON = paste0(sp, "-HBLL-OUT-N-betabinomial-on-iid-"),
+    fit_OS = paste0(sp, "-HBLL-OUT-S-betabinomial-on-iid-"),
+    fit_IN = paste0(sp, "-HBLL-INS-N-betabinomial-on-iid-")
   )
 
-  fit_OS <- fit_cached_sdmTMB(
-    model_tag = paste0(sp, "-HBLL-OUT-S-betabinomial-", sprf, "-", strf),
-    fit_dir = fit_dir,
-    data = d_OS,
-    formula = catch_prop ~ 0 + fyear,
-    mesh = mesh_OS,
-    family = betabinomial(link = "cloglog"),
-    spatial = sprf,
-    spatiotemporal = strf,
-    time = "year",
-    anisotropy = FALSE,
-    weights = d_OS$hook_count,
-    control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
-    check_cache = check_cache,
-    silent = silent
-  )
+  # Find and load each model
+  fits <- purrr::map(patterns, function(pattern) {
+    files <- list.files(fit_dir, pattern = paste0("^", pattern), full.names = TRUE)
 
-  fit_IN <- fit_cached_sdmTMB(
-    model_tag = paste0(sp, "-HBLL-INS-N-betabinomial-", sprf, "-", strf),
-    fit_dir = fit_dir,
-    data = d_IN,
-    formula = catch_prop ~ 0 + fyear,
-    mesh = mesh_IN,
-    family = betabinomial(link = "cloglog"),
-    spatial = sprf,
-    spatiotemporal = strf,
-    time = "year",
-    anisotropy = FALSE,
-    weights = d_IN$hook_count,
-    control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
-    check_cache = check_cache,
-    silent = silent
-  )
+    if (length(files) == 0) {
+      stop("No cached model found matching: ", pattern, "*.rds")
+    }
 
-  message(paste0("Completed: ", sp_name))
-  return(invisible(list(
-    fit_ON = fit_ON,
-    fit_OS = fit_OS,
-    fit_IN = fit_IN)))
+    if (length(files) > 1) {
+      warning("Multiple models found for ", pattern, ". Using most recent.")
+      files <- files[which.max(file.mtime(files))]
+    }
+
+    message("Loading: ", basename(files))
+    readRDS(files)
+  })
+
+  message("Loaded cached models for: ", sp_name)
+  return(fits)
 }
 
 prep_hbll_data <- function(dat, bait_counts) {
