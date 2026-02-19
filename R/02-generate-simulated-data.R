@@ -120,13 +120,14 @@ generate_sim_filename <- function(species, survey_abbrev, param_row, sim_hash) {
 #' Load and prepare survey fits for a species
 #'
 #' @param sp_name Species name
+#' @param fit_dir Directory containing cached model files
 #'
 #' @return List with survey_fits (list of survey configs) or NULL if no valid fits
-prepare_species_fits <- function(sp_name) {
+prepare_species_fits <- function(sp_name, fit_dir = here::here("data-generated", "fits")) {
   message("Loading fits for species: ", sp_name)
 
   # Load fits
-  fits <- fit_species(sp_name)
+  fits <- load_cached_species(sp_name, fit_dir = fit_dir)
 
   # Separate passed vs failed
   fits_passed <- purrr::keep(fits, ~ isTRUE(.x$sanity_check$passed))
@@ -373,7 +374,7 @@ formula_scenarios <- tribble(
   "standard", list(~ 1 + restricted * year_covariate)  # MPA × time interaction
 )
 
-nreps <- 70
+nreps <- 80
 
 # Note: Parameter grids are now created per-species using recovery rates
 # See task grid creation below for species-specific implementation
