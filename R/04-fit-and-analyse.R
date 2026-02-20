@@ -292,6 +292,7 @@ fit_parameter_combo <- function(combo,
   if (file.exists(result_path)) {
     existing_results <- readRDS(result_path)
     completed_combos <- existing_results |>
+      filter(is.na(error_msg) | error_msg != "Missing replicate in sampled data") |>
       distinct(replicate, eval_year) |>
       mutate(combo_id = paste(replicate, eval_year, sep = "_"))
 
@@ -566,16 +567,15 @@ combine_all_results <- function(results_dir) {
 
 message("\n=== Power Analysis: Model Fitting ===")
 
+future::plan(future::sequential)
 setup_parallel(USE_PARALLEL, N_WORKERS)
 
 sampling_summary <- readRDS(file.path(sample_dir, "sampling-summary.rds"))
 
 task_grid <- create_task_grid(sampling_summary, sample_dir) |>
   filter(species == "yelloweye rockfish",
-         survey_abbrev == "HBLL OUT N")
-N_REPLICATES <- 30
-future::plan(future::sequential)
-
+         survey_abbrev == "HBLL OUT S")
+N_REPLICATES <- 100
 
 message("Parameter combinations: ", nrow(task_grid))
 message("Replicates per combination: ", N_REPLICATES)
