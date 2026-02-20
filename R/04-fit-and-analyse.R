@@ -38,70 +38,70 @@ FORMULA <- catch_prop ~ 0 + fyear + restricted:year_covariate
 EVALUATION_YEARS <- c(2030, 2034, 2038, 2042, 2046)
 
 # # Testing
-sample_summary <- readRDS(file.path(sample_dir,  "sampling-summary.rds"))
-
-# species <- "lingcod"
-species <- "yelloweye rockfish"
-ar1_scenarios <- c("no_AR1", "moderate_AR1")
-# time_scenarios <- c("twentyfive_years")
-plans <- c(
-  "status quo",
-  "MPAs at 5 year intervals"#,
-  # "status quo + 20% effort"
-)
-
-# f <- list.files(file.path(sample_dir, sp_to_hyphens(species)))
-
-sp_files <- filter(sample_summary,
-  species %in% .env$species,
-  ar1_scenario %in% .env$ar1_scenarios,
-  # time_scenario %in% time_scenarios,
-  plan %in% .env$plans
-) |>
-  pull(file)
-
-# Create a cache environment (can reuse for multiple calls)
-hist_cache <- new.env(parent = emptyenv())
-# Load historical data
-hist_data <- purrr::map_dfr(c("HBLL OUT N", "HBLL OUT S"), function(survey_abbrev) {
-  get_hist_data(
-  species = species,
-  survey_abbrev = survey_abbrev,  # or whatever survey you're testing
-  hist_path = hist_path,
-  cache_env = hist_cache
-)
-})
-# Combine with your simulated data (sim_dat0 from line 59)
-
-test_f <- sp_files[grepl("mpas-at-5-year-intervals", sp_files)]
-sim_dat0 <- readRDS(file.path(sample_dir, test_f[1]))
-sim_dat0 <- bind_rows(
-  readRDS(file.path(sample_dir, "yelloweye-rockfish/HBLL-OUT-N_mpa1.011_no_AR1_twenty-five_years_mpas-at-5-year-intervals.rds")),
-  readRDS(file.path(sample_dir, "yelloweye-rockfish/HBLL-OUT-S_mpa1.011_no_AR1_twenty-five_years_mpas-at-5-year-intervals.rds"))
-)
-sim_dat <- combine_hist_sim_data(sim_dat0, hist_data, 2030) |>
-  filter(replicate %in% 0:1)
-
-ggplot(data = sim_dat |> filter(year >= last_sampled_year)) +
-  geom_point(aes(x = X, y = Y, colour = factor(restricted), shape = factor(historical))) +
-  geom_text(data = tibble(year = EVALUATION_YEARS, X = 500, Y = 5900),
-    aes(x = X, y = Y, label = year), size = 5) +
-  scale_shape_manual(values = c(19, 21)) +
-  facet_wrap(~ year)
-
-test <- fit_simulation(
-  dat = sim_dat,
-  formula = catch_prop ~ 0 + fyear + restricted + restricted:year_covariate,
-  spatial = "on",
-  spatiotemporal = "iid",
-  cutoff = 20,
-  control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
-  silent = FALSE
-  )
-meep()
-sanity(test)
-test
-
+# sample_summary <- readRDS(file.path(sample_dir,  "sampling-summary.rds"))
+#
+# # species <- "lingcod"
+# species <- "yelloweye rockfish"
+# ar1_scenarios <- c("no_AR1", "moderate_AR1")
+# # time_scenarios <- c("twentyfive_years")
+# plans <- c(
+#   "status quo",
+#   "MPAs at 5 year intervals"#,
+#   # "status quo + 20% effort"
+# )
+#
+# # f <- list.files(file.path(sample_dir, sp_to_hyphens(species)))
+#
+# sp_files <- filter(sample_summary,
+#   species %in% .env$species,
+#   ar1_scenario %in% .env$ar1_scenarios,
+#   # time_scenario %in% time_scenarios,
+#   plan %in% .env$plans
+# ) |>
+#   pull(file)
+#
+# # Create a cache environment (can reuse for multiple calls)
+# hist_cache <- new.env(parent = emptyenv())
+# # Load historical data
+# hist_data <- purrr::map_dfr(c("HBLL OUT N", "HBLL OUT S"), function(survey_abbrev) {
+#   get_hist_data(
+#   species = species,
+#   survey_abbrev = survey_abbrev,  # or whatever survey you're testing
+#   hist_path = hist_path,
+#   cache_env = hist_cache
+# )
+# })
+# # Combine with your simulated data (sim_dat0 from line 59)
+#
+# test_f <- sp_files[grepl("mpas-at-5-year-intervals", sp_files)]
+# sim_dat0 <- readRDS(file.path(sample_dir, test_f[1]))
+# sim_dat0 <- bind_rows(
+#   readRDS(file.path(sample_dir, "yelloweye-rockfish/HBLL-OUT-N_mpa1.011_no_AR1_twenty-five_years_mpas-at-5-year-intervals.rds")),
+#   readRDS(file.path(sample_dir, "yelloweye-rockfish/HBLL-OUT-S_mpa1.011_no_AR1_twenty-five_years_mpas-at-5-year-intervals.rds"))
+# )
+# sim_dat <- combine_hist_sim_data(sim_dat0, hist_data, 2030) |>
+#   filter(replicate %in% 0:1)
+#
+# ggplot(data = sim_dat |> filter(year >= last_sampled_year)) +
+#   geom_point(aes(x = X, y = Y, colour = factor(restricted), shape = factor(historical))) +
+#   geom_text(data = tibble(year = EVALUATION_YEARS, X = 500, Y = 5900),
+#     aes(x = X, y = Y, label = year), size = 5) +
+#   scale_shape_manual(values = c(19, 21)) +
+#   facet_wrap(~ year)
+#
+# test <- fit_simulation(
+#   dat = sim_dat,
+#   formula = catch_prop ~ 0 + fyear + restricted + restricted:year_covariate,
+#   spatial = "on",
+#   spatiotemporal = "iid",
+#   cutoff = 20,
+#   control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
+#   silent = FALSE
+#   )
+# meep()
+# sanity(test)
+# test
+#
 
 # =============================================================================
 # Helper Functions
