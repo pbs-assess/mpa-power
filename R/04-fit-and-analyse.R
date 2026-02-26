@@ -20,7 +20,7 @@ dir.create(results_dir, showWarnings = FALSE, recursive = TRUE)
 
 USE_PARALLEL <- TRUE#FALSE
 N_WORKERS <- 8 #NULL
-N_REPLICATES <- 100
+N_REPLICATES <- 120
 
 if (Sys.info()['user'] %in% c("dunic", "anderson")) {
   USE_PARALLEL <- TRUE
@@ -31,7 +31,7 @@ if (Sys.info()['user'] %in% c("dunic", "anderson")) {
 if (Sys.info()['user'] %in% c("jillian", "jilliandunic")) {
   USE_PARALLEL <- TRUE
   N_WORKERS <- ifelse(Sys.info()['user'] == "jillian", 10, 8)
-  N_REPLICATES <- 100
+  N_REPLICATES <- 120
 }
 
 FORMULA <- catch_prop ~ 0 + fyear + restricted:year_covariate
@@ -575,7 +575,7 @@ sampling_summary <- readRDS(file.path(sample_dir, "sampling-summary.rds"))
 task_grid <- create_task_grid(sampling_summary, sample_dir) |>
   filter(species == "yelloweye rockfish",
          survey_abbrev == "HBLL OUT N")
-N_REPLICATES <- 100
+N_REPLICATES <- 120
 
 message("Parameter combinations: ", nrow(task_grid))
 message("Replicates per combination: ", N_REPLICATES)
