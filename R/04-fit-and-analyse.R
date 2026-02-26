@@ -292,6 +292,7 @@ fit_parameter_combo <- function(combo,
   if (file.exists(result_path)) {
     existing_results <- readRDS(result_path)
     completed_combos <- existing_results |>
+      filter(is.na(error_msg) | error_msg != "Missing replicate in sampled data") |>
       distinct(replicate, eval_year) |>
       mutate(combo_id = paste(replicate, eval_year, sep = "_"))
 
