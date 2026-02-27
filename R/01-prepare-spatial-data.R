@@ -78,7 +78,7 @@ saveRDS(simple_mpa, file.path("data-generated", "spatial", "simple-mpa.rds"))
 
 simple_analytical <- simple_mpa |>
   filter(!uid %in% missing_mpa_subregions) |>
-  bind_rows(split_cc_nc_polygon) |>
+  bind_rows(split_cc_nc_polygon |> select(uid, subregion, subregion.1, map_label, common_site_name_site_profile, category_simple, name_2025, subregion_name)) |>
   mutate(subregion = ifelse(is.na(subregion), subregion.1, subregion)) |>
   select(-subregion.1, -subregion_name) |>
   st_cast("MULTIPOLYGON")
@@ -93,6 +93,21 @@ saveRDS(mpa_100, file.path("data-generated", "spatial", "simple-mpa-100m.rds"))
 #   geom_sf(data = subregion_masks |> st_simplify(dTolerance = 100), aes(fill = subregion_name), alpha = 0.5) +
 #   guides(fill = "none") +
 #   gfplot::coord_sf_auto(mpa_100)
+
+# Assign subregions to HBLL grid cells
+hbll_grid_subregion_lu <- gfdata::load_survey_blocks(type = "polygon") |>
+  filter(survey_series_id %in% hbll_ssids) |>
+  st_transform(crs = st_crs(subregion_masks)) |>
+  st_join(subregion_masks, join = st_intersects)
+
+hbll_grid_subregion_df <- hbll_grid_subregion_lu |>
+  st_drop_geometry() |>
+  as_tibble()
+saveRDS(hbll_grid_subregion_df, file.path("data-generated", "spatial", "hbll-grid-subregion-lu.rds"))
+
+# ggplot() +
+#   geom_sf(data = hbll_grid_subregion_lu, aes(fill = subregion_name, colour = subregion_name)) +
+#   gfplot::coord_sf_auto(simple_mpa)
 
 comm_ll_activity_status <- public_mpa |>
   select(uid, hu_commercial_harvest_bottom_longline_demersal_hookand_line,
