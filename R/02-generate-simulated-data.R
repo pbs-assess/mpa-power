@@ -21,7 +21,7 @@ if (Sys.info()['user'] %in% c("dunic", "anderson")) {
 
 if (Sys.info()['user'] %in% c("jillian", "jilliandunic")) {
   USE_PARALLEL <- TRUE
-  N_WORKERS <- ifelse(Sys.info()['user'] == "jillian", 10, 8)
+  N_WORKERS <- ifelse(Sys.info()['user'] == "jillian", 10, 5)
 }
 
 # Output directory
@@ -65,7 +65,7 @@ create_sim_param_grid <- function(mpa_trend,
                                   nreps = 20) {
 
   # Create grid
-  param_grid <- expand_grid(
+  param_grid <- tidyr::expand_grid(
     mpa_trend = mpa_trend,
     ar1_scenario = ar1_scenarios$ar1_scenario,
     time_scenario = time_scenarios$time_scenario,
@@ -222,7 +222,7 @@ run_survey_simulation <- function(sp_name,
   fname <- generate_sim_filename(sp_name, survey_abbrev, param_combo, sim_hash)
   fpath <- file.path(sim_dir, fname)
 
-  # Check cache - return early if found
+  # Return early if cache found
   if (check_cache && file.exists(fpath)) {
     message("  Cache hit: ", fname)
     return(list(
@@ -237,6 +237,7 @@ run_survey_simulation <- function(sp_name,
   message("  Cache miss: running simulations")
 
   # Run all replicates for this survey
+  # Process each replicate individually to reduce memory usage
   sim_dat_all_reps <- purrr::pmap_dfr(combo_reps, function(...) {
     row <- list(...)
 
@@ -443,10 +444,12 @@ message("  Species: ", length(unique(task_grid$species)))
 message("  Average tasks per species: ", round(nrow(task_grid) / length(unique(task_grid$species)), 1))
 
 # Setup parallel processing
+future::plan(future::sequential)
 map_fn <- setup_parallel(USE_PARALLEL, N_WORKERS)
 
 # Run simulations across all tasks in parallel
 message("\n=== Running Simulations ===")
+tictoc::tic("All simulations completed")
 if (USE_PARALLEL) {
   all_results <- furrr::future_pmap(
     task_grid,
@@ -455,7 +458,7 @@ if (USE_PARALLEL) {
         sp_name = species,
         survey_config = survey_config,
         param_combo = param_combo,
-        param_grid = param_grid,  # Now species-specific from task_grid
+        param_grid = param_grid,
         restricted_df = restricted_df,
         hbll_grid = hbll_grid,
         hbll_last_sampled_year = hbll_last_sampled_year,
@@ -474,7 +477,7 @@ if (USE_PARALLEL) {
         sp_name = species,
         survey_config = survey_config,
         param_combo = param_combo,
-        param_grid = param_grid,  # Now species-specific from task_grid
+        param_grid = param_grid,
         restricted_df = restricted_df,
         hbll_grid = hbll_grid,
         hbll_last_sampled_year = hbll_last_sampled_year,
@@ -485,6 +488,17 @@ if (USE_PARALLEL) {
     }
   )
 }
+tictoc::toc()
+
+# Create summary from all results if I've cancelled the process early
+# sim_files <- list.files(sim_dir, pattern = "\\.rds$", full.names = TRUE)
+# sim_summary <- purrr::map_dfr(sim_files, ~{
+#   params <- attr(readRDS(.x), "sim_params")
+#   tibble(species = params$species, survey_abbrev = params$survey_abbrev,
+#          mpa_trend = round(params$mpa_trend, 3), ar1_scenario = params$ar1_scenario,
+#          time_scenario = params$time_scenario, file = basename(.x), from_cache = FALSE)
+# })
+# saveRDS(sim_summary, file.path(sim_dir, "simulation-summary.rds"))
 
 # Create summary
 sim_summary <- purrr::map_dfr(all_results, function(x) {
