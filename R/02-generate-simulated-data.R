@@ -40,8 +40,6 @@ restricted_df <- readRDS(file.path("data-generated", "hbll-restricted-sf.rds")) 
   mutate(log_depth = log(depth_m))
 
 # Load allocations for status quo sampling
-hbll_allocations <- readRDS(here::here("data-generated", "hbll-allocations.rds")) |>
-  as_tibble()
 hbll_last_sampled_year <- readRDS(file.path("data-generated", "hbll-last-sampled-year.rds"))
 hbll_grid <- gfdata::load_survey_blocks(type = "XY") |>
   filter(stringr::str_detect(survey_abbrev, "HBLL"))
@@ -170,7 +168,6 @@ prepare_species_fits <- function(sp_name, fit_dir = here::here("data-generated",
 #' @param restricted_df Restricted dataframe for simulation
 #' @param hbll_grid HBLL grid for spatial joins
 #' @param hbll_last_sampled_year Last sampled year by survey
-#' @param hbll_allocations HBLL allocations
 #' @param sim_dir Directory to save simulated data
 #' @param check_cache Check for cached simulations
 #'
@@ -182,7 +179,6 @@ run_survey_simulation <- function(sp_name,
                                   restricted_df,
                                   hbll_grid,
                                   hbll_last_sampled_year,
-                                  hbll_allocations,
                                   sim_dir,
                                   check_cache = TRUE) {
 
@@ -262,24 +258,19 @@ run_survey_simulation <- function(sp_name,
       tag = paste0(survey_config$tag_prefix, "-rep", row$replicate)
     )
 
-    # Add replicate column and remove fyear columns
+    # Add block_id for spatial joins in sampling script
     survey_sim |>
       select(!contains("fyear")) |>
-      mutate(replicate = row$replicate)
+      left_join(hbll_grid |> select(X, Y, block_id, grouping_code), by = c("X", "Y")) |>
+      left_join(hbll_last_sampled_year, by = "survey_abbrev") |>
+      mutate(
+        year_counter = year,  # Store original simulation year
+        year = last_sampled_year + year,  # Convert to calendar year
+        d = "simulated",
+        replicate = row$replicate
+      ) |>
+      select(-last_sampled_year)  # Don't need to store this in every row
   })
-
-  # Post-process survey data: add spatial joins and calendar years
-  sim_dat_all_reps <- sim_dat_all_reps |>
-    left_join(hbll_grid |> select(X, Y, block_id, grouping_code),
-              by = c("X", "Y")) |>
-    left_join(hbll_last_sampled_year, by = "survey_abbrev") |>
-    mutate(
-      year_counter = year,  # Store original simulation year
-      year = last_sampled_year + year,  # Convert to calendar year
-      d = "simulated"
-    ) |>
-    left_join(hbll_allocations, by = c("survey_abbrev", "grouping_code")) |>
-    mutate(spatial_grouping_id = ifelse(pfma %in% c("5A", "4B"), "5A4B", pfma))
 
   # Add parameter metadata as attributes
   attr(sim_dat_all_reps, "sim_params") <- list(
@@ -375,7 +366,7 @@ formula_scenarios <- tribble(
   "standard", list(~ 1 + restricted * year_covariate)  # MPA × time interaction
 )
 
-nreps <- 100
+nreps <- 120
 
 # Note: Parameter grids are now created per-species using recovery rates
 # See task grid creation below for species-specific implementation
@@ -462,7 +453,6 @@ if (USE_PARALLEL) {
         restricted_df = restricted_df,
         hbll_grid = hbll_grid,
         hbll_last_sampled_year = hbll_last_sampled_year,
-        hbll_allocations = hbll_allocations,
         sim_dir = sim_dir,
         check_cache = TRUE
       )
@@ -481,7 +471,6 @@ if (USE_PARALLEL) {
         restricted_df = restricted_df,
         hbll_grid = hbll_grid,
         hbll_last_sampled_year = hbll_last_sampled_year,
-        hbll_allocations = hbll_allocations,
         sim_dir = sim_dir,
         check_cache = TRUE
       )
@@ -524,3 +513,7 @@ future::plan(future::sequential)
 meep()
 
 test <- readRDS(file.path(sim_dir, "simulation-summary.rds"))
+
+# test2 <- readRDS(file.path(sim_dir, test$file[1]))
+# glimpse(test2)
+# max(test2$replicate)

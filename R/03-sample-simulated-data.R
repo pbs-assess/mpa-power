@@ -97,6 +97,11 @@ load_sim_data <- function(species, survey_abbrev, mpa_trend, ar1_scenario,
   fpath <- file.path(sim_dir, file_info$file)
   sim_dat <- readRDS(fpath)
 
+  # Add joins that were moved from script 02 to reduce file size
+  sim_dat <- sim_dat |>
+    left_join(hbll_allocations, by = c("survey_abbrev", "grouping_code")) |>
+    mutate(spatial_grouping_id = ifelse(pfma %in% c("5A", "4B"), "5A4B", pfma))
+
   historical_locations <- readRDS(file.path("data-generated", "historical-locations.rds")) |>
     tidyr::drop_na(block_id) |>
     mutate(historical_location = 1) |>
@@ -437,30 +442,32 @@ message("Total files created: ", nrow(sampling_summary))
 
 # Reset to sequential processing
 future::plan(future::sequential)
+meep()
 
 # Example: inspect sampling summary
-glimpse(sampling_summary)
-head(sampling_summary)
+# glimpse(sampling_summary)
+# head(sampling_summary)
 
-# Example: load a specific sampling scenario using the new helper function
+# # Example: load a specific sampling scenario using the new helper function
 # ye_sample <- load_sampled_data(
 #   species = "yelloweye rockfish",
 #   survey_abbrev = "HBLL OUT N",
 #   plan = "status quo",
-#   mpa_trend = 1.01,
+#   mpa_trend = 1.011,
 #   ar1_scenario = "no_AR1",
-#   time_scenario = "twenty_years",
+#   time_scenario = "twenty-five_years",
 #   sampling_summary = sampling_summary,
 #   sample_dir = sample_dir
 # )
 # glimpse(ye_sample)
+# max(ye_sample$replicate)
 
 # Test scenario buildng:
 
 # test <- load_sim_data(
 #   species = "yelloweye rockfish",
 #   survey_abbrev = "HBLL OUT N",
-#   mpa_trend = 1.015,
+#   mpa_trend = 1.011,
 #   ar1_scenario = "no_AR1",
 #   time_scenario = "twenty_years",
 #   sim_summary = sim_summary,

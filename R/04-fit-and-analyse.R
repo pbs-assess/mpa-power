@@ -18,9 +18,9 @@ results_dir <- here::here("data-generated", "power-results")
 hist_path <- here::here("data-generated", "historical-data-processed")
 dir.create(results_dir, showWarnings = FALSE, recursive = TRUE)
 
-USE_PARALLEL <- TRUE#FALSE
+USE_PARALLEL <- TRUE
 N_WORKERS <- 8 #NULL
-N_REPLICATES <- 120
+N_REPLICATES <- 100
 
 if (Sys.info()['user'] %in% c("dunic", "anderson")) {
   USE_PARALLEL <- TRUE
@@ -31,15 +31,17 @@ if (Sys.info()['user'] %in% c("dunic", "anderson")) {
 if (Sys.info()['user'] %in% c("jillian", "jilliandunic")) {
   USE_PARALLEL <- TRUE
   N_WORKERS <- ifelse(Sys.info()['user'] == "jillian", 10, 8)
-  N_REPLICATES <- 120
+  N_REPLICATES <- 100
 }
 
 FORMULA <- catch_prop ~ 0 + fyear + restricted:year_covariate
 EVALUATION_YEARS <- c(2030, 2034, 2038, 2042, 2046)
 
+# hbll_last_sampled_year <- readRDS(file.path("data-generated", "hbll-last-sampled-year.rds"))
+
 # # Testing
 # sample_summary <- readRDS(file.path(sample_dir,  "sampling-summary.rds"))
-#
+
 # # species <- "lingcod"
 # species <- "yelloweye rockfish"
 # ar1_scenarios <- c("no_AR1", "moderate_AR1")
@@ -48,10 +50,10 @@ EVALUATION_YEARS <- c(2030, 2034, 2038, 2042, 2046)
 #   "status quo",
 #   "MPAs at 5 year intervals"#,
 #   # "status quo + 20% effort"
-# )
-#
+# ) 
+
 # # f <- list.files(file.path(sample_dir, sp_to_hyphens(species)))
-#
+
 # sp_files <- filter(sample_summary,
 #   species %in% .env$species,
 #   ar1_scenario %in% .env$ar1_scenarios,
@@ -59,39 +61,39 @@ EVALUATION_YEARS <- c(2030, 2034, 2038, 2042, 2046)
 #   plan %in% .env$plans
 # ) |>
 #   pull(file)
-#
+
 # # Create a cache environment (can reuse for multiple calls)
 # hist_cache <- new.env(parent = emptyenv())
 # # Load historical data
-# hist_data <- purrr::map_dfr(c("HBLL OUT N", "HBLL OUT S"), function(survey_abbrev) {
-#   get_hist_data(
-#   species = species,
-#   survey_abbrev = survey_abbrev,  # or whatever survey you're testing
-#   hist_path = hist_path,
-#   cache_env = hist_cache
-# )
+# hist_data <- purrr::map_dfr(c("HBLL OUT N"), function(survey_abbrev) {
+#     get_hist_data(
+#     species = species,
+#     survey_abbrev = survey_abbrev,  # or whatever survey you're testing
+#     hist_path = hist_path,
+#     cache_env = hist_cache
+#   )
 # })
 # # Combine with your simulated data (sim_dat0 from line 59)
-#
+
 # test_f <- sp_files[grepl("mpas-at-5-year-intervals", sp_files)]
 # sim_dat0 <- readRDS(file.path(sample_dir, test_f[1]))
-# sim_dat0 <- bind_rows(
-#   readRDS(file.path(sample_dir, "yelloweye-rockfish/HBLL-OUT-N_mpa1.011_no_AR1_twenty-five_years_mpas-at-5-year-intervals.rds")),
-#   readRDS(file.path(sample_dir, "yelloweye-rockfish/HBLL-OUT-S_mpa1.011_no_AR1_twenty-five_years_mpas-at-5-year-intervals.rds"))
-# )
-# sim_dat <- combine_hist_sim_data(sim_dat0, hist_data, 2030) |>
+# # sim_dat0 <- bind_rows(
+# #   readRDS(file.path(sample_dir, "yelloweye-rockfish/HBLL-OUT-N_mpa1.011_no_AR1_twenty-five_years_mpas-at-5-year-intervals.rds")),
+# #   readRDS(file.path(sample_dir, "yelloweye-rockfish/HBLL-OUT-S_mpa1.011_no_AR1_twenty-five_years_mpas-at-5-year-intervals.rds"))
+# # )
+# sim_dat <- combine_hist_sim_data(sim_dat0, hist_data, 2047) |>
 #   filter(replicate %in% 0:1)
-#
+
 # ggplot(data = sim_dat |> filter(year >= last_sampled_year)) +
 #   geom_point(aes(x = X, y = Y, colour = factor(restricted), shape = factor(historical))) +
-#   geom_text(data = tibble(year = EVALUATION_YEARS, X = 500, Y = 5900),
-#     aes(x = X, y = Y, label = year), size = 5) +
+#   # geom_text(data = tibble(year = EVALUATION_YEARS +, X = 500, Y = 5900),
+#   #   aes(x = X, y = Y, label = year), size = 5) +
 #   scale_shape_manual(values = c(19, 21)) +
 #   facet_wrap(~ year)
-#
+
 # test <- fit_simulation(
 #   dat = sim_dat,
-#   formula = catch_prop ~ 0 + fyear + restricted + restricted:year_covariate,
+#   formula = catch_prop ~ 0 + fyear + restricted:year_covariate,
 #   spatial = "on",
 #   spatiotemporal = "iid",
 #   cutoff = 20,
@@ -101,7 +103,7 @@ EVALUATION_YEARS <- c(2030, 2034, 2038, 2042, 2046)
 # meep()
 # sanity(test)
 # test
-#
+# #
 
 # =============================================================================
 # Helper Functions
@@ -171,8 +173,11 @@ get_hist_data <- function(species, survey_abbrev, hist_path, cache_env) {
 }
 
 #' Combine historical and simulated data
-combine_hist_sim_data <- function(sim_data, hist_data, eval_year) {
+combine_hist_sim_data <- function(sim_data, hist_data, eval_year, last_sampled_year) {
+  hbll_last_sampled_year <- readRDS(file.path("data-generated", "hbll-last-sampled-year.rds"))
+
   sim_data_prep <- sim_data |>
+    left_join(hbll_last_sampled_year, by = "survey_abbrev") |>
     mutate(
       catch_count = observed,
       historical = FALSE
@@ -200,7 +205,7 @@ combine_hist_sim_data <- function(sim_data, hist_data, eval_year) {
 
 #' Fit sdmTMB model to sampled data
 fit_simulation <- function(dat,
-                           formula = catch_prop ~ 0 + fyear + restricted + restricted:year_covariate,
+                           formula = catch_prop ~ 0 + fyear + restricted:year_covariate,
                            spatial = "on",
                            spatiotemporal = "iid",
                            family = betabinomial(link = "cloglog"),
@@ -566,7 +571,7 @@ combine_all_results <- function(results_dir) {
 # =============================================================================
 
 message("\n=== Power Analysis: Model Fitting ===")
-
+tictoc::tic("Starting power analysis")
 future::plan(future::sequential)
 setup_parallel(USE_PARALLEL, N_WORKERS)
 
@@ -575,7 +580,6 @@ sampling_summary <- readRDS(file.path(sample_dir, "sampling-summary.rds"))
 task_grid <- create_task_grid(sampling_summary, sample_dir) |>
   filter(species == "yelloweye rockfish",
          survey_abbrev == "HBLL OUT N")
-N_REPLICATES <- 120
 
 message("Parameter combinations: ", nrow(task_grid))
 message("Replicates per combination: ", N_REPLICATES)
@@ -616,3 +620,8 @@ if (nrow(summary_stats) > 0) {
 message("\nResults saved to: ", results_dir)
 
 future::plan(future::sequential)
+tictoc::toc()
+
+# test <- readRDS(file.path(results_dir, "all-fitted-results.rds"))
+
+# glimpse(test)
