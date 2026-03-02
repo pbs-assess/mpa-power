@@ -40,71 +40,99 @@ EVALUATION_YEARS <- c(2030, 2034, 2038, 2042, 2046)
 # hbll_last_sampled_year <- readRDS(file.path("data-generated", "hbll-last-sampled-year.rds"))
 
 # # Testing
-sample_summary <- readRDS(file.path(sample_dir,  "sampling-summary.rds"))
+# sample_summary <- readRDS(file.path(sample_dir,  "sampling-summary.rds"))
 
-# species <- "lingcod"
-species <- "yelloweye rockfish"
-ar1_scenarios <- c("no_AR1", "moderate_AR1")
+# # species <- "lingcod"
+# species <- "yelloweye rockfish"
+# ar1_scenarios <- c("no_AR1", "moderate_AR1")
 
-# time_scenarios <- c("twentyfive_years")
-plans <- c(
-  "status quo",
-  "MPAs at 5 year intervals"#,
-  # "status quo + 20% effort"
-)
-
-# f <- list.files(file.path(sample_dir, sp_to_hyphens(species)))
-
-sp_files <- filter(sample_summary,
-  species %in% .env$species,
-  ar1_scenario %in% .env$ar1_scenarios,
-  # time_scenario %in% time_scenarios,
-  plan %in% .env$plans
-) |>
-  pull(file)
-
-# Create a cache environment (can reuse for multiple calls)
-hist_cache <- new.env(parent = emptyenv())
-# Load historical data
-hist_data <- purrr::map_dfr(c("HBLL OUT N"), function(survey_abbrev) {
-    get_hist_data(
-    species = species,
-    survey_abbrev = survey_abbrev,  # or whatever survey you're testing
-    hist_path = hist_path,
-    cache_env = hist_cache
-  )
-})
-# Combine with your simulated data (sim_dat0 from line 59)
-
-test_f <- sp_files[grepl("mpas-at-5-year-intervals", sp_files)]
-sim_dat0 <- readRDS(file.path(sample_dir, test_f[1]))
-# sim_dat0 <- bind_rows(
-#   readRDS(file.path(sample_dir, "yelloweye-rockfish/HBLL-OUT-N_mpa1.011_no_AR1_twenty-five_years_mpas-at-5-year-intervals.rds")),
-#   readRDS(file.path(sample_dir, "yelloweye-rockfish/HBLL-OUT-S_mpa1.011_no_AR1_twenty-five_years_mpas-at-5-year-intervals.rds"))
+# # time_scenarios <- c("twentyfive_years")
+# plans <- c(
+#   "status quo",
+#   "MPAs at 5 year intervals"#,
+#   # "status quo + 20% effort"
 # )
-sim_dat <- combine_hist_sim_data(sim_dat0, hist_data, 2047) |>
-  filter(replicate %in% 0:1)
 
-ggplot(data = sim_dat |> filter(year >= last_sampled_year)) +
-  geom_point(aes(x = X, y = Y, colour = factor(restricted), shape = factor(historical))) +
-  # geom_text(data = tibble(year = EVALUATION_YEARS +, X = 500, Y = 5900),
-  #   aes(x = X, y = Y, label = year), size = 5) +
-  scale_shape_manual(values = c(19, 21)) +
-  facet_wrap(~ year)
+# # f <- list.files(file.path(sample_dir, sp_to_hyphens(species)))
 
-test <- fit_simulation(
-  dat = sim_dat,
-  formula = catch_prop ~ 0 + fyear + restricted:year_covariate,
-  spatial = "on",
-  spatiotemporal = "iid",
-  cutoff = 20,
-  control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
-  silent = FALSE
-  )
-meep()
-sanity(test)
-test
-#
+# sp_files <- filter(sample_summary,
+#   species %in% .env$species,
+#   ar1_scenario %in% .env$ar1_scenarios,
+#   # time_scenario %in% time_scenarios,
+#   plan %in% .env$plans
+# ) |>
+#   pull(file)
+
+# # Create a cache environment (can reuse for multiple calls)
+# hist_cache <- new.env(parent = emptyenv())
+# # Load historical data
+# hist_data <- purrr::map_dfr(c("HBLL OUT N"), function(survey_abbrev) {
+#     get_hist_data(
+#     species = species,
+#     survey_abbrev = survey_abbrev,  # or whatever survey you're testing
+#     hist_path = hist_path,
+#     cache_env = hist_cache
+#   )
+# })
+# # Combine with your simulated data (sim_dat0 from line 59)
+
+# test_f <- sp_files[grepl("mpas-at-5-year-intervals", sp_files)]
+# sim_dat0 <- readRDS(file.path(sample_dir, test_f[1]))
+# # sim_dat0 <- bind_rows(
+# #   readRDS(file.path(sample_dir, "yelloweye-rockfish/HBLL-OUT-N_mpa1.011_no_AR1_twenty-five_years_mpas-at-5-year-intervals.rds")),
+# #   readRDS(file.path(sample_dir, "yelloweye-rockfish/HBLL-OUT-S_mpa1.011_no_AR1_twenty-five_years_mpas-at-5-year-intervals.rds"))
+# # )
+# sim_dat <- combine_hist_sim_data(sim_dat0, hist_data, 2047) |>
+#   filter(replicate %in% 0:1)
+
+# ggplot(data = sim_dat |> filter(year >= last_sampled_year)) +
+#   geom_point(aes(x = X, y = Y, colour = factor(restricted), shape = factor(historical))) +
+#   # geom_text(data = tibble(year = EVALUATION_YEARS +, X = 500, Y = 5900),
+#   #   aes(x = X, y = Y, label = year), size = 5) +
+#   scale_shape_manual(values = c(19, 21)) +
+#   facet_wrap(~ year)
+
+# test <- fit_simulation(
+#   dat = sim_dat,
+#   formula = catch_prop ~ 0 + fyear + restricted:year_covariate,
+#   spatial = "on",
+#   spatiotemporal = "iid",
+#   cutoff = 20,
+#   control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
+#   silent = FALSE
+#   )
+# meep()
+# sanity(test)
+# test
+# #
+# # combine surveys
+# f <- sample_summary |>
+#   filter(species == "yelloweye rockfish",
+#   mpa_trend == 1.011, ar1_scenario == "no_AR1", time_scenario == "twenty-five_years",
+#   plan == "MPAs at 5 year intervals") |>
+# pull(file)
+# sampled_data <- purrr::map_dfr(f, \(x) readRDS(file.path(sample_dir, x)))
+# hist_data <- purrr::map_dfr(c("HBLL OUT N", "HBLL OUT S", "HBLL INS N"),
+#   \(x) get_hist_data(species, x, hist_path, hist_cache))
+# combined_data <- combine_hist_sim_data(sampled_data, hist_data, 2047) |>
+#   filter(replicate %in% 0:1) |>
+#   mutate(survey_abbrev = "HBLL")
+# # hbll_grid_subregion_lu <- readRDS(file.path("data-generated", "spatial","hbll-grid-subregion-lu.rds")) |>
+# #   select(survey_abbrev, block_id, subregion, subregion_name)
+# # test <- left_join(combined_data, hbll_grid_subregion_lu, by = c("survey_abbrev", "block_id"))
+
+# test <- fit_simulation(
+#   dat = combined_data,
+#   formula = catch_prop ~ 0 + fyear + restricted:year_covariate,
+#   spatial = "on",
+#   spatiotemporal = "iid",
+#   cutoff = 20,
+#   control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
+#   silent = FALSE
+#   )
+# meep()
+# sanity(test)
+# test
 
 # =============================================================================
 # Helper Functions
@@ -131,7 +159,10 @@ create_error_row <- function(combo, replicate, eval_year, error_message) {
     fit_formula = NA_character_,
     fit_family = NA_character_,
     fit_spatial = NA_character_,
-    fit_spatiotemporal = NA_character_
+    fit_spatiotemporal = NA_character_,
+    sigma_O = NA_real_,
+    sigma_E = NA_real_,
+    range = NA_real_
   )
 }
 
@@ -216,7 +247,7 @@ fit_simulation <- function(dat,
 
   survey_type <- unique(dat$survey_abbrev)
 
-  if (grepl("HBLL", survey_type)) {
+  if (any(grepl("HBLL", survey_type))) {
     weights <- dat$hook_count
     offset <- NULL
   } else {
@@ -249,6 +280,31 @@ fit_simulation <- function(dat,
   })
 }
 
+# TODO: move this into extract_trend estimate?
+#' Extract random effect parameters from fitted model
+extract_re_pars <- function(fit) {
+  if (!is.null(fit$error) && fit$error) {
+    return(list(
+      sigma_O = NA_real_,
+      sigma_E = NA_real_,
+      range = NA_real_
+    ))
+  }
+
+  pars <- tidy(fit, effects = "ran_pars")
+
+  get_par <- function(term_name) {
+    val <- pars$estimate[pars$term == term_name]
+    if (length(val) == 0) NA_real_ else val[1]
+  }
+
+  list(
+    sigma_O = get_par("sigma_O"),
+    sigma_E = get_par("sigma_E"),
+    range = get_par("range")
+  )
+}
+
 #' Extract MPA trend estimate from fitted model
 extract_trend_estimate <- function(fit, trend_param = "restricted:year_covariate") {
   if (!is.null(fit$error) && fit$error) {
@@ -276,7 +332,7 @@ extract_trend_estimate <- function(fit, trend_param = "restricted:year_covariate
     ci_lower = trend_row$conf.low,
     ci_upper = trend_row$conf.high,
     converged = TRUE,
-#  sanity=="ok"   sanity = summarise_sanity(fit),
+    sanity = summarise_sanity(fit),
     error_msg = NA_character_
   ))
 }
@@ -284,9 +340,10 @@ extract_trend_estimate <- function(fit, trend_param = "restricted:year_covariate
 #' Process one parameter combo (all replicates)
 fit_parameter_combo <- function(combo,
                                .formula = catch_prop ~ 0 + fyear + restricted + restricted:year_covariate,
-                               sample_file, results_dir,
+                               sample_file, component_surveys, sample_dir, results_dir,
                                hist_path, n_replicates = 50,
                                evaluation_years = EVALUATION_YEARS,
+                               sampling_summary = NULL,
                                hist_cache_env = new.env(parent = emptyenv())) {
 
   result_file <- generate_result_filename(
@@ -329,9 +386,25 @@ fit_parameter_combo <- function(combo,
     return(tibble(n_new = 0, n_total = nrow(existing_results), n_errors = 0))
   }
 
-  sampled_data_all <- readRDS(sample_file)
-  hist_data <- get_hist_data(combo$species, combo$survey_abbrev,
-                             hist_path, hist_cache_env)
+  if (!is.null(component_surveys)) {
+    sample_files <- sampling_summary |>
+      filter(
+        species == combo$species,
+        survey_abbrev %in% component_surveys,
+        mpa_trend == combo$mpa_trend,
+        ar1_scenario == combo$ar1_scenario,
+        time_scenario == combo$time_scenario,
+        plan == combo$plan
+      ) |>
+      pull(file)
+
+    sampled_data_all <- purrr::map_dfr(sample_files, ~readRDS(file.path(sample_dir, .x)))
+    hist_data <- purrr::map_dfr(component_surveys, ~get_hist_data(combo$species, .x, hist_path, hist_cache_env))
+  } else {
+    sampled_data_all <- readRDS(sample_file)
+    hist_data <- get_hist_data(combo$species, combo$survey_abbrev,
+                               hist_path, hist_cache_env)
+  }
 
   combos_by_rep <- combos_to_run |>
     group_by(replicate) |>
@@ -353,6 +426,10 @@ fit_parameter_combo <- function(combo,
       tryCatch({
         combined_data <- combine_hist_sim_data(sampled_data_rep, hist_data, eval_year)
 
+        if (!is.null(component_surveys)) {
+          combined_data <- combined_data |> mutate(survey_abbrev = combo$survey_abbrev)
+        }
+
         fit <- fit_simulation(
           dat = combined_data,
           formula = .formula,
@@ -364,7 +441,9 @@ fit_parameter_combo <- function(combo,
           silent = FALSE
         )
 
+
         trend_results <- extract_trend_estimate(fit, "restricted:year_covariate")
+        re_pars <- extract_re_pars(fit)
 
         tibble(
           species = combo$species,
@@ -379,13 +458,16 @@ fit_parameter_combo <- function(combo,
           se = trend_results$se,
           ci_lower = trend_results$ci_lower,
           ci_upper = trend_results$ci_upper,
-          converged = trend_results$sanity=="ok",
+          # converged = trend_results$sanity=="ok",
           sanity = trend_results$sanity,
           error_msg = trend_results$error_msg,
           fit_formula = if (!is.null(fit$error)) NA_character_ else deparse1(formula(fit)),
           fit_family = if (!is.null(fit$error)) NA_character_ else clean_family_name(fit),
           fit_spatial = if (!is.null(fit$error)) NA_character_ else fit$spatial,
-          fit_spatiotemporal = if (!is.null(fit$error)) NA_character_ else fit$spatiotemporal
+          fit_spatiotemporal = if (!is.null(fit$error)) NA_character_ else fit$spatiotemporal,
+          sigma_O = re_pars$sigma_O,
+          sigma_E = re_pars$sigma_E,
+          range = re_pars$range
         )
 
       }, error = function(e) {
@@ -419,17 +501,41 @@ create_task_grid <- function(sampling_summary, sample_dir) {
     distinct(species, survey_abbrev, mpa_trend, ar1_scenario,
              time_scenario, plan, file, n_replicates) |>
     mutate(
-      sample_file = file.path(sample_dir, file)
+      sample_file = file.path(sample_dir, file),
+      component_surveys = list(NULL)
     ) |>
     select(species, survey_abbrev, mpa_trend, ar1_scenario,
-           time_scenario, plan, sample_file, n_replicates)
+           time_scenario, plan, sample_file, component_surveys, n_replicates)
 
   return(task_grid)
 }
 
+#' Add combined survey tasks to task grid
+add_combined_survey_tasks <- function(task_grid, sampling_summary, sample_dir) {
+  survey_combinations <- list(
+    "HBLL" = c("HBLL OUT N", "HBLL OUT S", "HBLL INS N")
+  )
+
+  combined_tasks <- purrr::map_dfr(names(survey_combinations), function(combined_name) {
+    component_surveys <- survey_combinations[[combined_name]]
+
+    sampling_summary |>
+      filter(survey_abbrev %in% component_surveys) |>
+      distinct(species, mpa_trend, ar1_scenario, time_scenario, plan, n_replicates) |>
+      mutate(
+        survey_abbrev = combined_name,
+        component_surveys = list(component_surveys),
+        sample_file = NA_character_
+      )
+  })
+
+  bind_rows(task_grid, combined_tasks)
+}
+
 #' Execute parallel fitting with progress reporting
 execute_parallel_fitting <- function(task_grid, results_dir,
-                                    hist_path, n_reps_to_fit = 50,
+                                    hist_path, sample_dir, sampling_summary,
+                                    n_reps_to_fit = 50,
                                     evaluation_years = EVALUATION_YEARS,
                                     .formula = catch_prop ~ 0 + fyear + restricted:year_covariate) {
 
@@ -442,7 +548,7 @@ execute_parallel_fitting <- function(task_grid, results_dir,
     furrr::future_pmap_dfr(
       task_grid,
       function(species, survey_abbrev, mpa_trend, ar1_scenario,
-               time_scenario, plan, sample_file, n_replicates, ...) {
+               time_scenario, plan, sample_file, component_surveys, n_replicates, ...) {
 
         combo <- tibble(
           species = species,
@@ -456,10 +562,13 @@ execute_parallel_fitting <- function(task_grid, results_dir,
         result_summary <- fit_parameter_combo(
           combo = combo,
           sample_file = sample_file,
+          component_surveys = component_surveys,
+          sample_dir = sample_dir,
           results_dir = results_dir,
           hist_path = hist_path,
           n_replicates = n_reps_to_fit,
           evaluation_years = evaluation_years,
+          sampling_summary = sampling_summary,
           .formula = .formula
         )
 
@@ -478,12 +587,12 @@ execute_parallel_fitting <- function(task_grid, results_dir,
       .options = furrr::furrr_options(
         seed = TRUE,
         globals = c("fit_parameter_combo", "get_hist_data",
-                   "fit_simulation", "extract_trend_estimate",
+                   "fit_simulation", "extract_trend_estimate", "extract_re_pars",
                    "combine_hist_sim_data", "create_error_row",
                    "generate_result_filename", "sp_to_hyphens",
                    "clean_family_name", "summarise_sanity",
-                   "results_dir", "hist_path", "n_reps_to_fit",
-                   "evaluation_years", "p", ".formula"),
+                   "results_dir", "hist_path", "sample_dir", "sampling_summary",
+                   "n_reps_to_fit", "evaluation_years", "p", ".formula"),
         packages = c("dplyr", "sdmTMB")
       )
     )
@@ -567,7 +676,6 @@ combine_all_results <- function(results_dir) {
   return(all_results)
 }
 
-
 # Combine
 
 # =============================================================================
@@ -580,10 +688,17 @@ future::plan(future::sequential)
 setup_parallel(USE_PARALLEL, N_WORKERS)
 
 sampling_summary <- readRDS(file.path(sample_dir, "sampling-summary.rds"))
+N_REPLICATES <- 25
 
 task_grid <- create_task_grid(sampling_summary, sample_dir) |>
-  filter(species == "yelloweye rockfish",
-         survey_abbrev == "HBLL OUT N")
+  add_combined_survey_tasks(sampling_summary, sample_dir) |>
+  filter(species %in% c("yelloweye rockfish", "lingcod", "pacific halibut"),
+    survey_abbrev == "HBLL") |>
+  filter(ar1_scenario == "no_AR1") |>
+  arrange(species)
+
+cat("Task grid:\n")
+print(task_grid)
 
 message("Parameter combinations: ", nrow(task_grid))
 message("Replicates per combination: ", N_REPLICATES)
@@ -596,6 +711,8 @@ summary_stats <- execute_parallel_fitting(
   task_grid = task_grid,
   results_dir = results_dir,
   hist_path = hist_path,
+  sample_dir = sample_dir,
+  sampling_summary = sampling_summary,
   n_reps_to_fit = N_REPLICATES,
   evaluation_years = EVALUATION_YEARS,
   .formula = FORMULA
@@ -612,20 +729,14 @@ message("\n=== Fitting Complete ===")
 message("Combos processed: ", nrow(summary_stats))
 message("Total new fits: ", sum(summary_stats$n_new))
 message("Total errors: ", sum(summary_stats$n_errors))
-if (nrow(summary_stats) > 0 && sum(summary_stats$n_total) > 0) {
-  message("Mean convergence rate: ",
-          round(100 * sum(summary_stats$n_new - summary_stats$n_errors) / sum(summary_stats$n_new), 1), "%")
-}
-
-message("\n=== Summary ===")
-if (nrow(summary_stats) > 0) {
-  print(summary_stats |> select(species, plan, n_new, n_total, n_errors))
-}
 message("\nResults saved to: ", results_dir)
 
 future::plan(future::sequential)
 tictoc::toc()
 
 # test <- readRDS(file.path(results_dir, "all-fitted-results.rds"))
-
+# test <- readRDS(file.path(results_dir, "yelloweye-rockfish", "HBLL_mpa1.011_no_AR1_twenty-five_years_mpas-at-5-year-intervals_results.rds"))
 # glimpse(test)
+
+# distinct(test, survey_abbrev)
+
