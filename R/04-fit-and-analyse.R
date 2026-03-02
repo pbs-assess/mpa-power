@@ -40,70 +40,71 @@ EVALUATION_YEARS <- c(2030, 2034, 2038, 2042, 2046)
 # hbll_last_sampled_year <- readRDS(file.path("data-generated", "hbll-last-sampled-year.rds"))
 
 # # Testing
-# sample_summary <- readRDS(file.path(sample_dir,  "sampling-summary.rds"))
+sample_summary <- readRDS(file.path(sample_dir,  "sampling-summary.rds"))
 
-# # species <- "lingcod"
-# species <- "yelloweye rockfish"
-# ar1_scenarios <- c("no_AR1", "moderate_AR1")
-# # time_scenarios <- c("twentyfive_years")
-# plans <- c(
-#   "status quo",
-#   "MPAs at 5 year intervals"#,
-#   # "status quo + 20% effort"
-# ) 
+# species <- "lingcod"
+species <- "yelloweye rockfish"
+ar1_scenarios <- c("no_AR1", "moderate_AR1")
 
-# # f <- list.files(file.path(sample_dir, sp_to_hyphens(species)))
+# time_scenarios <- c("twentyfive_years")
+plans <- c(
+  "status quo",
+  "MPAs at 5 year intervals"#,
+  # "status quo + 20% effort"
+)
 
-# sp_files <- filter(sample_summary,
-#   species %in% .env$species,
-#   ar1_scenario %in% .env$ar1_scenarios,
-#   # time_scenario %in% time_scenarios,
-#   plan %in% .env$plans
-# ) |>
-#   pull(file)
+# f <- list.files(file.path(sample_dir, sp_to_hyphens(species)))
 
-# # Create a cache environment (can reuse for multiple calls)
-# hist_cache <- new.env(parent = emptyenv())
-# # Load historical data
-# hist_data <- purrr::map_dfr(c("HBLL OUT N"), function(survey_abbrev) {
-#     get_hist_data(
-#     species = species,
-#     survey_abbrev = survey_abbrev,  # or whatever survey you're testing
-#     hist_path = hist_path,
-#     cache_env = hist_cache
-#   )
-# })
-# # Combine with your simulated data (sim_dat0 from line 59)
+sp_files <- filter(sample_summary,
+  species %in% .env$species,
+  ar1_scenario %in% .env$ar1_scenarios,
+  # time_scenario %in% time_scenarios,
+  plan %in% .env$plans
+) |>
+  pull(file)
 
-# test_f <- sp_files[grepl("mpas-at-5-year-intervals", sp_files)]
-# sim_dat0 <- readRDS(file.path(sample_dir, test_f[1]))
-# # sim_dat0 <- bind_rows(
-# #   readRDS(file.path(sample_dir, "yelloweye-rockfish/HBLL-OUT-N_mpa1.011_no_AR1_twenty-five_years_mpas-at-5-year-intervals.rds")),
-# #   readRDS(file.path(sample_dir, "yelloweye-rockfish/HBLL-OUT-S_mpa1.011_no_AR1_twenty-five_years_mpas-at-5-year-intervals.rds"))
-# # )
-# sim_dat <- combine_hist_sim_data(sim_dat0, hist_data, 2047) |>
-#   filter(replicate %in% 0:1)
+# Create a cache environment (can reuse for multiple calls)
+hist_cache <- new.env(parent = emptyenv())
+# Load historical data
+hist_data <- purrr::map_dfr(c("HBLL OUT N"), function(survey_abbrev) {
+    get_hist_data(
+    species = species,
+    survey_abbrev = survey_abbrev,  # or whatever survey you're testing
+    hist_path = hist_path,
+    cache_env = hist_cache
+  )
+})
+# Combine with your simulated data (sim_dat0 from line 59)
 
-# ggplot(data = sim_dat |> filter(year >= last_sampled_year)) +
-#   geom_point(aes(x = X, y = Y, colour = factor(restricted), shape = factor(historical))) +
-#   # geom_text(data = tibble(year = EVALUATION_YEARS +, X = 500, Y = 5900),
-#   #   aes(x = X, y = Y, label = year), size = 5) +
-#   scale_shape_manual(values = c(19, 21)) +
-#   facet_wrap(~ year)
+test_f <- sp_files[grepl("mpas-at-5-year-intervals", sp_files)]
+sim_dat0 <- readRDS(file.path(sample_dir, test_f[1]))
+# sim_dat0 <- bind_rows(
+#   readRDS(file.path(sample_dir, "yelloweye-rockfish/HBLL-OUT-N_mpa1.011_no_AR1_twenty-five_years_mpas-at-5-year-intervals.rds")),
+#   readRDS(file.path(sample_dir, "yelloweye-rockfish/HBLL-OUT-S_mpa1.011_no_AR1_twenty-five_years_mpas-at-5-year-intervals.rds"))
+# )
+sim_dat <- combine_hist_sim_data(sim_dat0, hist_data, 2047) |>
+  filter(replicate %in% 0:1)
 
-# test <- fit_simulation(
-#   dat = sim_dat,
-#   formula = catch_prop ~ 0 + fyear + restricted:year_covariate,
-#   spatial = "on",
-#   spatiotemporal = "iid",
-#   cutoff = 20,
-#   control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
-#   silent = FALSE
-#   )
-# meep()
-# sanity(test)
-# test
-# #
+ggplot(data = sim_dat |> filter(year >= last_sampled_year)) +
+  geom_point(aes(x = X, y = Y, colour = factor(restricted), shape = factor(historical))) +
+  # geom_text(data = tibble(year = EVALUATION_YEARS +, X = 500, Y = 5900),
+  #   aes(x = X, y = Y, label = year), size = 5) +
+  scale_shape_manual(values = c(19, 21)) +
+  facet_wrap(~ year)
+
+test <- fit_simulation(
+  dat = sim_dat,
+  formula = catch_prop ~ 0 + fyear + restricted:year_covariate,
+  spatial = "on",
+  spatiotemporal = "iid",
+  cutoff = 20,
+  control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
+  silent = FALSE
+  )
+meep()
+sanity(test)
+test
+#
 
 # =============================================================================
 # Helper Functions
@@ -257,7 +258,7 @@ extract_trend_estimate <- function(fit, trend_param = "restricted:year_covariate
       ci_lower = NA_real_,
       ci_upper = NA_real_,
       converged = FALSE,
-      sanity = NA_character_,
+#  sanity=="ok"     sanity = NA_character_,
       error_msg = fit$message
     ))
   }
@@ -275,7 +276,7 @@ extract_trend_estimate <- function(fit, trend_param = "restricted:year_covariate
     ci_lower = trend_row$conf.low,
     ci_upper = trend_row$conf.high,
     converged = TRUE,
-    sanity = summarise_sanity(fit),
+#  sanity=="ok"   sanity = summarise_sanity(fit),
     error_msg = NA_character_
   ))
 }
@@ -378,7 +379,7 @@ fit_parameter_combo <- function(combo,
           se = trend_results$se,
           ci_lower = trend_results$ci_lower,
           ci_upper = trend_results$ci_upper,
-          converged = trend_results$converged,
+          converged = trend_results$sanity=="ok",
           sanity = trend_results$sanity,
           error_msg = trend_results$error_msg,
           fit_formula = if (!is.null(fit$error)) NA_character_ else deparse1(formula(fit)),
@@ -508,7 +509,7 @@ create_summary_catalog <- function(results_dir) {
       group_by(eval_year) |>
       summarise(
         n_replicates = n(),
-        n_converged = sum(converged, na.rm = TRUE),
+        # n_converged = sum(sanity=="ok", na.rm = TRUE),
         n_errors = sum(!is.na(error_msg)),
         mean_estimate = mean(estimate, na.rm = TRUE),
         sd_estimate = sd(estimate, na.rm = TRUE),
@@ -565,6 +566,9 @@ combine_all_results <- function(results_dir) {
 
   return(all_results)
 }
+
+
+# Combine
 
 # =============================================================================
 # Main Workflow
