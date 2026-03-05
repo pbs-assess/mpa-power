@@ -1,0 +1,686 @@
+---
+title: "Recovery Rates"
+output:
+  html_document:
+    toc: true
+    code_folding: show
+---
+
+```{r, echo=FALSE}
+library(tidyverse)
+library(tidyr)
+library(ggplot2)
+library(here)
+library(patchwork)
+
+theme_set(gfplot::theme_pbs())
+```
+
+$\beta_{trend} = log(\lambda) = \frac{log{I_{t}} - log{I_{0}}}{t}$
+
+$I_{t}$ = Index of biomass or stock status at time $t$
+$I_{0}$ = Index of biomass or stock status at last assessment year $0$
+$t$ = Time
+
+
+```{r, echo=FALSE}
+# -----------------------------
+# Data extractions from figures
+# -----------------------------
+
+# Lingcod Outside 2024 - Figure 45 (in res doc - draft only)
+# Haggarty, D.R., Carruthers, T.R., Walker, L.C., English, P.A., and Huynh, Q.C. 2025. Outside Lingcod (Ophiodon elongatus) stock assessment for British Columbia in 2024. DFO Can. Sci. Advis. Sec. Res. Doc. 2025/nnn. iv + 183 p. This working paper is a draft document and is not citable.
+
+# Officially can be found in FSAR - Figure 2
+# DFO. 2025. Outside Lingcod (Ophiodon elongatus) Stock Assessment for British Columbia in 2025. DFO Can. Sci. Advis. Sec. Sci. Advis. Rep. 2025/054.
+
+# ling_2024_fig2_extract <- tibble(
+#   year = c(2025.019036576541, 2025.846490362476, 2026.9077897835668,
+#             2027.915124827314, 2028.9404479968423, 2029.983759292152,
+#             2031.0630468390239, 2032.0703818827708, 2033.077716926518,
+#             2033.995111341359),
+#   SSB_SSBMSY = c(6.21044776119403, 6.2570895522388055, 6.262271973466003,
+#                   6.215630182421226, 6.143076285240463, 6.080887230514095,
+#                   6.018698175787727, 5.97205638474295, 5.930597014925373,
+#                   5.899502487562188)
+#   ) |>
+#   mutate(source = "Figure 2", 
+#   notes = "0 mt (no fishing) trend line extracted",
+#   citekey = "dfo2025lingcod_outside_fsar", 
+#   reference = "DFO. 2025. Outside Lingcod (Ophiodon elongatus) Stock Assessment for British Columbia in 2025. DFO Can. Sci. Advis. Sec. Sci. Advis. Rep. 2025/054.")
+
+# readr::write_csv(
+#   ling_2024_fig2_extract,
+#   here::here("data-raw", "assessment-projections", "lingcod-projections.csv")
+# )
+
+# Quillback Outside 2021 ------------------------------------------------------
+#  - Figure 6 (top left panel)
+# Taken from Figure 6 - median extracted only; no other good way to get range of values from plot
+# qb_no_fishing_fig6_median <- tibble(
+#     year = c(2021.4285714285713, 2022.857142857143, 2024.642857142857,
+#              2027.1428571428573, 2029.2857142857142, 2031.0714285714287,
+#              2032.8571428571427, 2034.9999999999998, 2037.142857142857,
+#              2038.9285714285716, 2040.7142857142858, 2042.5,
+#              2044.642857142857, 2047.142857142857, 2048.9285714285716,
+#              2051.4285714285716, 2053.5714285714284, 2056.071428571429,
+#              2058.5714285714284, 2060.714285714286, 2063.571428571429,
+#              2065.714285714286, 2068.214285714286, 2070.714285714286,
+#              2073.214285714286),
+#     B_BMSY = c(2.0310924369747902, 2.0552941176470596, 2.1031932773109254,
+#                2.10436974789916, 2.1053781512605045, 2.1768067226890766,
+#                2.2011764705882357, 2.272773109243698, 2.34436974789916,
+#                2.415798319327732, 2.4872268907563035, 2.535126050420169,
+#                2.6302521008403366, 2.678487394957984, 2.7499159663865553,
+#                2.821680672268908, 2.8697478991596648, 2.894453781512606,
+#                2.9426890756302537, 2.9907563025210093, 3.0391596638655467,
+#                3.063697478991598, 3.1119327731092445, 3.1366386554621863,
+#                3.137815126050422)
+#   ) |>
+#   mutate(
+#   source = "Figure 6", 
+#   notes = "Operating Model (OM) trend line extracted",
+#   citekey = "dfo2023quillback_outside_fsar", 
+#   reference = "DFO. 2023. Application of the Management Procedure Framework for Outside Quillback Rockfish (Sebastes maliger) in British Columbia in 2021. DFO Can. Sci. Advis. Sec. Sci. Advis. Rep. 2023/041.")
+
+# readr::write_csv(
+#   qb_no_fishing_fig6_median,
+#   here::here("data-raw", "assessment-projections", "quillback-projections.csv")
+# )
+
+# qb_projections <- readr::read_csv(here::here("data-raw", "assessment-projections", "quillback-projections.csv"))
+
+# Dogfish ---------------------------------------------------------------------
+# dog_mcmc <- readRDS(here::here("assessments", "dogfish-projections.rds"))
+# head(dog_mcmc)
+# unique(dog_mcmc$model_name) # three productivity scenarios
+# source = "raw MCMC chains from projections of three productivity scenarios"
+# notes = "(A0) Base, (A11) Low productivity, (A12) High productivity"
+# citekey = "dfo2025dogfish_outside_fsar"
+# reference = "DFO. 2025. Outside Pacific Spiny Dogfish (Squalus acanthias) Stock Assessment for British Columbia in 2025. DFO Can. Sci. Advis. Sec. Sci. Advis. Rep. 2025/055."
+# 
+
+# Yelloweye rockfish -----------------------------------------------------------
+# ye_inside_fig30_extract <- bind_rows(
+#     tibble(
+#       quantile = "median",
+#       year = c(2019.090909090909, 2020.909090909091, 2023.1818181818182,
+#                2025.4545454545455, 2027.2727272727273, 2029.5454545454545,
+#                2031.3636363636363, 2032.2727272727273, 2034.5454545454545,
+#                2036.3636363636363, 2038.1818181818182, 2040,
+#                2041.8181818181818, 2043.6363636363637, 2045,
+#                2047.2727272727273, 2049.090909090909, 2051.3636363636365,
+#                2053.6363636363635, 2055.909090909091, 2058.181818181818,
+#                2060, 2062.7272727272725, 2065,
+#                2067.2727272727275, 2069.090909090909, 2070.4545454545455,
+#                2072.7272727272725, 2075, 2077.2727272727275,
+#                2078.6363636363635, 2080.4545454545455, 2083.181818181818,
+#                2085, 2086.3636363636365, 2089.090909090909,
+#                2091.818181818182, 2094.090909090909, 2095.909090909091,
+#                2098.181818181818, 2100, 2103.181818181818,
+#                2105.4545454545455, 2109.090909090909, 2111.818181818182,
+#                2114.090909090909, 2116.3636363636365),
+#       B_BMSY = c(1.1285714285714288, 1.1714285714285706, 1.2357142857142862,
+#                  1.3214285714285712, 1.3857142857142848, 1.4499999999999995,
+#                  1.5142857142857142, 1.5785714285714285, 1.6428571428571423,
+#                  1.728571428571429, 1.771428571428571, 1.8357142857142856,
+#                  1.8999999999999992, 1.9857142857142862, 2.0500000000000007,
+#                  2.114285714285714, 2.157142857142857, 2.221428571428571,
+#                  2.2857142857142856, 2.3285714285714283, 2.328571428571429,
+#                  2.414285714285714, 2.435714285714287, 2.478571428571428,
+#                  2.5214285714285714, 2.5857142857142854, 2.628571428571428,
+#                  2.6714285714285713, 2.7142857142857153, 2.735714285714285,
+#                  2.8, 2.821428571428572, 2.864285714285714,
+#                  2.864285714285714, 2.928571428571428, 2.971428571428571,
+#                  2.992857142857143, 3.035714285714285, 3.0571428571428574,
+#                  3.0357142857142856, 3.078571428571429, 3.078571428571429,
+#                  3.078571428571429, 3.078571428571429, 3.1,
+#                  3.121428571428571, 3.164285714285715)
+#     )
+#   ) |>
+#   mutate(source = "Figure 30",
+#     notes = "B/BMSY projections under F=0, median trend line extracted",
+#     citekey = "haggarty2021yelloweyeinside",
+#     reference = "Haggarty, D.R., Huynh, Q.C., Forrest, R.E., Anderson, S.C., Bresch, M.J., Keppel, E.A. 2022. Evaluation of potential rebuilding strategies for Inside Yelloweye Rockfish (Sebastes ruberrimus) in British Columbia. DFO Can. Sci. Advis. Sec. Res. Doc. 2021/008. vi + 139 p."
+#   )
+
+# readr::write_csv(
+#   ye_inside_fig30_extract,
+#   here::here("data-raw", "assessment-projections", "yelloweye-inside-projections.csv")
+# )
+
+# yelloweye_projections <- readr::read_csv(here::here("data-raw", "assessment-projections", "yelloweye-inside-projections.csv"))
+
+# Halibut ---------------------------------------------------------------------
+
+# IPHC. 2024. IPHC Management Strategy Evaluation and Harvest Strategy Policy Updates for 2023. IPHC-2024-MSE-01. International Pacific Halibut Commission, Seattle, WA. Available at: https://www.iphc.int/management/science-and-research/management-strategy-evaluation [Accessed: Jan 7, 2026]
+
+# "Figure 1. Simulated spawning biomass (top row), relative spawning biomass (middle row), and spawning biomass relative to the spawning biomass in 2023 (bottom row) assuming no fishing mortality (left column) and a fishing intensity equal to an SPR of 43% (right column). The median is shown by the thick dark line and the 5th and 95th percentiles are shown as the shaded polygon (the darker polygon indicates the projected time-period). Individual trajectories of spawning biomass are shown as small lines of different colors. Grey vertical panels indicate the short and medium time-periods used for calculating performance metrics."
+
+# halibut_sims <- bind_rows(
+#   # Median trajectory
+#   tibble(
+#     scenario = "median",
+#     year = c(
+#       2021.8868703550784, 2022.6323515918891, 2023.205798697128, 
+#       2023.7219010918434, 2024.41003761813, 2025.0408294338931, 
+#       2025.8436553812276, 2026.5891366180383, 2027.1625837232773, 
+#       2027.7933755390402, 2028.481512065327, 2029.2843380126617,
+#       2029.9151298284246, 2030.6606110652353, 2031.3487475915222, 
+#       2031.979539407285, 2032.610331223048, 2033.183778328287, 
+#       2033.699880723002, 2034.2733278282412, 2034.8467749334802, 
+#       2035.9936691439582, 2036.739150380769, 2037.4272869070558,
+#       2038.0007340122947, 2038.8035599596294, 2039.7210753280117, 2040.5812459858703,
+#       2041.4987613542528, 2042.2442425910633, 2042.9323791173501, 2043.7925497752087,
+#       2044.5953757225434, 2045.2835122488302, 2045.971648775117, 2046.7171300119276,
+#       2047.5199559592622, 2048.208092485549, 2048.896229011836, 2049.6417102486466,
+#       2050.215157353886, 2050.8459491696485, 2051.4193962748877, 2051.9354986696026,
+#       2052.6236351958896, 2053.0250481695566, 2053.598495274796, 2054.229287090559,
+#       2054.8600789063216, 2055.376181301037, 2055.9496284062757, 2056.580420222039,
+#       2057.0965226167536, 2057.7846591430407, 2058.4727956693273, 2058.9888980640426,
+#       2059.677034590329, 2060.594549958712, 2061.3400311955224, 2062.0281677218095,
+#       2062.888338379668, 2063.80585374805, 2064.723369116433, 2065.870263326911,
+#       2066.959812826865, 2068.2787411689146, 2068.9095329846773, 2069.941737774108,
+#       2070.973942563538, 2072.006147352968, 2073.0383521423983, 2074.013212221305,
+#       2074.988072300211, 2076.134966510689, 2076.9377924580235, 2077.7979631158823,
+#       2078.6581337737407, 2079.7476832736947, 2080.722543352601, 2081.8120928525555),
+#     biomass = c(82.83777248052803, 82.84777148370405, 83.78690862818577, 90.31395024003734,
+#       97.77474491773695, 108.02910725207668, 117.35433144511123, 125.74734088047829,
+#       133.20659724999712, 143.46095958433656, 151.85319986561328, 160.2469784550707,
+#       168.63844958225678, 176.10001341404725, 184.49225369532365, 192.88372482250983,
+#       200.34375034611926, 207.8030067156378, 213.39860272391283, 218.0635222827013,
+#       224.59133304864343, 230.19538975191375, 235.79406237655047, 241.391965847097,
+#       247.91977661303883, 247.93054477030572, 251.66863365006057, 256.3373989793014,
+#       260.0754878590564, 263.8112692765397, 268.47772714350896, 275.94082928348064,
+#       277.81448864790076, 283.41239211844703, 287.14740438184, 289.02029459216976,
+#       293.68829076732027, 295.5604118235596, 297.4325328797988, 307.6884335223194,
+#       312.353353081108, 316.08759619041047, 322.61540695635244, 327.27955736105065,
+#       331.94601522802014, 334.7457361173838, 334.7534276582889, 335.69333395686084,
+#       336.6332402554327, 339.43449945297743, 342.23652780461254, 345.9707709139149,
+#       348.7720301114595, 348.7812599605453, 351.5848266203614, 357.1804226286363,
+#       365.57266290991294, 368.37930618609084, 374.9094244143044, 382.3702190920043,
+#       394.49054924985916, 390.7770733009999, 390.78937976644767, 392.667654055411,
+#       397.33949600101386, 393.63140413078804, 391.7769736186299, 395.5166008065657,
+#       403.913456012385, 405.79019199316735, 413.25560159541, 412.33723161137146,
+#       413.28175283448655, 418.88580953775676, 429.1424793343678, 428.2225710421483,
+#       431.9598907678126, 431.97450469553183, 434.7819171258003, 439.4537590714032)
+#   ),
+#   # High recovery trajectory (light blue)
+#   tibble(
+#     scenario = "high_recovery",
+#     year = c(2021.8868703550784, 2022.5750068813652, 2023.0911092760803, 2023.6072116707956,
+#               2024.0659693549867, 2024.467382328654, 2025.0408294338931, 2025.7863106707036,
+#               2026.3597577759429, 2026.9332048811818, 2027.6786861179926, 2028.3094779337553,
+#               2029.054959170566, 2029.685750986329, 2030.2018533810442, 2030.7753004862832,
+#               2031.2914028809982, 2031.6354711441415, 2032.036884117809, 2032.4956418020001,
+#               2032.9543994861913, 2033.2984677493348, 2033.699880723002, 2034.1012936966695,
+#               2034.7320855124324, 2034.9614643545278, 2036.051013854482, 2036.5671162491972,
+#               2037.19790806496, 2037.7140104596751, 2038.1154234333426, 2038.5741811175337,
+#               2039.0329388017249, 2039.491696485916, 2039.9504541701074, 2040.5239012753464,
+#               2041.0400036700614, 2041.90017432792, 2042.3589320121112, 2042.8176896963023,
+#               2043.3337920910176, 2043.9645839067805, 2044.4233415909716, 2044.7674098541152,
+#               2045.2835122488302, 2045.7996146435453, 2046.3157170382603, 2047.0038535645472,
+#               2047.8066795118818, 2048.380126617121, 2048.95357372236, 2049.5843655381227,
+#               2049.9284338012662, 2050.6739150380768, 2051.8781539590786, 2052.7956693274614,
+#               2053.541150564272, 2053.9425635379393, 2054.8600789063216, 2055.5482154326087,
+#               2055.9496284062757, 2056.6377649325627, 2057.0391779062297, 2058.128727406184,
+#               2058.8742086429947, 2059.447655748234, 2059.906413432425, 2060.8812735113315,
+#               2061.4547206165703, 2061.9708230112856, 2062.830993669144, 2063.5191301954305,
+#               2063.977887879622, 2064.952747958528, 2065.755573905863, 2066.6157445637214,
+#               2067.0745022479127, 2067.992017616295, 2068.5081200110103, 2068.966877695201,
+#               2069.3682906688687, 2069.884393063584, 2070.285806037251, 2070.85925314249,
+#               2071.490044958253, 2072.120836774016, 2072.7516285897786, 2072.8663180108265,
+#               2073.898522800257, 2074.8733828791633, 2075.7335535370216, 2076.9951371685474,
+#               2077.5685842737867, 2078.8301679053125, 2080.0344068263144, 2081.0092669052206,
+#               2081.8694375630794),
+#     biomass = c(67.0031972197232, 69.80676387953918, 71.67657747350695, 80.06651029251216,
+#                 86.59278275027336, 94.98117726109734, 105.23477044134668, 125.73657272321152,
+#                 139.7159483177676, 151.83243270517022, 172.33423498703505, 188.17727094283512,
+#                 204.02184520681618, 230.11078280196037, 246.8837260531565, 262.72599285486615,
+#                 281.36182731321543, 297.2010174985631, 311.1780856308479, 324.224477313646,
+#                 337.2708689964444, 356.8358415960991, 376.4015833498442, 397.8302163107429,
+#                 425.78204511304097, 437.89391457590045, 471.4405702323826, 486.35062227642516,
+#                 504.98799504295545, 518.9666014834211, 532.012224012129, 550.6472893163881,
+#                 573.0081370349538, 587.9174199249057, 608.415376436318, 617.7375240129907,
+#                 625.1960112284188, 616.8245381075852, 624.2822561689231, 631.739974230261,
+#                 640.1299070492663, 648.5213781764523, 646.6646402020228, 645.7378095229889,
+#                 636.4302758740356, 628.0541878286593, 619.6780997832831, 613.1672104073316,
+#                 610.383641753868, 614.1171157090798, 622.5078176821756, 636.4879624308222,
+#                 644.8755877875558, 645.8170323943086, 653.2847494588231, 644.9140454920799,
+#                 639.3353708737959, 635.6149725381222, 623.5184861570721, 620.7333791954278,
+#                 620.738763274061, 636.5825683839519, 645.9024084983524, 667.340271308337,
+#                 679.459063158011, 669.2208530595718, 658.9811046529513, 666.4457451011036,
+#                 655.2760893990874, 647.8314469572878, 640.3914194400309, 637.6063124783865,
+#                 638.5439113146872, 623.6538572769974, 626.4589622449945, 642.3050748171565,
+#                 649.7627928784943, 658.1581097761331, 679.5882810452125, 701.0176831602018,
+#                 723.3777617246772, 742.0135961830265, 768.099457161809, 801.639190431477,
+#                 824.933791215891, 848.2283920003051, 874.3173295954495, 883.6333239393978,
+#                 899.4817439738313, 914.3979492505974, 908.8208129404943, 907.9062887269082,
+#                 905.1196434570829, 895.8221088113063, 891.1810330293226, 876.2909789916326,
+#                 852.0849306099944)
+#   ),
+#   # Slow recovery trajectory (green)
+#   tibble(
+#     scenario = "slow_recovery",
+#     year = c(2021.9442150656023, 2022.689696302413, 2023.205798697128, 2023.836590512891,
+#               2024.3526929076063, 2024.9834847233692, 2025.4995871180843, 2026.302413065419,
+#               2027.0478943022295, 2027.2772731443251, 2027.7933755390402, 2028.481512065327,
+#               2029.1696485916138, 2029.9724745389485, 2030.889989907331, 2031.5781264336179,
+#               2032.4382970914762, 2033.3558124598587, 2033.757225433526, 2034.5027066703367,
+#               2035.2481879071474, 2036.051013854482, 2036.739150380769, 2037.19790806496,
+#               2037.771355170199, 2038.2874575649141, 2038.860904670153, 2039.4916964859162,
+#               2040.0651435911552, 2040.6959354069181, 2041.2120378016332, 2041.957519038444,
+#               2042.530966143683, 2043.1617579594458, 2043.6778603541609, 2044.7674098541152,
+#               2045.7422699330214, 2046.7171300119278, 2047.4626112487385, 2048.150747775025,
+#               2048.838884301312, 2049.527020827599, 2049.9284338012662, 2050.444536195981,
+#               2050.9032938801724, 2051.362051564364, 2051.9354986696026, 2052.508945774842,
+#               2052.967703459033, 2053.8278741168915, 2054.745389485274, 2055.9496284062757,
+#               2056.9244884851823, 2057.8420038535646, 2058.9315533535187, 2059.849068721901,
+#               2061.798788879714, 2063.2897513533353, 2063.80585374805, 2064.608679695385,
+#               2065.3541609321956, 2066.0996421690065, 2067.017157537389, 2067.5332599321036,
+#               2068.2213964583907, 2069.081567116249, 2069.941737774108, 2070.916597853014,
+#               2071.6047343793007, 2072.17818148454, 2072.9236627213504, 2073.4397651160657,
+#               2073.898522800257, 2074.8733828791633, 2075.7335535370216, 2076.7657583264518,
+#               2077.969997247454, 2078.371410221121, 2078.8301679053125, 2079.403615010551,
+#               2079.7476832736947, 2080.665198642077, 2081.7547481420315),
+#     biomass = c(59.55240154519964, 57.69950934122234, 57.7064317280368, 57.71489242303226,
+#                 60.516151620576515, 65.18184033345563, 69.84599073815384, 78.23976932761157,
+#                 81.04410514151802, 86.63585537934048, 93.16289699119197, 98.76080046173814,
+#                 103.42725832870786, 107.16380890028167, 112.76478898718999, 123.95136607919684,
+#                 127.68868580486127, 132.35822028819257, 136.08938678113302, 133.3050489735788,
+#                 134.24649358033196, 131.46292492686862, 129.60926356880108, 126.82107999079459,
+#                 125.89732592812256, 124.97280271136017, 122.1861574415349, 129.64618296514422,
+#                 138.0368849382397, 146.4283560654258, 154.81828888443115, 165.07418952695164,
+#                 160.42465304997276, 154.84444012350758, 150.19413449243825, 146.4829660058503,
+#                 151.15326964327238, 164.2065837128851, 172.59959314825204, 177.2660510152218,
+#                 178.20672646788432, 184.73607554200746, 190.33013324210125, 186.6112732146087,
+#                 184.75453524017883, 181.03490605859605, 177.31681518519375, 176.39306112252183,
+#                 177.33065995882234, 169.89063244156566, 164.31426528555292, 168.0561999357601,
+#                 155.02903710522392, 149.45266994921113, 161.57607672342812, 149.47959034237803,
+#                 139.25983994211035, 138.34839234488604, 141.1496515424308, 137.4346372853905,
+#                 132.7874082706831, 133.72885287743605, 135.60405055003736, 143.06253776546583,
+#                 149.59188683958877, 157.05498897956016, 168.24387353383847, 170.11984036053005,
+#                 183.16930865969036, 193.4229018399396, 204.610248086037, 220.45174573365594,
+#                 230.70380060572407, 223.26531139664837, 222.34540310442884, 204.66178141009942,
+#                 204.67793364599962, 205.61476332820976, 206.55236216451024, 208.42294491256862,
+#                 210.29045104426504, 206.5769750954058, 201.9343610052413)
+#   )
+# ) |>
+# mutate(source = "Figure 1",
+#   notes = "Top left panel - extracted median trend line, steepest early slope, and lowest slope simulation draw",
+#   citekey = "iphc2024halibut",
+#   reference = "IPHC. 2024. IPHC Management Strategy Evaluation and Harvest Strategy Policy Updates for 2023. IPHC-2024-MSE-01. International Pacific Halibut Commission, Seattle, WA. Available at: https://www.iphc.int/management/science-and-research/management-strategy-evaluation [Accessed: Jan 7, 2026]"
+# )
+
+# readr::write_csv(
+#   halibut_sims,
+#   here::here("data-raw", "assessment-projections", "halibut-projections.csv")
+# )
+
+```
+
+```{r}
+# Load data from assessment projections
+a_dir <- here::here("data-raw", "assessment-projections")
+ling_projections <- readr::read_csv(here::here("data-raw", "assessment-projections", "lingcod-projections.csv"))
+qb_projections <- readr::read_csv(here::here("data-raw", "assessment-projections", "quillback-projections.csv"))
+ye_inside_projections <- readr::read_csv(here::here("data-raw", "assessment-projections", "yelloweye-inside-projections.csv"))
+halibut_projections <- readr::read_csv(here::here("data-raw", "assessment-projections", "halibut-projections.csv"))
+dogfish_projections <- readRDS(here::here("assessments", "dogfish-projections.rds"))
+
+status_year <- tribble(
+  ~species, ~year,
+  # "lingcod", 2025,
+  "quillback rockfish", 2021,
+  "yelloweye rockfish", 2024,
+  "pacific halibut", 2023,
+  "pacific spiny dogfish", 2024
+)
+
+# Lingcod projection plot
+p1 <- ggplot(ling_projections) +
+  aes(x = year, y = SSB_SSBMSY) +
+  geom_line() +
+  scale_x_continuous(breaks = scales::pretty_breaks(n = 5)) +
+  geom_vline(xintercept = status_year$year[status_year$species == "lingcod"], linetype = "dashed", colour = "grey50") +
+  ggtitle("Lingcod")
+
+# Quillback projection plot
+p2 <- ggplot(qb_projections) +
+  aes(x = year, y = B_BMSY) +
+  geom_line() +
+  scale_x_continuous(breaks = scales::pretty_breaks(n = 5)) +
+  geom_vline(xintercept = status_year$year[status_year$species == "quillback rockfish"], linetype = "dashed", colour = "grey50") +
+  ggtitle("Quillback")
+
+# Yelloweye projection plot
+p3 <- ggplot(ye_inside_projections) +
+  aes(x = year, y = B_BMSY) +
+  geom_line() +
+  scale_x_continuous(breaks = scales::pretty_breaks(n = 5)) +
+  geom_vline(xintercept = status_year$year[status_year$species == "yelloweye rockfish"], linetype = "dashed", colour = "grey50") +
+  ggtitle("Yelloweye")
+
+# Dogfish projection
+p4 <- ggplot(dogfish_projections) +
+  aes(x = year, y = est, colour = model) +
+  geom_line() +
+  geom_vline(xintercept = status_year$year[status_year$species == "pacific spiny dogfish"], linetype = "dashed", colour = "grey50") +
+  scale_x_continuous(breaks = scales::pretty_breaks(n = 5)) +
+  theme(legend.position = "inside", 
+        legend.position.inside = c(0.2, 0.8)) +
+  labs(colour = "Model") +
+  ggtitle("Dogfish")
+# Halibut projection
+p5 <- ggplot(halibut_projections) +
+  aes(x = year, y = biomass, colour = scenario) +
+  geom_line() +
+  geom_vline(xintercept = status_year$year[status_year$species == "pacific halibut"], linetype = "dashed", colour = "grey50") +
+  scale_x_continuous(breaks = scales::pretty_breaks(n = 5)) +
+  theme(legend.position = "inside", 
+        legend.position.inside = c(0.2, 0.8)) +
+  labs(colour = "Scenario") +
+  ggtitle("Halibut")
+
+
+(p1 + p2 + p3) / (p4 + p5)
+ggsave(here::here("figures", "supplementary", "recovery-rates-projections.pdf"), 
+  width = 10.3, height = 6.9)
+
+```
+
+## Lingcod - Outside 2024
+
+```{r, echo=FALSE}
+
+ling_rates <- ling_projections |>
+  mutate(time = year - first(year),
+         lambda = (SSB_SSBMSY / first(SSB_SSBMSY))^(1 / time),
+         linear_mpa_rate = 1 + ((SSB_SSBMSY - first(SSB_SSBMSY)) / time)
+  ) |>
+  filter(year != first(year)) |>
+  filter(lambda %in% range(lambda, na.rm = TRUE)) |>
+  mutate(species = "lingcod",
+         case = c("min rate", "max rate")) |>
+  select(species, source, case, time, lambda, citekey, reference, notes)
+
+```
+
+## Quillback - Outside 2021
+
+```{r}
+# DFO. 2023. Application of the Management Procedure Framework for Outside Quillback Rockfish (<i>Sebastes maliger</i>) in British Columbia in 2021. DFO Can. Sci. Advis. Sec. Sci. Advis. Rep. 2023/041.
+
+# url: https://publications.gc.ca/collections/collection_2025/mpo-dfo/fs70-5/Fs70-5-2024-028-eng.pdf
+
+# Figure 11: B/B0 2GT NoFishing scenario
+# 2GT = "B/B0 2GT: The median ratio of spawning biomass to average unfished biomass (B/B0) after generations (in 2075);" (pg. 6; see also pg. 2: "above the LRP during two generations (54 years)")
+
+# time = 54 # 2 generation times; pg. 2, pg. 6
+# b_2075_b0 <- 0.90 # Figure 11 - 2 generation times is year = 2075.
+# b_2021_b0 <- 0.59
+
+# lambda <- (b_2075_b0 / b_2021_b0)^(1 / time)
+
+
+# (b_2075_b0 / b_2021_b0)^(1 / time)
+# exp((log(b_2075_b0) -  log(b_2021_b0)) / time)
+
+# pct_change <- 100 * (lambda - 1)
+# linear_pct_change <- ((b_2075_b0 - b_2021_b0) / time  * 100)
+# linear_mpa_rate <- 1 + ((b_2075_b0 - b_2021_b0) / time)
+
+# log(b_2075_b0 / b_2021_b0) / time
+
+# qb_lambda <- lambda
+# qb_linear_mpa_rate <- linear_mpa_rate
+
+```
+
+This is what I actually ended up doing because at first I thought I could use the confidence intervals, but I couldn't. This way I can have a range of values that are within the projections. 
+
+```{r}
+# Lambda version for comparison
+qb_rates <- qb_projections |>
+  mutate(time = year - first(year),
+         lambda = (B_BMSY / first(B_BMSY))^(1 / time),
+         linear_mpa_rate = 1 + (B_BMSY - first(B_BMSY)) / time
+  ) |>
+  filter(time != 0) |>
+  filter(lambda %in% range(lambda, na.rm = TRUE) |
+    near(lambda, mean(lambda, na.rm = TRUE), tol = 0.0001)) |>
+  arrange(lambda) |>
+  mutate(species = "quillback rockfish", source = "Figure 6",
+    case = c("min rate", "mean rate", "max rate"),
+    time = round(time)) |>
+  select(species, source, case, time, lambda, citekey, reference, notes)
+
+qb_rates
+
+```
+
+# Dogfish Outside 2024
+
+```{r}
+dog_model_cases <- c(
+  "A0" = "base",
+  "A11_low_zfrac" = "low productivity",
+  "A12_high_zfrac" = "high productivity"
+)
+
+dog_mcmc_rates <- dogfish_projections |>
+  filter(model %in% names(dog_model_cases), year >= 2024) |>
+  group_by(model) |>
+  mutate(
+    time = year - first(year),
+    lambda = (est / first(est))^(1 / time),
+    linear_mpa_rate = 1 + (est - first(est)) / time
+  ) |>
+  ungroup()
+
+dog_mcmc_rates |> filter(time %in% c(0, 5, 10, 20, 50, 100)) |> as.data.frame()
+
+dog_rates <- dog_mcmc_rates |>
+  filter(time == 25) |>
+  mutate(
+    species = "north pacific spiny dogfish",
+    source = "2024 assessment MCMC raw outputs",
+    case = unname(dog_model_cases[model]),
+    citekey = "dfo2025dogfish_outside_fsar",
+    reference = "DFO. 2025. Outside Pacific Spiny Dogfish (Squalus acanthias) Stock Assessment for British Columbia in 2025. DFO Can. Sci. Advis. Sec. Sci. Advis. Rep. 2025/055."
+  ) |>
+  select(species, source, case, time, lambda, citekey, reference)
+
+dog_rates
+
+# ggplot() +
+#   aes(x = year, y = est) +
+#   geom_line(data = base_rate, colour = "black") +
+#   geom_line(data = low_rate, colour = "red") +
+#   geom_line(data = high_rate, colour = "blue")
+
+```
+
+## Yelloweye Inside
+
+```{r}
+# Yelloweye Outside 2014
+
+# Old report to use as possible bounding. 
+# Yamanaka, K.L., McAllister, M.M., Etienne, M., Edwards, A.M., and Haigh, R. 2018. Stock Assessment for the Outside Population of Yelloweye Rockfish (Sebastes ruberrimus) for British Columbia, Canada in 2014. DFO Can. Sci. Advis. Sec. Res. Doc. 2018/001. ix +
+# 150 p.
+# url: https://waves-vagues.dfo-mpo.gc.ca/Library/40683874.pdf
+
+# Use stock status for time horizons: Table 23
+# "Table 23. Stock status indicators for Outside Yelloweye Rockfish after 5, 10 and 15 year time horizons (Hz) under various constant catch policies
+# (total fishing mortality) in tonnes. Bfin and Ffin are the biomass and fishing mortality, respectively, in the final year of the time horizon, B0 is the
+# average unfished stock size or carrying capacity B2014 is the biomass at the beginning of 2014, and BMSY and FMSY are the biomass and
+# fishing mortality, respectively, at maximum sustainable yield. Probabilities are presented for six stock status indicators: P(Bfin>0.4 BMSY) is the
+# probability of the biomass in the final year of the time horizon being above the Limit Reference point of 0.4 BMSY. P(Bfin>0.8 BMSY) is the
+# probability of the biomass in the final year of the time horizon being above the Upper Stock Reference of 0.8 BMSY. P(B>0.4 BMSY in Hz) is the
+# probability of the biomass being above the Limit Reference Point (0.4 BMSY) at any time within the given time horizon (Hz), with a similar
+# definition for P(B>0.8 BMSY in Hz). P(Ffin<FMSY) is the probability of the fishing mortality in the final year of the Hz (Ffin) being below the fishing
+# mortality at MSY"
+
+# ye_outside_2014 <- tibble(
+#   metric = c("B2014/B0", "B2019/B0", "B2024/B0", "B2029/B0"),
+#   B0 = 21544, # Table 22
+#   B_2014 = 3821,
+#   B_ratio = c(B_2014[1] / B0[1], 0.204, 0.256, 0.299),
+#   time = c(0, 5, 10, 15),
+#   source = c("Table 22", "Table 23", "Table 23", "Table 23")
+# )
+
+# ye_outside_2014_rates <- 
+#   ye_outside_2014 |> 
+#   mutate(B_value = B0 * B_ratio) |>
+#   mutate(start_ratio = B_ratio[metric == "B2014/B0"],
+#          end_ratio = B_ratio) |>
+#   mutate(pct_linear_change = (end_ratio - start_ratio) / time  * 100,
+#          linear_mpa_rate = 1 + (end_ratio - start_ratio) / time
+#   ) |> 
+#   select(-start_ratio, -end_ratio) |>
+#   mutate(reference = "2014 assessment", species = "yelloweye rockfish")
+
+```
+
+Yelloweye Inside
+
+Haggarty, D.R., Huynh, Q.C., Forrest, R.E., Anderson, S.C., Bresch, M.J., Keppel, E.A. 2022. Evaluation of potential rebuilding strategies for Inside Yelloweye Rockfish (Sebastes ruberrimus) in British Columbia. DFO Can. Sci. Advis. Sec. Res. Doc. 2021/008. vi + 139 p.
+
+url: https://waves-vagues.dfo-mpo.gc.ca/library-bibliotheque/41058136.pdf
+
+```{r}
+# Yelloweye Rockfish - B/BMSY projections under F=0; Extracted from NFref Figure 30.
+
+ye_rates_by_quantile <- ye_inside_projections |>
+  group_by(quantile) |>
+  mutate(time = year - first(year),
+         lambda = (B_BMSY / first(B_BMSY))^(1 / time),
+         linear_mpa_rate = 1 + (B_BMSY - first(B_BMSY)) / time
+  ) |> filter(time != 0)
+
+ye_rates_summary_lambda <- ye_rates_by_quantile |>
+  summarise(
+    min_rate = min(lambda, na.rm = TRUE),
+    min_time = time[which.min(lambda)],
+    mean_rate = mean(lambda, na.rm = TRUE),
+    mean_time = time[which.min(abs(lambda - mean(lambda, na.rm = TRUE)))],
+    max_rate = max(lambda, na.rm = TRUE),
+    max_time = time[which.max(lambda)]
+  ) |>
+  pivot_longer(
+    cols = c(min_rate, mean_rate, max_rate),
+    names_to = "case",
+    values_to = "lambda"
+  ) |>
+  mutate(
+    time = case_when(
+      case == "min_rate" ~ min_time,
+      case == "max_rate" ~ max_time,
+      case == "mean_rate" ~ mean_time,
+      TRUE ~ NA_real_
+    )
+  ) |>
+  select(-min_time, -mean_time, -max_time)
+
+ye_rates <- ye_rates_summary_lambda |>
+  mutate(
+    species = "yelloweye rockfish",
+    source = ye_inside_projections$source[1],
+    # case = paste(case, round(time), "years"),
+    citekey = ye_inside_projections$citekey[1],
+    reference = ye_inside_projections$reference[1]
+  ) |>
+  select(species, source, case, time, lambda, citekey, reference) |>
+  mutate(case = gsub("_", " ", case))
+
+```
+
+## Halibut
+
+```{r}
+
+halibut_rates <- halibut_projections |>
+  group_by(scenario, source, citekey, reference) |>
+  mutate(time = year - first(year),
+         lambda = (biomass / first(biomass))^(1 / time),
+         linear_mpa_rate = 1 + (biomass - first(biomass)) / time
+  ) |>
+  filter(round(year) == 2023 + 25) |>
+  summarise(min_lambda = min(lambda, na.rm = TRUE),
+            mean_lambda = mean(lambda, na.rm = TRUE),
+            max_lambda = max(lambda, na.rm = TRUE)) |>
+  mutate(species = "pacific halibut",
+         time = 25) |>
+  select(species, source, case = scenario, time, lambda = mean_lambda, citekey, reference)
+halibut_rates
+
+# target_times <- c(0, 5, 10, 20, 50)
+
+# halibut_rates_closest <- halibut_projections |>
+#   group_by(scenario) |>
+#   mutate(time = year - first(year)) |>
+#   ungroup() |>
+#   tidyr::crossing(target_time = target_times) |>
+#   group_by(scenario, target_time) |>
+#   slice_min(order_by = abs(time - target_time), n = 1, with_ties = FALSE) |>
+#   ungroup() |>
+#   group_by(scenario) |>
+#   mutate(ratio = biomass / first(biomass), start_ratio = first(ratio)) |>
+#   mutate(
+#     lambda = (biomass / first(biomass))^(1 / time),
+#     linear_mpa_rate = 1 + (ratio - start_ratio) / time
+#   ) |>
+#   mutate(species = "pacific halibut", source = "figure 1", reference = "IPHC 2024 MSE") |>
+#   ungroup()
+
+
+
+# halibut_rates <- halibut_rates_closest |>
+#   filter(target_time == 20) |>
+#   select(species, source, case = scenario, time, linear_mpa_rate, reference)
+
+# halibut_rates_lambda <- halibut_rates_closest |>
+#   filter(target_time == 20) |>
+#   select(species, source, case = scenario, time, lambda, reference)
+
+```
+
+
+```{r}
+rates <- bind_rows(ling_rates, qb_rates, dog_rates, ye_rates, halibut_rates) |>
+  arrange(species, lambda) |>
+  mutate(lambda = round(lambda, 4))
+
+saveRDS(rates, here::here("data-generated", "recovery-rates-lambda.rds"))
+
+```
+
+```{r}
+# Prepare table for LaTeX output
+rates_table <- rates |>
+  select(species, case, time, lambda, source, citekey) |>
+  mutate(
+    time = round(time, 1),
+    lambda = round(lambda, 4)
+  )
+
+# Simple LaTeX table using knitr::kable (most portable)
+library(xtable)
+ rates_table_xt <- rates |>
+    select(species, case, time, lambda, source, citekey) |>
+    mutate(
+      time = round(time, 1),
+      lambda = round(lambda, 4)
+    )
+
+  print(
+    xtable(rates_table_xt,
+      caption = "Recovery rates (lambda) for BC groundfish species under no fishing scenarios.",
+      label = "tab:recovery-rates"
+    ),
+    booktabs = TRUE,
+    include.rownames = FALSE
+  )
+```
