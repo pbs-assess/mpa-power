@@ -252,8 +252,8 @@ run_survey_simulation <- function(sp_name,
       mpa_trend = log(row$mpa_trend),  # Convert to log scale
       rho_V = if (is.na(row$rho_V)) NULL else row$rho_V,
       sigma_V = if (is.na(row$sigma_V)) NULL else row$sigma_V,
-      fixed_spatial_re = TRUE,
-      fixed_spatiotemporal_re = FALSE,
+      use_fixed_spatial_field = TRUE,
+      sigma_E = NULL,  # NULL = use fitted sigma_E (includes spatiotemporal variation)
       phi = if (is.na(row$phi)) NULL else row$phi,
       tag = paste0(survey_config$tag_prefix, "-rep", row$replicate)
     )

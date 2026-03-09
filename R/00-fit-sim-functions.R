@@ -299,8 +299,8 @@ sim_ar1_deviations <- function(rho, sigma, years) {
 #' @param seed Random seed for reproducibility
 #' @param formula Simulation formula (default: ~ 1 + restricted * year_covariate)
 #' @param family Distribution family (default: nbinom2(link = "log"))
-#' @param fixed_spatial_re Use fixed spatial random effects or use spatial sd (default: TRUE)
-#' @param fixed_spatiotemporal_re Use fixed spatiotemporal random effects or use spatiotemporal sd (default: FALSE)
+#' @param use_fixed_spatial_field Use a single fixed draw of spatial random effects (omega_s) across all replicates (default: TRUE). If FALSE, generates new spatial fields using fitted sigma_O.
+#' @param sigma_E Spatiotemporal standard deviation. If NULL (default), uses fitted sigma_E from conditioning model. Set to 0 to exclude spatiotemporal variation.
 #' @param rho_V AR(1) correlation parameter. If NULL, no temporal AR(1) process is used (default: NULL)
 #' @param sigma_V Marginal standard deviation for AR(1) process. Required if rho_V is provided.
 #' @param tag Optional tag for file naming
@@ -318,8 +318,8 @@ simulate_hbll <- function(fit,
                           seed = NULL,
                           formula = ~ 1 + restricted * year_covariate,
                           family = betabinomial(link = "cloglog"),
-                          fixed_spatial_re = TRUE,
-                          fixed_spatiotemporal_re = FALSE,
+                          use_fixed_spatial_field = TRUE,
+                          sigma_E = NULL, # NULL = use fitted sigma_E, 0 = no spatiotemporal variation
                           rho_V = NULL, # NULL = no AR1 deviations
                           sigma_V = NULL,
                           phi = NULL,
@@ -346,7 +346,7 @@ simulate_hbll <- function(fit,
 
   # Fixed random effects (get single draw from rf distributions)
   osp <- one_sample_posterior(fit)
-  omega_s <- if (fixed_spatial_re) {
+  omega_s <- if (use_fixed_spatial_field) {
     osp[grepl("omega_s", names(osp))] |> matrix()
   } else {
     NULL
@@ -357,6 +357,14 @@ simulate_hbll <- function(fit,
   epsilon_st_sd <- 0
   if (fit$spatial != "off") omega_s_sd <- b$estimate[b$term == "sigma_O"]
   if (fit$spatiotemporal != "off") epsilon_st_sd <- b$estimate[b$term == "sigma_E"]
+
+  # Set sigma_E: use fitted value if NULL, otherwise use provided value
+  sigma_E_sim <- if (is.null(sigma_E)) {
+    epsilon_st_sd
+  } else {
+    sigma_E
+  }
+  message("Using sigma_E = ", round(sigma_E_sim, 3))
 
   # Prepare input data for simulation
   input_dat <- restricted_df |>
@@ -447,8 +455,8 @@ simulate_hbll <- function(fit,
     seed = seed,
     formula = formula,
     family = family,
-    fixed_spatial_re = fixed_spatial_re,
-    fixed_spatiotemporal_re = fixed_spatiotemporal_re,
+    use_fixed_spatial_field = use_fixed_spatial_field,
+    sigma_E = sigma_E_sim,
     rho_V = rho_V,
     sigma_V = sigma_V,
     time_varying = if (!is.null(rho_V)) ~ 1 else NULL,
@@ -485,7 +493,7 @@ simulate_hbll <- function(fit,
     sigma_V = sigma_V,
     rho_time = rho_V,
     # rho = ar1_rho, # affects AR1 deviations of the GMRF
-    sigma_E = if (fixed_spatiotemporal_re) epsilon_st_sd else 0,
+    sigma_E = sigma_E_sim,
     phi = phi,
     range = range_val,
     fixed_re = fixed_re,
