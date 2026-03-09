@@ -232,12 +232,9 @@ run_survey_simulation <- function(sp_name,
 
   message("  Cache miss: running simulations")
 
-  # Run all replicates for this survey
-  # Process each replicate individually to reduce memory usage
-  sim_dat_all_reps <- purrr::pmap_dfr(combo_reps, function(...) {
+  # Run all replicates for this survey IN PARALLEL
+  sim_dat_all_reps <- furrr::future_pmap_dfr(combo_reps, function(...) {
     row <- list(...)
-
-    message("  - Replicate ", row$replicate, " (seed: ", row$seed, ")")
 
     # Run simulation for this survey
     survey_sim <- simulate_hbll(
@@ -270,7 +267,7 @@ run_survey_simulation <- function(sp_name,
         replicate = row$replicate
       ) |>
       select(-last_sampled_year)  # Don't need to store this in every row
-  })
+  }, .options = furrr::furrr_options(seed = TRUE))
 
   # Add parameter metadata as attributes
   attr(sim_dat_all_reps, "sim_params") <- list(
@@ -434,49 +431,33 @@ message("Total tasks: ", nrow(task_grid))
 message("  Species: ", length(unique(task_grid$species)))
 message("  Average tasks per species: ", round(nrow(task_grid) / length(unique(task_grid$species)), 1))
 
-# Setup parallel processing
-future::plan(future::sequential)
+# Setup parallel processing for replicates within tasks
 map_fn <- setup_parallel(USE_PARALLEL, N_WORKERS)
 
-# Run simulations across all tasks in parallel
+# Run simulations across all tasks SEQUENTIALLY (parallelism is within each task)
 message("\n=== Running Simulations ===")
-tictoc::tic("All simulations completed")
 if (USE_PARALLEL) {
-  all_results <- furrr::future_pmap(
-    task_grid,
-    function(species, survey_config, param_combo, param_grid) {
-      run_survey_simulation(
-        sp_name = species,
-        survey_config = survey_config,
-        param_combo = param_combo,
-        param_grid = param_grid,
-        restricted_df = restricted_df,
-        hbll_grid = hbll_grid,
-        hbll_last_sampled_year = hbll_last_sampled_year,
-        sim_dir = sim_dir,
-        check_cache = TRUE
-      )
-    },
-    .options = furrr::furrr_options(seed = TRUE)
-  )
-} else {
-  all_results <- purrr::pmap(
-    task_grid,
-    function(species, survey_config, param_combo, param_grid) {
-      run_survey_simulation(
-        sp_name = species,
-        survey_config = survey_config,
-        param_combo = param_combo,
-        param_grid = param_grid,
-        restricted_df = restricted_df,
-        hbll_grid = hbll_grid,
-        hbll_last_sampled_year = hbll_last_sampled_year,
-        sim_dir = sim_dir,
-        check_cache = TRUE
-      )
-    }
-  )
+  message("Note: Tasks run sequentially, but replicates within each task run in parallel")
 }
+tictoc::tic("All simulations completed")
+
+all_results <- purrr::pmap(
+  task_grid,
+  function(species, survey_config, param_combo, param_grid) {
+    run_survey_simulation(
+      sp_name = species,
+      survey_config = survey_config,
+      param_combo = param_combo,
+      param_grid = param_grid,
+      restricted_df = restricted_df,
+      hbll_grid = hbll_grid,
+      hbll_last_sampled_year = hbll_last_sampled_year,
+      sim_dir = sim_dir,
+      check_cache = TRUE
+    )
+  }
+)
+
 tictoc::toc()
 
 # Create summary from all results if I've cancelled the process early
