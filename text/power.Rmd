@@ -131,15 +131,8 @@ knitr::include_graphics(here::here("figures/predicted-distributions.png"))
 
 Dimensions included here: species, mpa effect (recovery rates from No Fishing scenarios Table \@ref(tab:recovery-rates), addition of spatiotemporal noise to increase realism.
 
-Output: known truth, example of simulated time series shown in Figure \[historical-simulated-index-example\]. Full grid for each species of values (possible additional figure -- or in supplement)
-
-<!-- ![Figure 2. \[label: spatial-random-field\]. Supplemental(?). Spatial -->
-<!-- random field (omega_s) for each species drawn from conditioning models. -->
-<!-- Negative values (red) indicate areas with consistently lower catch rates -->
-<!-- relative to the mean catch rates while negative values (blue) indicate -->
-<!-- lower catch rates. The outline of the hard bottom longline survey grid -->
-<!-- is shown in grey.](media/image2.png){width="6.5in" -->
-<!-- height="5.291666666666667in"} -->
+Output: known truth, example of simulated time series shown in Figure \@ref(fig:historical-simulated-index-example).
+Full grid for each species of values (possible additional figure -- or in supplement)
 
 ```{r recovery-rates}
 rates <- readRDS(here::here("data-generated", "recovery-rates-lambda.rds"))

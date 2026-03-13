@@ -4,6 +4,10 @@
 
 ## A SUBHEADING HERE
 
+```{r spatial-fields, fig.cap="Spatial random field for each species drawn from conditioning models. Negative values (red) indicate areas with consistently lower catch rates relative to the mean catch rates while positive values (blue) indicate lower catch rates. The outline of the hard bottom longline survey gridis shown in grey.", fig.asp=get_asp(here::here("figures/spatial-random-field.png")), out.width="90%"}
+knitr::include_graphics(here::here("figures/spatial-random-field.png"))
+```
+
 ```{r bias-check-lingcod, fig.cap="Power bias check caption here.", fig.asp=get_asp(here::here("figures/supplementary/bias-check-on-estimate-lingcod.png")), out.width="100%"}
 knitr::include_graphics(here::here("figures/supplementary/bias-check-on-estimate-lingcod.png"))
 ```
