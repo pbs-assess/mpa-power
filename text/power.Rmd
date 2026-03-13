@@ -230,12 +230,15 @@ Output: known truth, example of simulated time series shown in Figure \[historic
 <!-- is shown in grey.](media/image2.png){width="6.5in" -->
 <!-- height="5.291666666666667in"} -->
 
-Table \[label:recovery-rates\]. Annual rates of change used in simulation of population recovery. Values derived from most recent stock assessment projections of no fishing scenarios.
-
-```{r}
-
+```{r recovery-rates}
+rates <- readRDS(here::here("data-generated", "recovery-rates-lambda.rds"))
+rates_table |>
+  select(-time) |>
+  rename(Species = species, Case = case, `Annual % change` = `annual percent change`, Citation = citekey, Source = source) |> 
+  flextable() |>
+  set_table_properties(layout = "autofit") |> 
+  set_caption("Annual rates of change used in simulation of population recovery. Values derived from most recent stock assessment projections of no fishing scenarios.")
 ```
-
 
 **Step 3: Two different sampling scenarios**
 
