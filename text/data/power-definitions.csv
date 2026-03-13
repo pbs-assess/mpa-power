@@ -1,0 +1,10 @@
+Term,Definition
+Sample size,"The number of survey sets"
+Effect size,"The linear increase in fish density inside to outside MPAs"
+Significance level,"The probability of rejecting the null hypothesis when it is true (i.e., 0.05)"
+The conditioning model,"A statistical model trained and validated with HBLL data from the Northern Shelf Bioregion used to simulate fish density along transect lines with varying sampling effort and effect sizes"
+The monitoring model,"A statistical model (based on the conditioning model) used to estimate the treatment effect for CI and BACI designs and calculate the power score"
+Covariate of interest (ELCI),"The interaction term between the Early-Later and Control-Impact (i.e., MPA status) terms in the monitoring model"
+Covariate of interest (CI),"The Control-Impact (i.e., MPA status) term in the monitoring model"
+Treatment effect,"The effect of MPA status (in/out) on fish density"
+Power,"The probability of detecting a significant, non-zero rate of change; proportion of simulated replicates where the relationship of interest was significant and positive"
