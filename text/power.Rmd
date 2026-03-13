@@ -8,144 +8,75 @@ The Abstract must not be more than half a page (roughly 400 words).
 
 # POWER ANAYLSIS --- RECOMMENDATIONS FOR MONITORING PROGRAM DESIGN/SAMPLING FREQUENCY
 
-We chose a case study of the Hard Bottom Longline Hook Survey to
-evaluate sampling design requirements using power analysis to assess how
-monitoring programs could be adapted or expanded to detect meaningful
-changes in conservation priority species. Power analysis is a widely
-used approach for evaluating how sampling design and replication
-influence the ability to detect ecological change when it occurs.
-Statistical power depends on the magnitude of the effect being tested,
-the degree of spatial and temporal variability in indicators, and the
-level of replication across sites, years, and sampling units
-(Stewart-Oaten et al. 1986; Underwood 1994). In impact monitoring
-frameworks such as Before--After--Control--Impact (BACI) designs,
-balanced designs with comparable numbers of observations in pre- and
-post-impact periods generally provide greater statistical power than
-unbalanced designs with the same total sampling effort (Underwood 1994;
+We chose a case study of the Hard Bottom Longline Hook Survey to evaluate sampling design requirements using power analysis to assess how monitoring programs could be adapted or expanded to detect meaningful changes in conservation priority species. 
+Power analysis is a widely used approach for evaluating how sampling design and replication influence the ability to detect ecological change when it occurs. 
+Statistical power depends on the magnitude of the effect being tested, the degree of spatial and temporal variability in indicators, and the level of replication across sites, years, and sampling units (Stewart-Oaten et al. 
+1986; Underwood 1994). 
+In impact monitoring frameworks such as Before--After--Control--Impact (BACI) designs, balanced designs with comparable numbers of observations in pre- and post-impact periods generally provide greater statistical power than unbalanced designs with the same total sampling effort (Underwood 1994;
 Smokorowski and Randall 2017).
 
-The Hard Bottom Longline Survey was selected as an illustrative example
-for several reasons. The HBLL was one of the programs that scored
-highest in our program assessment based on temporal suitability, domain
-relevance, and spatial coverage criteria. It has a 19-year time series
-providing sufficient historical data to characterize baseline
-variability, monitors multiple MPAN Ecological Conservation Priority
-rockfish species (yelloweye, quillback), samples 54 individual protected
-areas with coverage both inside and outside MPAN boundaries, and
-collects detailed biological data (length, weight, archived otoliths)
-enabling analysis of multiple response metrics.
+The Hard Bottom Longline Survey was selected as an illustrative example for several reasons. 
+The HBLL was one of the programs that scored highest in our program assessment based on temporal suitability, domain relevance, and spatial coverage criteria. 
+It has a 19-year time series providing sufficient historical data to characterize baseline variability, monitors multiple MPAN Ecological Conservation Priority rockfish species (yelloweye, quillback), samples 54 individual protected areas with coverage both inside and outside MPAN boundaries, and collects detailed biological data (length, weight, archived otoliths) enabling analysis of multiple response metrics.
 
-The power analyses conducted on the HBLL were used to inform
-recommendations on sampling frequency, spatial replication, and temporal
-coverage needed to support robust evaluation of Marine Protected Area
-(MPA) performance. Importantly, this case study serves as one
-methodological example---not a prescription. The HBLL was not originally
-designed for MPA performance assessment; sampling locations were
-selected for regional stock assessment. The power analysis demonstrates
-what is currently feasible with existing data and what adaptations would
-strengthen performance monitoring. Different programs will require
-different adaptations depending on their design, species monitored,
-spatial scale, logistical constraints, and organizational priorities.
-This case study illustrates a general analytical workflow that can be
-applied to other high-suitability programs, with final decisions about
-program adaptation to be made collaboratively by Network Partners
-through the Network Monitoring Strategy process.
+The power analyses conducted on the HBLL were used to inform recommendations on sampling frequency, spatial replication, and temporal coverage needed to support robust evaluation of Marine Protected Area (MPA) performance.Importantly, this case study serves as one methodological example---not a prescription. 
+The HBLL was not originally designed for MPA performance assessment; sampling locations were selected for regional stock assessment. 
+The power analysis demonstrates what is currently feasible with existing data and what adaptations would strengthen performance monitoring. 
+Different programs will require different adaptations depending on their design, species monitored, spatial scale, logistical constraints, and organizational priorities.
+This case study illustrates a general analytical workflow that can be applied to other high-suitability programs, with final decisions about program adaptation to be made collaboratively by Network Partners through the Network Monitoring Strategy process.
 
 ## MONITORING PROGRAM DESIGN CONSIDERATIONS
 
-here we could have the section on sampling/monitoring program design
-stuff from the intro?
+here we could have the section on sampling/monitoring program design stuff from the intro?
 
 **Statistical robustness in monitoring**
 
-Effective sampling and monitoring design requires statistical
-robustness, incorporating careful consideration of sample size,
-replication, statistical power, and data independence. Neves et al. (In
-prep.) provides comprehensive discussion of factors involved in
-monitoring program sampling design, including various sample design
+Effective sampling and monitoring design requires statistical robustness, incorporating careful consideration of sample size, replication, statistical power, and data independence. 
+Neves et al. (In prep.) provides comprehensive discussion of factors involved in monitoring program sampling design, including various sample design
 types, BACI approaches, and reference site selection (DFO 2021a).
 
 **Replication**
 
-Establishing appropriate replication levels---whether measured in number
-of sites, years, or samples within sites---presents significant
-challenges and varies considerably among projects and indicators (Braun
-et al. 2019). Power analyses serve as valuable tools for understanding
-how replication influences statistical power, defined as the ability to
-detect effects when they exist. Statistical power depends on several key
-factors: spatial and temporal variation in indicators, the strength of
-relationships between indicators and responses (effect size), and
-replication or sample size including number of sites, years, and plots.
+Establishing appropriate replication levels---whether measured in number of sites, years, or samples within sites---presents significant challenges and varies considerably among projects and indicators (Braun et al. 2019). 
+Power analyses serve as valuable tools for understanding
+how replication influences statistical power, defined as the ability to detect effects when they exist. 
+Statistical power depends on several key factors: spatial and temporal variation in indicators, the strength of relationships between indicators and responses (effect size), and replication or sample size including number of sites, years, and plots.
 
-Power analyses can employ standard methods for simple statistical
-analyses or utilize simulations for more complex modeling approaches
-(Johnson et al. 2015). These analyses require assumptions about spatial
-and temporal variability of indicators and effect sizes specific to
-individual studies and indicators.
+Power analyses can employ standard methods for simple statistical analyses or utilize simulations for more complex modeling approaches (Johnson et al. 2015). 
+These analyses require assumptions about spatial and temporal variability of indicators and effect sizes specific to individual studies and indicators.
 
 **Temporal considerations and study design**
 
-Increasing the number of years of data collection generally enhances
-statistical power. Balanced designs with equal numbers of before and
-after years provide greater statistical power than unbalanced designs
-using the same total number of years (Braun et al. 2019). O\'Neal et al.
-(2016) recommends collecting a minimum of two years of before-project
-data, matched with two years of after-project data. While acquiring
-pre-project data can be challenging, the statistical benefits of
-balanced design make a compelling case for investing in before-project
-data collection when feasible (Braun et al. 2019).
+Increasing the number of years of data collection generally enhances statistical power. 
+Balanced designs with equal numbers of before and after years provide greater statistical power than unbalanced designs using the same total number of years (Braun et al. 2019). 
+O\'Neal et al. (2016) recommends collecting a minimum of two years of before-project data, matched with two years of after-project data. 
+While acquiring pre-project data can be challenging, the statistical benefits of balanced design make a compelling case for investing in before-project data collection when feasible (Braun et al. 2019).
 
-Within the NSB context, MPA sites experiencing greater
-pre-implementation fishing intensity and other pressures may demonstrate
-higher power to detect management-related changes compared to sites with
-historically lower human activity levels.
+Within the NSB context, MPA sites experiencing greater pre-implementation fishing intensity and other pressures may demonstrate higher power to detect management-related changes compared to sites with historically lower human activity levels.
 
 **Before-After-Control-Impact (BACI) design**
 
-BACI design represents one of the most appropriate methods for
-evaluating management measure performance. This approach proves
-particularly powerful because it controls for both temporal and spatial
-variation, thereby improving the robustness of conclusions regarding
-management effects. BACI design compares sampling periods before and
-after measure implementation alongside impacted and control sites.
+BACI design represents one of the most appropriate methods for evaluating management measure performance. 
+This approach proves particularly powerful because it controls for both temporal and spatial variation, thereby improving the robustness of conclusions regarding management effects. 
+BACI design compares sampling periods before and after measure implementation alongside impacted and control sites.
 
-Successful BACI implementation requires suitable reference sites
-(control sites) that remain fixed throughout the study period, while
-within-site sampling units may be re-randomized or maintained as fixed
-locations. External reference sites are highly recommended to optimize
-conclusion scope and are required for BACI or similar sampling designs.
-These sites should be positioned sufficiently distant from protected
-areas to avoid edge effects, maintain comparable environmental
-conditions and substrates, and exhibit similar historical pressure
+Successful BACI implementation requires suitable reference sites (control sites) that remain fixed throughout the study period, while within-site sampling units may be re-randomized or maintained as fixed locations. 
+External reference sites are highly recommended to optimize conclusion scope and are required for BACI or similar sampling designs. 
+These sites should be positioned sufficiently distant from protected areas to avoid edge effects, maintain comparable environmental conditions and substrates, and exhibit similar historical pressure
 levels (DFO 2021a).
 
 **Reference sites and monitoring**
 
-Areas currently under monitoring outside protected areas serve as
-invaluable reference sites for assessing MPA performance and impact.
-These monitored zones, often sharing similar ecological characteristics
-with MPA areas, provide comparative benchmarks for evaluating changes
-and patterns within protected regions (Nature United 2023). Through
-examination of these external areas, scientists and conservationists can
-establish meaningful parallels, contrasting impacts of human activities
-and environmental changes in unprotected regions against conservation
-outcomes within MPAs.
+Areas currently under monitoring outside protected areas serve as invaluable reference sites for assessing MPA performance and impact. 
+These monitored zones, often sharing similar ecological characteristics with MPA areas, provide comparative benchmarks for evaluating changes and patterns within protected regions (Nature United 2023). 
+Through examination of these external areas, scientists and conservationists can establish meaningful parallels, contrasting impacts of human activities and environmental changes in unprotected regions against conservation outcomes within MPAs.
 
-Reference areas facilitate understanding of natural variations,
-human-induced pressures, and potential benefits derived from protective
-measures. Analysis of differences and similarities enables assessment of
-MPA efficacy, providing critical information for adaptive management and
-conservation strategy refinement within protected marine environments.
+Reference areas facilitate understanding of natural variations, human-induced pressures, and potential benefits derived from protective measures. 
+Analysis of differences and similarities enables assessment of MPA efficacy, providing critical information for adaptive management and conservation strategy refinement within protected marine environments.
 
-Reference monitoring represents an emerging opportunity that utilizes
-well-managed MPA sites as reference points for understanding global and
-regional driver effects on ocean conditions (Fairweather 2012a;
-Fairweather 2012b). Since reference sites will develop over time, this
-approach has been identified as a low priority for the Network
-monitoring framework, strategy, and associated plans (Network Monitoring
-Framework). However, reference monitoring should be considered in
-subsequent iterations of Network monitoring following sufficient
-duration of site and Network establishment.
+Reference monitoring represents an emerging opportunity that utilizes well-managed MPA sites as reference points for understanding global and regional driver effects on ocean conditions (Fairweather 2012a; Fairweather 2012b). 
+Since reference sites will develop over time, this approach has been identified as a low priority for the Network monitoring framework, strategy, and associated plans (Network Monitoring Framework). 
+However, reference monitoring should be considered in subsequent iterations of Network monitoring following sufficient duration of site and Network establishment.
 
 Table X. Definitions used in power analysis
 
@@ -188,42 +119,20 @@ Table X. Definitions used in power analysis
 
 ## Power analysis METHODOLOGY
 
-Since 2003, Fisheries and Oceans Canada has conducted Hard Bottom
-Longline (HBLL) surveys to monitor groundfish abundance and distribution
-off the coast of BC. The survey targets inshore rockfish habitat,
-specifically Yelloweye and Quillback rockfish habitat
-\\cite{@doherty2019}. The HBLL survey consists of two survey series:
-inside (HBLL INS, referring to waters between Vancouver Island and the
-mainland) and the outside (HBLL OUT, all other BC waters). North and
-south areas within each series are surveyed biennially. Three of the
-four regions (HBLL OUT N, HBLL OUT S, and HBLL INS N) overlap with the
-GBS MPA Network (Figure hbll-mpa-historical-overlay). The surveys use a
-depth-stratified random sampling design, with a target allocation of 189
-sets (HBLL OUT N), 252 (HBLL OUT S), and 70 (HBLL INS N).
+Since 2003, Fisheries and Oceans Canada has conducted Hard Bottom Longline (HBLL) surveys to monitor groundfish abundance and distribution off the coast of BC. 
+The survey targets inshore rockfish habitat, specifically Yelloweye and Quillback rockfish habitat [@doherty2019]. 
+The HBLL survey consists of two survey series: inside (HBLL INS, referring to waters between Vancouver Island and the mainland) and the outside (HBLL OUT, all other BC waters). 
+North and south areas within each series are surveyed biennially. 
+Three of the four regions (HBLL OUT N, HBLL OUT S, and HBLL INS N) overlap with the GBS MPA Network (Figure hbll-mpa-historical-overlay). 
+The surveys use a depth-stratified random sampling design, with a target allocation of 189 sets (HBLL OUT N), 252 (HBLL OUT S), and 70 (HBLL INS N).
 
-We used a simulation-based power analysis to assess the ability of
-existing monitoring programs to detect changes in population indices of
-groundfish across the MPA Network. Our approach consisted of four steps:
-(1) fit conditioning models to empirical data, (2) simulate population
-recovery trends inside and outside of the MPAs under the assumption of
-fishing cessation within MPAs, (3) apply two different sampling
-strategies to the simulated population, and (4) test the power of these
-sampling strategies to detect trends across the MPA Network by fitting
-another spatiotemporal model to the combined historical and simulated
-data.
+We used a simulation-based power analysis to assess the ability of existing monitoring programs to detect changes in population indices of groundfish across the MPA Network. 
+Our approach consisted of four steps: (1) fit conditioning models to empirical data, (2) simulate population recovery trends inside and outside of the MPAs under the assumption of fishing cessation within MPAs, (3) apply two different sampling strategies to the simulated population, and (4) test the power of these sampling strategies to detect trends across the MPA Network by fitting another spatiotemporal model to the combined historical and simulated data.
 
-Using a spatiotemporal modelling approach, we applied this power
-analysis to five conservation priority species that are well sampled by
-the HBLL survey: Yelloweye Rockfish, Quillback Rockfish, Lingcod,
-Pacific Halibut, and Pacific Spiny Dogfish. This approach allows us to
-test different scenarios, such as recovery trends within the MPA or
-evaluation time frame, while incorporating some ecological complexity
-and variability (Table label:scenario-summary). Power increases with
-larger MPA effect sizes (e.g., faster recovery), higher abundances,
-wider spatial distribution, more frequent sampling, and longer
-evaluation times. Conversely, species with slower recovery rates, patchy
-distributions, and/or lower abundance will require more intensive
-sampling and longer evaluation time frames to detect population changes.
+Using a spatiotemporal modelling approach, we applied this power analysis to five conservation priority species that are well sampled by the HBLL survey: Yelloweye Rockfish, Quillback Rockfish, Lingcod, Pacific Halibut, and Pacific Spiny Dogfish. 
+This approach allows us to test different scenarios, such as recovery trends within the MPA or evaluation time frame, while incorporating some ecological complexity and variability (Table label:scenario-summary). 
+Power increases with larger MPA effect sizes (e.g., faster recovery), higher abundances, wider spatial distribution, more frequent sampling, and longer evaluation times. 
+Conversely, species with slower recovery rates, patchy distributions, and/or lower abundance will require more intensive sampling and longer evaluation time frames to detect population changes.
 
 Table \[label:scenario-summary\]. Scenarios evaluated in the
 simulation-based power analysis.
@@ -308,13 +217,9 @@ simulation-based power analysis.
 
 **Step 2: Simulate data from conditioning models**
 
-Dimensions included here: species, mpa effect (recovery rates from No
-Fishing scenarios Table \[recovery-rates\]), addition of spatiotemporal
-noise to increase realism.
+Dimensions included here: species, mpa effect (recovery rates from No Fishing scenarios Table \[recovery-rates\]), addition of spatiotemporal noise to increase realism.
 
-Output: known truth, example of simulated time series shown in Figure
-\[historical-simulated-index-example\]. Full grid for each species of
-values (possible additional figure -- or in supplement)
+Output: known truth, example of simulated time series shown in Figure \[historical-simulated-index-example\]. Full grid for each species of values (possible additional figure -- or in supplement)
 
 <!-- ![Figure 2. \[label: spatial-random-field\]. Supplemental(?). Spatial -->
 <!-- random field (omega_s) for each species drawn from conditioning models. -->
@@ -324,9 +229,7 @@ values (possible additional figure -- or in supplement)
 <!-- is shown in grey.](media/image2.png){width="6.5in" -->
 <!-- height="5.291666666666667in"} -->
 
-Table \[label:recovery-rates\]. Annual rates of change used in
-simulation of population recovery. Values derived from most recent stock
-assessment projections of no fishing scenarios.
+Table \[label:recovery-rates\]. Annual rates of change used in simulation of population recovery. Values derived from most recent stock assessment projections of no fishing scenarios.
 
 +---------------+----------------+------------+---------------------------------+--------------+
 | > **Species** | > **Case**     | > **Annual | > **Citekey**                   | > **Source** |
@@ -375,68 +278,38 @@ assessment projections of no fishing scenarios.
 <!-- ![](media/image3.png){width="5.467741688538933in" -->
 <!-- height="6.61503280839895in"} -->
 
-Figure \[label:sampling-scenario-comparison\]. Example of one replicate
-of sampled, simulated data from yelloweye rockfish (one replicate) by
-sampling plan and year. (top) The status quo sampling uses the same
-allocations and excludes MPA locations. (bottom) MPAs are only sampled
-every 4 years within each region and in the 'non-MPA' years survey
-effort is redistributed outside the MPAs following the same
-depth-stratified random allocations. Closed points indicate sites within
+Figure \[label:sampling-scenario-comparison\]. Example of one replicate of sampled, simulated data from yelloweye rockfish (one replicate) by sampling plan and year. (top) The status quo sampling uses the same allocations and excludes MPA locations. (bottom) MPAs are only sampled every 4 years within each region and in the 'non-MPA' years survey effort is redistributed outside the MPAs following the same depth-stratified random allocations. Closed points indicate sites within
 the
 
 <!-- ![A graph of a line graph AI-generated content may be -->
 <!-- incorrect.](media/image4.png){width="4.830645231846019in" -->
 <!-- height="2.760590551181102in"} -->
 
-Figure X. \[label: historical-simulated-index-example\]. Example of a
-simulated timeseries used in the power analysis for Yelloweye Rockfish
-in HBLL OUT S. The historical index (dark grey) shows the relative
-abundance estimated from the conditioning model, capturing temporal
-variation from 2004 -- 2024. Simulated projections diverge after 2024
-(first vertical dashed line), with abundance increasing inside the MPA
-(orange), and no trend outside of the MPA (blue). Indices are scaled to
-align at 2024 for visualization; values represent relative trends, ot
-absolute abundance. Power to detect the MPA effect is evaluated at
-subsequent years indicated by vertical dashed lines (2030, 2034, 2038,
-2042, 2046) by fitting analysis models to historical data combined with
-the simulated data up to each evaluation year.
+Figure X. \[label: historical-simulated-index-example\]. Example of a simulated timeseries used in the power analysis for Yelloweye Rockfish in HBLL OUT S. The historical index (dark grey) shows the relative abundance estimated from the conditioning model, capturing temporal variation from 2004 -- 2024. Simulated projections diverge after 2024 (first vertical dashed line), with abundance increasing inside the MPA (orange), and no trend outside of the MPA (blue). Indices are scaled to align at 2024 for visualization; values represent relative trends, ot absolute abundance. Power to detect the MPA effect is evaluated at subsequent years indicated by vertical dashed lines (2030, 2034, 2038, 2042, 2046) by fitting analysis models to historical data combined with the simulated data up to each evaluation year.
 
-**Step 4: Refit combined historical and simulated data to calculate (1)
-Power, (2) Exaggeration rates, (3) Sign error**
+**Step 4: Refit combined historical and simulated data to calculate (1) Power, (2) Exaggeration rates, (3) Sign error**
 
-How well can we recover the trend -- example: Figure
-\[historical-simulated-index-example\].
+How well can we recover the trend -- example: Figure \[historical-simulated-index-example\].
 
 ## POWER ANALYSIS RESULTS
 
-Statistical power to detect MPA recovery trends varied across species
-and effect sizes. For species with faster recovery rates, ≥80% power
-could be reached within the first 10-15 years of MPA implementation
-using status quo sampling, while for species with slower recovery it may
-take 20-25 years of monitoring. Reducing MPA sampling frequency
-generally delayed when ≥80% power was reached.
+Statistical power to detect MPA recovery trends varied across species and effect sizes. For species with faster recovery rates, ≥80% power could be reached within the first 10-15 years of MPA implementation using status quo sampling, while for species with slower recovery it may take 20-25 years of monitoring. Reducing MPA sampling frequency generally delayed when ≥80% power was reached.
 
 Helps us set expectations:
 
-- At best expect detection of MPA effects in the best sampled species
-  within 10-15 years
+- At best expect detection of MPA effects in the best sampled species within 10-15 years
 
-- Rates of recovery \~ 1% per year expect to detect effects in 20-25
-  years
+- Rates of recovery \~ 1% per year expect to detect effects in 20-25 years
 
 - Rates of recovery 2-3 % expect 10-15 years
 
 - Rates \>4% expect within \<10 years
 
-- Decreasing sampling within MPAs to every 4 years increased the number
-  of years before we could detect an effect by \~ 5-10 years for a given
-  recovery rate
+- Decreasing sampling within MPAs to every 4 years increased the number of years before we could detect an effect by \~ 5-10 years for a given recovery rate
 
-Detection of significant effects before 10 years is likely to lead to
-over estimates of effects 🡪 high exaggeration rates.
+Detection of significant effects before 10 years is likely to lead to over estimates of effects 🡪 high exaggeration rates.
 
-Stock assessment "no fishing" scenarios and life histories can help to
-inform expectations of recovery rates
+Stock assessment "no fishing" scenarios and life histories can help to inform expectations of recovery rates
 
 <!-- - ![A group of graphs showing different types of data AI-generated -->
 <!--   content may be incorrect.](media/image5.png){width="6.5in" -->
