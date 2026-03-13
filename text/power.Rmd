@@ -25,7 +25,8 @@ The Hard Bottom Longline Survey was selected as an illustrative example for seve
 The HBLL was one of the programs that scored highest in our program assessment based on temporal suitability, domain relevance, and spatial coverage criteria. 
 It has a 19-year time series providing sufficient historical data to characterize baseline variability, monitors multiple MPAN Ecological Conservation Priority rockfish species (yelloweye, quillback), samples 54 individual protected areas with coverage both inside and outside MPAN boundaries, and collects detailed biological data (length, weight, archived otoliths) enabling analysis of multiple response metrics.
 
-The power analyses conducted on the HBLL were used to inform recommendations on sampling frequency, spatial replication, and temporal coverage needed to support robust evaluation of Marine Protected Area (MPA) performance.Importantly, this case study serves as one methodological example---not a prescription. 
+The power analyses conducted on the HBLL were used to inform recommendations on sampling frequency, spatial replication, and temporal coverage needed to support robust evaluation of Marine Protected Area (MPA) performance.
+Importantly, this case study serves as one methodological example---not a prescription. 
 The HBLL was not originally designed for MPA performance assessment; sampling locations were selected for regional stock assessment. 
 The power analysis demonstrates what is currently feasible with existing data and what adaptations would strengthen performance monitoring. 
 Different programs will require different adaptations depending on their design, species monitored, spatial scale, logistical constraints, and organizational priorities.
@@ -33,7 +34,7 @@ This case study illustrates a general analytical workflow that can be applied to
 
 ## MONITORING PROGRAM DESIGN CONSIDERATIONS
 
-here we could have the section on sampling/monitoring program design stuff from the intro?
+*here we could have the section on sampling/monitoring program design stuff from the intro?*
 
 **Statistical robustness in monitoring**
 
@@ -44,8 +45,7 @@ types, BACI approaches, and reference site selection (DFO 2021a).
 **Replication**
 
 Establishing appropriate replication levels---whether measured in number of sites, years, or samples within sites---presents significant challenges and varies considerably among projects and indicators (Braun et al. 2019). 
-Power analyses serve as valuable tools for understanding
-how replication influences statistical power, defined as the ability to detect effects when they exist. 
+Power analyses serve as valuable tools for understanding how replication influences statistical power, defined as the ability to detect effects when they exist. 
 Statistical power depends on several key factors: spatial and temporal variation in indicators, the strength of relationships between indicators and responses (effect size), and replication or sample size including number of sites, years, and plots.
 
 Power analyses can employ standard methods for simple statistical analyses or utilize simulations for more complex modeling approaches (Johnson et al. 2015). 
@@ -91,7 +91,6 @@ readr::read_csv(here::here("text/data/power-definitions.csv")) |>
   set_caption("Definitions used in power analysis.")
 ```
 
-
 ## POWER ANALYSIS METHODOLOGY
 
 Since 2003, Fisheries and Oceans Canada has conducted Hard Bottom Longline (HBLL) surveys to monitor groundfish abundance and distribution off the coast of BC. 
@@ -124,28 +123,28 @@ For each of the three HBLL survey regions and each species, we fit separate spat
 \begin{align}
   y_{\mathbf{s},t} &\sim \text{BetaBinomial}(n_{\mathbf{s},t}, \mu_{\mathbf{s},t}, \phi) \\
   \mu_{\mathbf{s},t} &= g^{-1}(\beta_t + \omega_\mathbf{s} + \epsilon_{\mathbf{s},t}) \\
-  \omega_\mathbf{s} &\sim \text{MVNormal}(\mathbf{0}, \mathbf{\Sigma}_\omega) \\
-  \mathbf{\epsilon}_{t} &\sim \text{MVNormal}(\mathbf{0}, \mathbf{\Sigma}_\epsilon)
+  \omega_\mathbf{s} &\sim \text{MVNormal}(\mathbf{0}, \mathbf{Q}_\omega^{-1}) \\
+  \boldsymbol{\epsilon}_{t} &\sim \text{MVNormal}(\mathbf{0}, \mathbf{Q}_\epsilon^{-1})
 \end{align}
 
-We modelled the number of hooks encountering a given species $y_{\mathbf{s},t}$ at each location $\mathbf{s}$ and year $t$.
+We modelled the number of hooks catching a given species $y_{\mathbf{s},t}$ at each location $\mathbf{s}$ and year $t$.
 We used a beta-binomial observation model, which is a generalization of the binomial distribution in which the probability of success is not fixed but varies according to a beta distribution.
 This allows the model to capture additional variance across trials compared to the binomial distribution.
 The symbol $n_{\mathbf{s},t}$ is the number of ``trials'' (here the number of hooks in a given survey set),
-$\mu_{\mathbf{s},t}$ is the expected probability of a hook encountering and catching a fish on a hook, and 
+$\mu_{\mathbf{s},t}$ is the expected probability of a hook catching a fish, and
 $\phi$ is the dispersion parameter where smaller values of $\phi$ result in greater variance: $\mathrm{Var}(y) = n\mu(1-\mu)\frac{n+\phi}{1+\phi}$.
-The function $g^{-1}$ represents the (inverse) complementary log-log ("cloglog") link chosen for its connection to the Poisson sampling process and use in integrated data modelling.
+The function $g^{-1}$ represents the (inverse) complementary log-log ("cloglog") link chosen for its connection to the Poisson sampling process and its use in integrated data modelling.
 
-The beta-binomial distribution was the most parsimonious probability distribution when compared using AIC relative to the Poisson or negative binomial distribution with fish counts as a response and log hook count as an offset. 
-Importantly, the beta-binomial constrained the number of fish observed to be within the number of hooks set and therefore simulated data that more closely resembled the observed data. 
+The beta-binomial distribution was the most parsimonious probability distribution when compared using AIC against Poisson and negative binomial models fitted with fish counts as the response and log hook count as an offset.
+Importantly, the beta-binomial constrained the number of fish observed to be within the number of hooks set and therefore produced simulated data that more closely resembled the observed data.
 See supplementary materials for model comparison of hook and line count data simulation diagnostics.
     
 Our linear predictor included an annual mean fixed effect ($\beta_t$) and 
 spatial ($\omega_\mathbf{s}$) and spatiotemporal ($\epsilon_{\mathbf{s},t}$) random effects. 
-These random effects were structured as Gaussian Markov random fields (GMRFs) that were mean zero with covariance matrices (actually inverse precision matrices) based on a Matérn spatial correlation function.
+These random effects were structured as Gaussian Markov random fields (GMRFs) that were mean zero with precision matrices ($\mathbf{Q}_\omega$ and $\mathbf{Q}_\epsilon$; inverse covariance matrices) based on a Matérn spatial correlation function.
 The spatial random fields account for constant spatial patterning or correlation in distribution while the spatiotemporal random fields account for spatial patterning that is unique each year.
 If models failed to converge or if spatial and/or spatiotemporal variance estimates collapsed to near zero ($<$ 0.01), the models were refit with the collapsed random fields set to zero.
-Models were considered to have converged if the Hessian matrix was positive definite and the absolute gradient of marginal log likelihood with respect to each fixed effect was $<$ 0.001.
+Models were considered to have converged if the Hessian matrix was positive definite and the absolute gradient of the marginal log-likelihood with respect to each fixed effect was $<$ 0.001.
 
 TO FILL IN:
 
@@ -153,7 +152,7 @@ We did not account for hook competition.
 
 Fit conditioning models for each of the three HBLL survey regions to maximize the ability for the simulated data to resemble the observed data.
 
-Figure \@ref(fig:spp-distribution) shows the spatial distribution from the...
+Figure \@ref(fig:spp-distribution) shows the average spatial distribution from the fitted models for each species.
 
 ```{r spp-distribution, fig.cap="Spatial distributions of five groundfish species across the British Columbia coast. Predicted relative abundance (mean catch per 100 hooks) from the most recent survey year for each region, as estimated from the spatiotemporal models used to inform the simulation.", fig.asp=get_asp(here::here("figures/predicted-distributions.png")), out.width="90%"}
 knitr::include_graphics(here::here("figures/predicted-distributions.png"))
