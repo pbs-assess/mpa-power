@@ -91,6 +91,7 @@ readr::read_csv(here::here("text/data/power-definitions.csv")) |>
   set_caption("Definitions used in power analysis.")
 ```
 
+
 ## POWER ANALYSIS METHODOLOGY
 
 Since 2003, Fisheries and Oceans Canada has conducted Hard Bottom Longline (HBLL) surveys to monitor groundfish abundance and distribution off the coast of BC. 
@@ -142,6 +143,22 @@ Output: known truth, example of simulated time series shown in Figure \[historic
 
 ```{r recovery-rates}
 rates <- readRDS(here::here("data-generated", "recovery-rates-lambda.rds"))
+spp_levels <- rates |> arrange(lambda) |> pull(species) |> unique()
+
+rates_table <- rates |>
+  select(species, case, time, lambda, source, citekey) |>
+  mutate(species = factor(species, levels = spp_levels)) |>
+  mutate(
+    species = forcats::fct_recode(species, "pacific spiny dogfish" = "north pacific spiny dogfish"),
+    case = gsub("_", " ", case),
+    case = gsub("median", "base", case),
+    time = round(time),
+    lambda = round(lambda, 3),
+    percent_rate = 100 * (lambda - 1)
+  ) |>
+  select(species, case, time, `annual percent change` = percent_rate, citekey, source) |>
+  arrange(species, `annual percent change`)
+
 rates_table |>
   select(-time) |>
   rename(Species = species, Case = case, `Annual % change` = `annual percent change`, Citation = citekey, Source = source) |> 
