@@ -6,14 +6,20 @@ The Abstract must not be more than half a page (roughly 400 words).
 
 \newpage
 
+```{r}
+# a little function to grab the aspect ratio of our .png file:
+get_asp <- function(x) {
+  info <- magick::image_info(magick::image_read(x))
+  info$height / info$width
+}
+```
+
 # POWER ANAYLSIS --- RECOMMENDATIONS FOR MONITORING PROGRAM DESIGN/SAMPLING FREQUENCY
 
 We chose a case study of the Hard Bottom Longline Hook Survey to evaluate sampling design requirements using power analysis to assess how monitoring programs could be adapted or expanded to detect meaningful changes in conservation priority species. 
 Power analysis is a widely used approach for evaluating how sampling design and replication influence the ability to detect ecological change when it occurs. 
-Statistical power depends on the magnitude of the effect being tested, the degree of spatial and temporal variability in indicators, and the level of replication across sites, years, and sampling units (Stewart-Oaten et al. 
-1986; Underwood 1994). 
-In impact monitoring frameworks such as Before--After--Control--Impact (BACI) designs, balanced designs with comparable numbers of observations in pre- and post-impact periods generally provide greater statistical power than unbalanced designs with the same total sampling effort (Underwood 1994;
-Smokorowski and Randall 2017).
+Statistical power depends on the magnitude of the effect being tested, the degree of spatial and temporal variability in indicators, and the level of replication across sites, years, and sampling units (Stewart-Oaten et al. 1986; Underwood 1994). 
+In impact monitoring frameworks such as Before--After--Control--Impact (BACI) designs, balanced designs with comparable numbers of observations in pre- and post-impact periods generally provide greater statistical power than unbalanced designs with the same total sampling effort (Underwood 1994; Smokorowski and Randall 2017).
 
 The Hard Bottom Longline Survey was selected as an illustrative example for several reasons. 
 The HBLL was one of the programs that scored highest in our program assessment based on temporal suitability, domain relevance, and spatial coverage criteria. 
@@ -134,8 +140,7 @@ This approach allows us to test different scenarios, such as recovery trends wit
 Power increases with larger MPA effect sizes (e.g., faster recovery), higher abundances, wider spatial distribution, more frequent sampling, and longer evaluation times. 
 Conversely, species with slower recovery rates, patchy distributions, and/or lower abundance will require more intensive sampling and longer evaluation time frames to detect population changes.
 
-Table \[label:scenario-summary\]. Scenarios evaluated in the
-simulation-based power analysis.
+Table \[label:scenario-summary\]. Scenarios evaluated in the simulation-based power analysis.
 
 +----------------------+-----------------------+---------------------------+
 | **Dimension**        | **Values**            | **Implications**          |
@@ -205,15 +210,11 @@ simulation-based power analysis.
 
 - Used all
 
-- Figure \[label:species-distributions\] shows the spatial distribution
-  from the
+- Figure \@ref(fig:spp-distribution) shows the spatial distribution from the
 
-<!-- ![Figure 1. \[label:species-distributions\]. Spatial distributions of -->
-<!-- five groundfish species across the British Columbia coast. Predicted -->
-<!-- relative abundance (mean catch per 100 hooks) from the most recent -->
-<!-- survey year for each region, as estimated from the spatiotemporal models -->
-<!-- used to inform the simulation.](media/image1.png){width="6.5in" -->
-<!-- height="5.291666666666667in"} -->
+```{r spp-distribution, fig.cap="Spatial distributions of five groundfish species across the British Columbia coast. Predicted relative abundance (mean catch per 100 hooks) from the most recent survey year for each region, as estimated from the spatiotemporal models used to inform the simulation.", fig.asp=get_asp(here::here("figures/predicted-distributions.png")), out.width="90%"}
+knitr::include_graphics(here::here("figures/predicted-distributions.png"))
+```
 
 **Step 2: Simulate data from conditioning models**
 
@@ -231,47 +232,10 @@ Output: known truth, example of simulated time series shown in Figure \[historic
 
 Table \[label:recovery-rates\]. Annual rates of change used in simulation of population recovery. Values derived from most recent stock assessment projections of no fishing scenarios.
 
-+---------------+----------------+------------+---------------------------------+--------------+
-| > **Species** | > **Case**     | > **Annual | > **Citekey**                   | > **Source** |
-|               |                | > %        |                                 |              |
-|               |                | > change** |                                 |              |
-+===============+================+============+=================================+==============+
-| > lingcod     | > min rate     | > -0.6     | > dfo2025lingcod_outside_fsar   | > Figure 2   |
-+---------------+----------------+------------+---------------------------------+--------------+
-|               | > max rate     | > 0.9      | > dfo2025lingcod_outside_fsar   | > Figure 2   |
-+---------------+----------------+------------+---------------------------------+--------------+
-| > pacific     | > low          | > 0.3      | > dfo2025dogfish_outside_fsar   | > assessment |
-| > spiny       | > productivity |            |                                 | > MCMC       |
-| > dogfish     |                |            |                                 |              |
-+---------------+----------------+------------+---------------------------------+--------------+
-|               | > base         | > 0.9      | > dfo2025dogfish_outside_fsar   | > assessment |
-|               |                |            |                                 | > MCMC       |
-+---------------+----------------+------------+---------------------------------+--------------+
-|               | > high         | > 1.5      | > dfo2025dogfish_outside_fsar   | > assessment |
-|               | > productivity |            |                                 | > MCMC       |
-+---------------+----------------+------------+---------------------------------+--------------+
-| > quillback   | > min rate     | > 0.5      | > dfo2023quillback_outside_fsar | > Figure 6   |
-| > rockfish    |                |            |                                 |              |
-+---------------+----------------+------------+---------------------------------+--------------+
-|               | > mean rate    | > 0.9      | > dfo2023quillback_outside_fsar | > Figure 6   |
-+---------------+----------------+------------+---------------------------------+--------------+
-|               | > max rate     | > 1.1      | > dfo2023quillback_outside_fsar | > Figure 6   |
-+---------------+----------------+------------+---------------------------------+--------------+
-| > yelloweye   | > min rate     | > 1.1      | > haggarty2021yelloweyeinside   | > Figure 30  |
-| > rockfish    |                |            |                                 |              |
-+---------------+----------------+------------+---------------------------------+--------------+
-|               | > mean rate    | > 1.8      | > haggarty2021yelloweyeinside   | > Figure 30  |
-+---------------+----------------+------------+---------------------------------+--------------+
-|               | > max rate     | > 2.6      | > haggarty2021yelloweyeinside   | > Figure 30  |
-+---------------+----------------+------------+---------------------------------+--------------+
-| > pacific     | > slow         | > 4.2      | > iphc2024halibut               | > Figure 1   |
-| > halibut     | > recovery     |            |                                 |              |
-+---------------+----------------+------------+---------------------------------+--------------+
-|               | > base         | > 5.0      | > iphc2024halibut               | > Figure 1   |
-+---------------+----------------+------------+---------------------------------+--------------+
-|               | > high         | > 8.8      | > iphc2024halibut               | > Figure 1   |
-|               | > recovery     |            |                                 |              |
-+---------------+----------------+------------+---------------------------------+--------------+
+```{r}
+
+```
+
 
 **Step 3: Two different sampling scenarios**
 
