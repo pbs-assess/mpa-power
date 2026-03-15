@@ -130,12 +130,12 @@ fit_cached_sdmTMB <- function(fit_dir, check_cache = TRUE, update_from = NULL,
 #' @param grid Data frame containing prediction grid
 #'
 #' @return Data frame of predictions
-predict_hbll <- function(fit, grid, re_form = NULL) {
+predict_hbll <- function(fit, grid, re_form = NULL, return_tmb_object = FALSE) {
   # Filter grid for survey type
   survey <- unique(fit$data$survey_abbrev)
   pred_grid <- filter(grid, survey_abbrev %in% survey)
 
-  years <- if (all(fit$spatiotemporal != "off")) {
+  years <- if (any(fit$spatiotemporal != "off")) {
     sort(union(fit$fitted_time, fit$extra_time))
   } else {
     fit$fitted_time
@@ -150,10 +150,11 @@ predict_hbll <- function(fit, grid, re_form = NULL) {
     dat = pred_grid,
     time_name = "year",
     time_values = years
-  )
+  ) |>
+    mutate(fyear = as.factor(year))
 
   # Make predictions
-  pred <- predict(fit, newdata = nd, se_fit = FALSE, re_form = re_form)
+  pred <- predict(fit, newdata = nd, se_fit = FALSE, re_form = re_form, return_tmb_object = return_tmb_object)
 }
 
 #' Plot predictions from sdmTMB model
