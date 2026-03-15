@@ -14,6 +14,19 @@ library(flextable)
 library(patchwork)
 library(ggrepel)
 
+survey_group_lu <- tribble(
+  ~survey_series_id, ~survey_group,
+  1, "Synoptic",
+  3, "Synoptic",
+  4, "Synoptic",
+  16, "Synoptic",
+  22, "HBLL",
+  35, "Sablefish",
+  36, "HBLL",
+  39, "HBLL",
+  40, "HBLL"
+)
+
 create_linestring <- function(lon_start, lat_start, lon_end, lat_end) {
   st_linestring(matrix(c(lon_start, lat_start, lon_end, lat_end),
                         ncol = 2, byrow = TRUE))
@@ -62,7 +75,7 @@ format_label_ranges <- function(labels) {
 
 # Prepare directories
 # -------------------
-table_dir <- here::here("data-generated", "tables")
+table_dir <- here::here("tables")
 dir.create(table_dir, recursive = TRUE, showWarnings = FALSE)
 
 overlay_dir <- here::here("data-generated", "spatial", "overlays")
@@ -76,8 +89,14 @@ simple_coast <- pacea::bc_coast |>
   st_transform(crs = 3005) |>
   st_simplify(dTolerance = 100)
 
-mpa_sf <- readRDS(here::here("data-generated", "spatial", "simple-analytical-mpa.rds")) |>
+simple_mpa <- readRDS(here::here("data-generated", "spatial", "simple-analytical-mpa.rds")) |>
   mutate(site = gsub("_", " ", common_site_name_site_profile), map_id = map_label)
+
+mpa_sf <- simple_mpa |> select(uid:area_km2, shape_area:map_id)
+
+subregion_uid_lu <- mpa_sf |>
+  st_drop_geometry() |>
+  distinct(uid, subregion)
 
 zone_labels <- mpa_sf |>
   st_drop_geometry() |>
@@ -100,9 +119,6 @@ display_subregions <- subregions |> st_simplify(dTolerance = 100)
 
 sp <- sp_to_hyphens("yelloweye rockfish")
 sp_dat0 <- readRDS(file.path(synopsis_cache, paste0(sp, ".rds")))$survey_sets
-
-msd0 <- readRDS(here::here("data-generated", "msd-catch.rds"))
-msd <- distinct(msd0, trip_id, transect_site, .keep_all = TRUE)
 
 # -----------------------------------------------------------------------------
 # Groundfish surveys
@@ -169,13 +185,11 @@ if (!file.exists(file.path(overlay_dir, "syn-mpa-sf.rds"))) {
     st_join(mpa_sf, join = st_intersects) |>
     mutate(in_mpa = ifelse(is.na(uid), 0, 1))
 
-  syn_mpa_df <- st_drop_geometry(syn_mpa_sf) |>
-    filter(survey_abbrev != "SYN WCVI")
-
   saveRDS(syn_mpa_sf, file.path(overlay_dir, "syn-mpa-sf.rds"))
 } else {
   syn_mpa_sf <- readRDS(file.path(overlay_dir, "syn-mpa-sf.rds"))
 }
+syn_mpa_df <- st_drop_geometry(syn_mpa_sf)
 
 # How much fishing pressure in how many MPAs? - e.g., low medium high;
 # Doesn't want to mix trawl and longline fishing pressure
@@ -185,6 +199,9 @@ if (!file.exists(file.path(overlay_dir, "syn-mpa-sf.rds"))) {
 
 # Multi-species dive data
 # ------------------------------------------------------------------------------
+msd0 <- readRDS(here::here("data-generated", "msd-catch.rds"))
+msd <- distinct(msd0, trip_id, transect_site, .keep_all = TRUE)
+
 msd_lines <- mapply(
   create_linestring,
   msd$lon_start, msd$lat_start,
@@ -267,31 +284,30 @@ msd_mpa_df <- st_drop_geometry(msd_mpa_sf)
 #   gfplot::coord_sf_auto(display_mpa |> rotate_a(), buffer = 0)
 # )
 
-# IPHC spatial overlay
-# ------------------------------------------------------------------------------
-iphc <- gfdata::load_iphc_dat(species = "yelloweye rockfish")
-iphc_sf <- st_as_sf(iphc, coords = c("longitude", "latitude"), crs = 4326)
-iphc_mpa_sf <- iphc_sf |>
-  st_transform(crs = st_crs(mpa_sf)) |>
-  st_join(mpa_sf, join = st_intersects) |>
-  mutate(in_mpa = ifelse(is.na(uid), 0, 1))
-iphc_mpa_df <- st_drop_geometry(iphc_mpa_sf)
+# IPHC spatial overlay ---------------------------------------------------------
+# iphc <- gfdata::load_iphc_dat(species = "yelloweye rockfish")
+# iphc_sf <- st_as_sf(iphc, coords = c("longitude", "latitude"), crs = 4326)
+# iphc_mpa_sf <- iphc_sf |>
+#   st_transform(crs = st_crs(mpa_sf)) |>
+#   st_join(mpa_sf, join = st_intersects) |>
+#   mutate(in_mpa = ifelse(is.na(uid), 0, 1))
+# iphc_mpa_df <- st_drop_geometry(iphc_mpa_sf)
 
-# eDNA data - direct from Emily
-# ------------------------------------------------------------------------------
-edna0 <- readxl::read_excel(here::here("data-raw", "overlay", "SEAC_master_eDNA_spatial_file_updated_Dec_2024.xlsx")) |>
-  janitor::clean_names()
+# # eDNA data --------------------------------------------------------------------
+# # Direct from Emily
+# edna0 <- readxl::read_excel(here::here("data-raw", "overlay", "SEAC_master_eDNA_spatial_file_updated_Dec_2024.xlsx")) |>
+#   janitor::clean_names()
 
-edna_sf <- st_as_sf(edna0, coords = c("lon_dd", "lat_dd"), crs = 4326) |>
-  mutate(survey = "eDNA")
-edna_mpa_sf <- edna_sf |>
-  st_transform(crs = st_crs(mpa_sf)) |>
-  st_join(mpa_sf, join = st_intersects) |>
-  mutate(in_mpa = ifelse(is.na(uid), 0, 1))
+# edna_sf <- st_as_sf(edna0, coords = c("lon_dd", "lat_dd"), crs = 4326) |>
+#   mutate(survey = "eDNA")
+# edna_mpa_sf <- edna_sf |>
+#   st_transform(crs = st_crs(mpa_sf)) |>
+#   st_join(mpa_sf, join = st_intersects) |>
+#   mutate(in_mpa = ifelse(is.na(uid), 0, 1))
 # edna_mpa_df <- st_drop_geometry(edna_mpa_sf)
 
-# ROV data - Emily requested from Rob Skelly from ROV database
-# ------------------------------------------------------------------------------
+# ROV data ---------------------------------------------------------------------
+# Emily requested from Rob Skelly from ROV database
 rov_sf <- st_read(here::here("data-raw", "overlay", "rov_dives_0", "c4e42f2a4df449ec9b70897ee43e5415.shp")) |>
   janitor::clean_names()
 
@@ -303,413 +319,547 @@ rov_mpa_sf <- rov_sf |>
 
 rov_mpa_df <- st_drop_geometry(rov_mpa_sf)
 
-# ------------------------------------------------------------------------------
-# Overlays
-# ------------------------------------------------------------------------------
-plot_subregion_sites <- function(subregion) {
-  subregion_sf <- display_subregions |> filter(subregion == .env$subregion)
-  sites_sf <- display_mpa |> filter(subregion == .env$subregion)
-  mpa_centroids <- sites_sf |> rename(geometry = "Shape") |>
-    arrange(subregion, site, map_label) |>
-    distinct(subregion, site, .keep_all = TRUE) |>
-    mutate(site = gsub("_", " ", site))
-  ggplot() +
-    geom_sf(data = simple_coast |> rotate_sf(), fill = "grey98") +
-    geom_sf(data = subregion_sf |> st_simplify(dTolerance = 100) |> rotate_sf(), fill = "grey90", colour = "grey80",
-      linewidth = 0.8) +
-    geom_sf(data = sites_sf |> rotate_sf(),
-      aes(fill = site)) +
-    guides(fill = "none") +
-    gfplot::coord_sf_auto(subregion_sf |> rotate_sf(), buffer = 5000) +
-    geom_text_repel(
-      data = mpa_centroids |> rotate_sf() |> st_centroid(),
-      mapping = aes(label = zone_label, geometry = geometry),
-      stat = "sf_coordinates",
-      size = 3,
-      bg.color = "white",
-      bg.r = 0.2,
-      direction = "both",
-      max.overlaps = Inf,
-      force = 20,
-      force_pull = 2,
-      point.padding = 0.5,
-      box.padding = 0.5,
-      xlim = c(-Inf, Inf),
-      ylim = c(-Inf, Inf),
-      segment.size = 0.25,
-      min.segment.length = 0,
-      seed = 1
-    ) +
-    theme(axis.title = element_blank(), axis.text = element_blank())
+# Get ECP data -----------------------------------------------------------------
+
+# Only works on DFO network
+if (!file.exists(file.path("data-raw", "species-table.rds"))) {
+  species_table <- run_sql(
+    db = "GFBioSQL",
+    query = "
+    SELECT *
+    FROM SPECIES
+    "
+  )
+  saveRDS(species_table, file = "data-raw/species-table.rds")
+} else {
+  species_table <- readRDS(file = "data-raw/species-table.rds")
 }
 
-# https://stackoverflow.com/questions/78529290/position-dodge-doesnt-dodge-geom-sf-label
-plot_subregion_sites <- function(subregion,
-                                 manual_adjustments = NULL,
-                                 buffer_dist = c(8000, 8000),
-                                 coord_buffer = c(-20000, 20000, -20000, 20000)) {
+if (!file.exists(file.path("data-generated", "ecp-clean.rds"))) {
+  ecps <- readxl::read_excel("data-raw/gale CPs.xlsx") |>
+    janitor::clean_names() |>
+    mutate(common_name = tolower(common_name),
+          scientific_name = tolower(scientific_name)) |>
+    # Taxonomic corrections - align with species table from GFBio
+    mutate(scientific_name = gsub("nereocystis leutkeana", "nereocystis luetkeanus", scientific_name),
+          scientific_name = gsub("macrocystis sp.", "macrocystis integrifolia", scientific_name),
+          scientific_name = gsub("raja binoculata", "beringraja binoculata", scientific_name),
+          scientific_name = gsub("cymatogaster aggregate", "cymatogaster aggregata", scientific_name),
+          scientific_name = gsub("ammodytes hexapterus", "ammodytes personatus", scientific_name),
+          scientific_name = gsub("salvelinus malma lordi", "salvelinus malma", scientific_name),
+          scientific_name = gsub("theragra chalcogramma", "gadus chalcogrammus", scientific_name),
+    )
 
-    # 1. Prepare spatial data ----
-    # Process buffer_dist: c(x, y) or single value
-    if (length(buffer_dist) == 1) {
-      buffer_dist <- c(buffer_dist, buffer_dist)
+  # Note that pandalus borealis is now split into pandalus eous and pandalus jordani
+  # Groundfish surveys do not identify tunicates to species level (i.e., no data on invasive tunicates)
+  species_to_add <- tribble(
+    ~common_name,             ~scientific_name,
+    "pink shrimp (spiny)",    "pandalus eous",
+    "pink shrimp (smooth)",   "pandalus jordani",
+    "giant red sea cucumber", "apostichopus californicus"
+  )
+
+  surf_eel_grass <- tribble(
+  ~common_name, ~scientific_name, ~species_science_name, ~species_code, ~species_common_name, ~parent_taxonomic_unit, ~taxonomic_rank, ~itis_tsn,
+ "surfgrass", "phyllospadix sp.", "phyllospadix", "PH", "surfgrass", "zosteraceae", "genus", 39070,
+  "eelgrass", "zostera sp.", "zostera", "ZO", "eel grass", "zosteraceae", "genus", 39073
+  )
+
+  ecps <- bind_rows(ecps, species_to_add)
+
+  # For each survey, I need to extract all of the catch data for each species in
+  # the ecps list
+
+  # Step 1 - get the species table from GFBio so that I can make sure that the
+  # species names match the CP list
+
+  # species_table <- run_sql(
+  #   database = "GFBioSQL",
+  #   query = " SELECT * FROM SPECIES"
+  # )
+  # saveRDS(species_table, file = "data-raw/species-table.rds")
+
+  species_table0 <- readRDS(file = "data-raw/species-table.rds") |>
+    janitor::clean_names() |>
+    as_tibble() |>
+    mutate(
+      species_science_name = tolower(species_science_name),
+      species_common_name = tolower(species_common_name),
+      parent_taxonomic_unit = tolower(parent_taxonomic_unit)
+    )
+  species_table <- species_table0 |>
+    select(species_code, species_common_name, species_science_name, parent_taxonomic_unit, taxonomic_rank, itis_tsn)
+
+  ecp_clean <- left_join(ecps, species_table, by = c("scientific_name" = "species_science_name"),
+  relationship = "many-to-many") |> # many to many because of life stage of chinook, and resident/offshore/etc, orcas
+    distinct(scientific_name, .keep_all = TRUE) |>
+    filter(scientific_name != "phyllospadix sp.") |> # cleaned this up
+    bind_rows(surf_eel_grass) |>
+    mutate(is_ecp = TRUE)
+
+  # Double check that these species make sense to not be in GFBio
+  anti_join(ecp_clean, species_table, by = c("scientific_name" = "species_science_name")) |>
+    select(common_name, scientific_name)
+
+  saveRDS(ecp_clean, file = "data-generated/ecp-clean.rds")
+} else {
+  ecp_clean <- readRDS(file.path("data-generated", "ecp-clean.rds"))
+}
+
+# Species not queried from ECP list
+# # A tibble: 7 × 2
+#   common_name                  scientific_name
+#   <chr>                        <chr>
+# 1 spiny/northern pink shrimp   pandalus borealis --> name change
+# 2 neocalanus copepods          neocalanus sp.
+# 3 other crustacean zooplankton other crustacean zooplankton
+# 4 littorina snail              littorina sp.
+# 5 non-crustacean zooplankton   non-crustacean zooplankton
+# 6 phytoplankton                phytoplankton
+# 7 surfgrass                    phyllospadix sp.
+
+# Get GFBio data for ECPs-------------------------------------------------------
+if (!file.exists(file.path("data-raw", "mpan-csas-gf-ecp-data.rds"))) {
+  ssid_lu0 <- get_ssids()
+  ssid_lu <- ssid_lu0 |> janitor::clean_names() |>
+    select(-survey_abbrev)
+  survey_sets <- get_all_survey_sets(species = ecps_clean$species_common_name,
+                      ssid =c(1, 3, 4, 6, 16, 22, 35, 36, 39, 40, 41, 42, 43, 46))
+
+  gf_ecp_data <- left_join(survey_sets, ssid_lu, by = "survey_series_id")
+  saveRDS(gf_ecp_data, file.path("data-raw", "mpan-csas-gf-ecp-data.rds"))
+} else {
+  gf_ecp_data0 <- readRDS(file.path("data-raw", "mpan-csas-gf-ecp-data.rds")) |>
+    as_tibble()
+}
+
+ssid_lu <- gf_ecp_data0 |>
+  distinct(survey_series_id, survey_abbrev)
+
+in_mpa_lu <- bind_rows(syn_mpa_df, hbll_mpa_df) |>
+  distinct(survey_series_id = ssid, survey_abbrev, fishing_event_id = fe, in_mpa, uid, site)
+
+gf_ecp_data <- gf_ecp_data0 |>
+  select(survey_series_id, species_common_name, species_science_name,
+    fishing_event_id,
+    survey_abbrev, year, month, day, latitude, longitude, latitude_end, longitude_end,
+    catch_count, catch_weight) |>
+  left_join(survey_group_lu, by = "survey_series_id") |>
+  mutate(present = if_else(catch_count > 0 | catch_weight > 0, 1, 0)) |>
+  filter(survey_abbrev %in% c("SYN HS", "SYN QCS", "SYN WCHG",
+   "HBLL OUT N", "HBLL OUT S", "HBLL INS N")) |>
+  tidyr::drop_na(species_common_name) |>
+  filter(present == 1) |>
+  left_join(in_mpa_lu, by = c("survey_series_id", "fishing_event_id"), relationship = "many-to-many") |>
+  drop_na(in_mpa)
+
+
+gf_ecp_summary <- gf_ecp_data |>
+  distinct(survey_group, species_common_name, species_science_name, in_mpa) |>
+  group_by(survey_group, in_mpa) |>
+  summarise(n_species = n())
+gf_ecp_summary
+
+gf_ecp_site_summary <- gf_ecp_data |>
+  distinct(survey_group, species_common_name, species_science_name, in_mpa, site) |>
+  group_by(survey_group, site) |>
+  summarise(n_species = n(), .groups = "drop")
+gf_ecp_site_summary #|>
+# saveRDS(file.path("data-generated", "ecp-site-summary.rds"))
+
+gf_ecp_data |>
+  distinct(survey_group, species_common_name, species_science_name, in_mpa) |>
+  group_by(survey_group, in_mpa) |>
+  summarise(n_species = n())
+
+gf_ecp_data |>
+  distinct(survey_group, fishing_event_id, species_common_name, species_science_name, in_mpa, .keep_all = TRUE) |>
+  group_by(survey_group, species_common_name, species_science_name, in_mpa) |>
+  summarise(encounters = n(), .groups = "drop")
+
+# -----------------------------------------------------------------------------
+
+# Heatmap overlays -------------------------------------------------------------
+library(rnaturalearth)
+
+ne_coast <- ne_states(country = c("canada", "united states of america"), returnclass = "sf") |>
+  # filter(region == "West") |>
+  st_transform(crs = 3005)
+
+
+plot_overlays <- function(survey_mpa_df, survey_mpa_sf, title, legend_title,
+                          geom_size = waiver(),
+                          return_data = FALSE, breaks = NULL, labels = NULL) {
+
+  subregions <- unique(survey_mpa_df$subregion)
+  factor_subregions <- factor(subregions, levels = c("HG", "NC", "CC", "NVI"))
+  num_subregions <- length(sort(factor_subregions))
+  message(paste0("Number of subregions: ", num_subregions, " (", paste(sort(factor_subregions), collapse = ", "), ")"))
+
+  mpa_summary_sf <- survey_mpa_df |>
+    group_by(uid) |>
+    summarise(n = n(), .groups = "drop") |>
+    left_join(x = display_mpa, y = _, by = "uid")
+
+  if (return_data) {
+    return(mpa_summary_sf)
+  }
+
+  north_arrow <- function() {
+    ggspatial::annotation_north_arrow(
+    location = "tr",
+    which_north = "true",
+    height = unit(0.4, "cm"),
+    width = unit(0.4, "cm"),
+    pad_x = unit(0.2, "cm"),
+    pad_y = unit(0.2, "cm"),
+    style = ggspatial::north_arrow_orienteering(fill = c("black", "black"),
+    text_size = 5)
+  )}
+
+  map_theme <- function() {
+    theme(panel.background = element_rect(fill = ocean_colour),
+        legend.title = element_text(size = 9),
+        axis.text = element_text(size = 7),
+        legend.margin = margin(t = 0, r = 0, b = 0.1, l = 0),
+        legend.box.spacing = unit(0.1, "cm"),
+        legend.position = "top",
+        legend.key.width = unit(0.6, "cm"),
+        legend.key.height = unit(0.2, "cm"),
+        legend.spacing.x = unit(0.15, "cm"),
+        legend.text.align = 0.5,
+        legend.text = element_text(size = 7))
+  }
+
+  # Bin data if breaks provided
+  use_bins <- !is.null(breaks)
+
+  if (use_bins) {
+    mpa_summary_sf <- mpa_summary_sf |>
+      mutate(n = ifelse(is.na(n), 0, n)) |>
+      mutate(n_binned = cut(n, breaks = breaks, labels = labels,
+                            include.lowest = TRUE, right = TRUE))
+  }
+
+  #zero_colour <- "white"
+  zero_colour <- "#feedde"
+  ocean_colour <- "#b8d4ed"
+  land_colour <- "grey70"
+
+    # Grey for "0", viridis for sample counts
+    colours <- if (labels[1] == "0") {
+      c(zero_colour, viridis::viridis(length(labels) - 1))
+    } else {
+      colours <- c(zero_colour, "#2E7D32", "#FDD835", "#FB8C00", "#D32F2F")
     }
-    buffer_dist_x <- buffer_dist[1]
-    buffer_dist_y <- buffer_dist[2]
 
-    # coord_buffer: c(xleft, xright, ybottom, ytop) or single value for all sides
-    if (length(coord_buffer) == 1) {
-      coord_buffer <- c(-coord_buffer, coord_buffer, -coord_buffer, coord_buffer)
-    } else if (length(coord_buffer) == 2) {
-      # c(x, y) -> c(-x, x, -y, y)
-      coord_buffer <- c(-coord_buffer[1], coord_buffer[1], -coord_buffer[2], coord_buffer[2])
-    }
+    # colours <- c(zero_colour, RColorBrewer::brewer.pal(length(labels) - 1, "YlOrRd"))
+    # colours <- c(zero_colour, "#f2f0f7", "#cbc9e2", "#9e9ac8", "#6a51a3")
+    colours <- c(zero_colour, "#fdbe85", "#fd8d3c", "#d94701", "#a63603")
 
-    subregion_sf <- display_subregions |> filter(subregion == .env$subregion)
-    sites_sf <- display_mpa |> filter(subregion == .env$subregion)
+  tag_theme <- theme(
+    plot.tag = element_text(size = 9),
+    plot.tag.position = c(0.02, 0.95)
+  )
 
-    # Extract centroids and coordinates
-    mpa_centroids <- sites_sf |>
-      rename(geometry = "Shape") |>
-      distinct(subregion, site, .keep_all = TRUE) |>
-      mutate(site = gsub("_", " ", site)) |>
-      rotate_sf() |>
-      st_centroid() |>
-      mutate(
-        lon = st_coordinates(geometry)[, "X"],
-        lat = st_coordinates(geometry)[, "Y"]
-      )
-
-    # 2. Calculate edge positions ----
-    bbox <- st_bbox(subregion_sf |> rotate_sf())
-
-    # Assign each label to its nearest edge and push straight out
-    mpa_labels <- mpa_centroids |>
-      mutate(
-        # Distance from centroid to each potential edge position
-        dist_left = abs(lon - (bbox["xmin"] - buffer_dist_x)),
-        dist_right = abs(lon - (bbox["xmax"] + buffer_dist_x)),
-        dist_top = abs(lat - (bbox["ymax"] + buffer_dist_y)),
-        dist_bottom = abs(lat - (bbox["ymin"] - buffer_dist_y)),
-
-        # Assign to whichever edge is closest
-        min_dist = pmin(dist_left, dist_right, dist_top, dist_bottom),
-        edge = case_when(
-          min_dist == dist_left ~ "left",
-          min_dist == dist_right ~ "right",
-          min_dist == dist_top ~ "top",
-          min_dist == dist_bottom ~ "bottom"
-        ),
-
-        # Push straight out to nearest edge (no spacing/sorting)
-        xend = case_when(
-          edge == "left" ~ bbox["xmin"] - buffer_dist_x,
-          edge == "right" ~ bbox["xmax"] + buffer_dist_x,
-          TRUE ~ lon  # Keep same x for top/bottom
-        ),
-        yend = case_when(
-          edge == "top" ~ bbox["ymax"] + buffer_dist_y,
-          edge == "bottom" ~ bbox["ymin"] - buffer_dist_y,
-          TRUE ~ lat  # Keep same y for left/right
-        ),
-
-        # Text justification
-        hjust = case_when(
-          edge == "left" ~ 0,    # Left-justified
-          edge == "right" ~ 1,   # Right-justified
-          TRUE ~ 0.5             # Centered for top/bottom
-        )
-      )
-
-    # 3. Apply manual overrides ----
-    if (!is.null(manual_adjustments)) {
-      for (zone_label in names(manual_adjustments)) {
-        adj <- manual_adjustments[[zone_label]]
-        idx <- which(mpa_labels$zone_label == zone_label)
-
-        if (length(idx) > 0) {
-          if (!is.null(adj$edge)) {
-            mpa_labels$edge[idx] <- adj$edge
-            # Recalculate xend/yend based on new edge
-            mpa_labels$xend[idx] <- case_when(
-              adj$edge == "left" ~ bbox["xmin"] - buffer_dist_x,
-              adj$edge == "right" ~ bbox["xmax"] + buffer_dist_x,
-              TRUE ~ mpa_labels$lon[idx]
-            )
-            mpa_labels$yend[idx] <- case_when(
-              adj$edge == "top" ~ bbox["ymax"] + buffer_dist_y,
-              adj$edge == "bottom" ~ bbox["ymin"] - buffer_dist_y,
-              TRUE ~ mpa_labels$lat[idx]
-            )
-          }
-          # Apply nudges (relative shifts)
-          if (!is.null(adj$nudge_x)) mpa_labels$xend[idx] <- mpa_labels$xend[idx] + adj$nudge_x
-          if (!is.null(adj$nudge_y)) mpa_labels$yend[idx] <- mpa_labels$yend[idx] + adj$nudge_y
-          # Apply absolute positions (override)
-          if (!is.null(adj$xend)) mpa_labels$xend[idx] <- adj$xend
-          if (!is.null(adj$yend)) mpa_labels$yend[idx] <- adj$yend
-          if (!is.null(adj$hjust)) mpa_labels$hjust[idx] <- adj$hjust
-        }
-      }
-    }
-
-    # 4. Build plot ----
-    ggplot() +
-      # Base layers
-      geom_sf(data = simple_coast |> rotate_sf(), fill = "grey97", colour = "grey92") +
-      geom_sf(
-        data = subregion_sf |> st_simplify(dTolerance = 100) |> rotate_sf(),
-        fill = "grey90", colour = "grey80", linewidth = 0.8
-      ) +
-      geom_sf(data = sites_sf |> rotate_sf(), aes(fill = site)) +
+  p1 <- ggplot(data = survey_mpa_sf |> rotate_sf()) +
+      geom_sf(data = ne_coast |> rotate_sf(), fill = land_colour, linewidth = 0.08) +
+      geom_sf(data = mpa_summary_sf |> rotate_sf(), fill = "white",
+              colour = "grey30", linewidth = 0.1) +
+      geom_sf(size = geom_size) +
+      north_arrow() +
       guides(fill = "none") +
-      # Straight connector lines from centroids to labels
-      geom_segment(
-        data = mpa_labels,
-        aes(x = lon, y = lat, xend = xend, yend = yend),
-        colour = "grey60",
-        linewidth = 0.25
-      ) +
-      # Labels at edges
-      geom_label(
-        data = mpa_labels,
-        aes(x = xend, y = yend, label = zone_label, hjust = hjust),
-        size = 3,
-        fill = "white",
-        alpha = 0.9,
-        label.padding = unit(0.15, "lines"),
-        label.r = unit(0.15, "lines"),
-        linewidth = 0
-      ) +
-      coord_sf(
-        xlim = st_bbox(subregion_sf |> rotate_sf())[c("xmin", "xmax")] + coord_buffer[1:2],
-        ylim = st_bbox(subregion_sf |> rotate_sf())[c("ymin", "ymax")] + coord_buffer[3:4],
-        expand = FALSE,
-        clip = "on"
-      ) +
-      theme(axis.title = element_blank(), axis.text = element_blank())
+      map_theme() +
+      gfplot::coord_sf_auto(mpa_sf |> rotate_sf(), buffer = 0) +
+      ggtitle(title) +
+      theme(plot.title = element_text(vjust = -7, size = 9)) +
+      tag_theme
+
+  p2 <- ggplot() +
+    # geom_sf(data = ne_coast |> rotate_sf(), fill = "grey90") +
+    geom_sf(data = ne_coast |> rotate_sf(), fill = land_colour, linewidth = 0.08) +
+    geom_sf(data = mpa_summary_sf |> rotate_sf(),
+            aes(fill = if (use_bins) n_binned else n),
+            colour = "grey30", linewidth = 0.1) +
+    north_arrow() +
+    map_theme() +
+    theme(axis.text.y = element_blank()) +
+    gfplot::coord_sf_auto(mpa_sf |> rotate_sf(), buffer = 0) +
+    guides(fill = guide_legend(
+      title.position = "top",
+      label.position = "bottom",
+      direction = "horizontal",
+      nrow = 1,
+      byrow = TRUE                             # Keep keys in order
+    )) +
+    tag_theme
+
+  if (use_bins) {
+    p2 <- p2 + scale_fill_manual(values = colours, na.value = "grey60", name = legend_title)
+  } else {
+    p2 <- p2 + scale_fill_viridis_c(na.value = "grey60", name = legend_title)
   }
-#' @examples
-#' # Switch sites to different edges
-#' adjust_label(
-#'   "Scott Islands" = list(edge = "top"),
-#'   "Triangle Island" = list(edge = "right")
-#' )
-#' # Manual position override
-#' adjust_label(
-#'   "Some Site" = list(xend = 1500000, yend = 800000, hjust = 0)
-#' )
-adjust_label <- function(...) {
-  adjustments <- list(...)
-
-  # Auto-fill hjust based on edge if not specified
-  for (site_name in names(adjustments)) {
-    adj <- adjustments[[site_name]]
-
-    if (!is.null(adj$edge) && is.null(adj$hjust)) {
-      adj$hjust <- case_when(
-        adj$edge == "left" ~ 0,
-        adj$edge == "right" ~ 1,
-        TRUE ~ 0.5
-      )
-      adjustments[[site_name]] <- adj
-    }
-  }
-
-  adjustments
+  (p1 + p2) +
+    plot_annotation(tag_levels = "a", tag_prefix = "", tag_suffix = ")")
 }
 
-p1 <- plot_subregion_sites("HG",
-  buffer_dist = c(38000, 20000),
-  coord_buffer = c(-45000, 45000, -30000, 30000),
-  manual_adjustments = adjust_label(
-  "501" = list(nudge_y = -20000),
-  "450-456" = list(nudge_x = 40000, nudge_y = -30000),
-  "430-433" = list(edge = "right"),
-  "400-404,410,412" = list(nudge_y = 35000),
-  "438" = list(edge = "right"),
-  "447" = list(edge = "top", nudge_x = 50000, nudge_y = -50000),
-  "503" = list(nudge_y = -10000),
-  "411,413-416" = list(nudge_y = -20000),
-  "420-421,434,489-490" = list(edge = "right", nudge_y = -20000),
-  # "422-424" = list(edge = "left"),
-  "422-424" = list(edge = "right"),
-  "491-496" = list(nudge_y = -10000),
-  # "491-496" = list(edge = "right"),
-  "506" = list(edge = "left"),
-  "511" = list(edge = "right")
-))
-p1
-# ggsave(file.path(overlay_fig_dir, "hg-sites.pdf"), width = 7.2, height = 7)
-p2 <- plot_subregion_sites("NC",
-  buffer_dist = c(25000, 23000),
-  coord_buffer = c(-30000, 30000, -50000, 30000),
-  manual_adjustments = adjust_label(
-  "705-709" = list(nudge_y = 8000),
-  "308" = list(nudge_y = 8000),
-  "350-356" = list(nudge_y = 6000),
-  "316" = list(edge = "right"),
-  "361" = list(nudge_y = -10000),
-  "305-307" = list(nudge_y = -30000),
-  "700" = list(edge = "right",nudge_y = 60000),
-  "317" = list(edge = "right", nudge_y = 80000),
-  "315" = list(edge = "bottom", nudge_x = 40000),
-  "348" = list(nudge_x = 20000, nudge_y = 20000),
-  "340-342,344-347" = list(edge = "right"),
-  "99" = list(nudge_x = -40000)
-))
-p2
-# ggsave(file.path(overlay_fig_dir, "nc-sites.pdf"), width = 7.2, height = 7)
-p3 <- plot_subregion_sites("CC",
-  manual_adjustments = adjust_label(
-  "830-831" = list(edge = "left")
-))
-p3
-# ggsave(file.path(overlay_fig_dir, "cc-sites.pdf"), width = 7.2, height = 7)
-p4 <- plot_subregion_sites("NVI",
-  buffer_dist = c(8000, 8000),
-  coord_buffer = c(-20000, 20000, -20000, 20000),
-  manual_adjustments = adjust_label(
-  "604" = list(edge = "right"),
-  "605" = list(edge = "right"),
-  "666,670-672" = list(edge = "bottom"),
-  "686" = list(edge = "left"),
-  "687" = list(edge = "left")
-))
-p4
-# ggsave(file.path(overlay_fig_dir, "nvi-sites.pdf"), width = 7.2, height = 7)
+# plot_overlays(syn_mpa_df, return_data = TRUE) |>
+#   pull(n) |> quantile(probs = c(0.25, 0.5, 0.75, 0.9), na.rm = TRUE)#range(na.rm = TRUE)
+# plot_overlays(hbll_mpa_df, return_data = TRUE) |>
+#   pull(n) |> quantile(probs = c(0.25, 0.5, 0.75, 0.9), na.rm = TRUE)#range(na.rm = TRUE)
+# plot_overlays(iphc_mpa_df, return_data = TRUE) |>
+#   pull(n) |> quantile(probs = c(0.25, 0.5, 0.75, 0.9), na.rm = TRUE)#range(na.rm = TRUE)
+# plot_overlays(msd_mpa_df, return_data = TRUE) |>
+#   pull(n) |> quantile(probs = c(0.25, 0.5, 0.75, 0.9), na.rm = TRUE)#range(na.rm = TRUE)
+# plot_overlays(rov_mpa_df, return_data = TRUE) |>
+#   pull(n) |> quantile(probs = c(0.25, 0.5, 0.75, 0.9), na.rm = TRUE)#range(na.rm = TRUE)
+
+plot_overlays(hbll_mpa_df, hbll_mpa_sf, title = "HBLL set locations",
+              geom_size = 0.5,
+              legend_title = "Number of HBLL survey sets",
+              breaks = c(-0.1, 0, 10, 50, 100, Inf),
+              labels = c("0", "1-10", "11-50", "51-100", "100+"))
+ggsave(file.path(overlay_fig_dir, "heatmap-hbll-mpa-sf.png"), width = 4.5, height = 5.3)
+plot_overlays(syn_mpa_df, syn_mpa_sf, title = "SYN set locations",
+              geom_size = 0.2,
+              legend_title = "Number of SYN survey sets",
+              breaks = c(-0.1, 0, 20, 50, 100, Inf),
+              labels = c("0", "1-20", "21-50", "51-100", "100+"))
+ggsave(file.path(overlay_fig_dir, "heatmap-syn-mpa-sf.png"), width = 4.5, height = 5.3)
+plot_overlays(iphc_mpa_df, iphc_mpa_sf, title = "IPHC set locations",
+              geom_size = 0.2,
+              legend_title = "Number of IPHC survey sets",
+              breaks = c(-0.1, 0, 10, 50, 100, Inf),
+              labels = c("0", "1-10", "11-50", "51-100", "100+"))
+ggsave(file.path(overlay_fig_dir, "heatmap-iphc-mpa-sf.png"), width = 4.5, height = 5.3)
+plot_overlays(msd_mpa_df, msd_mpa_sf |> st_centroid(), title = "MSD dive locations",
+              geom_size = 0.2,
+              legend_title = "Number of MSD dives",
+              breaks = c(-0.1, 0, 5, 20, 50, Inf),
+              labels = c("0", "1-5", "6-20", "21-50", "50+"))
+ggsave(file.path(overlay_fig_dir, "heatmap-msd-mpa-sf.png"), width = 4.5, height = 5.3)
+# plot_overlays(edna_mpa_df, "Number of eDNA samples") # No NVI subregion in eDNA data
+plot_overlays(rov_mpa_df, rov_mpa_sf, title = "ROV dive locations",
+              geom_size = 0.8,
+              legend_title = "Number of ROV dives",
+              breaks = c(-0.1, 0, 10, 30, 100, Inf),
+              labels = c("0", "1-10", "11-30", "31-100", "100+"))
+ggsave(file.path(overlay_fig_dir, "heatmap-rov-mpa-sf.png"), width = 4.5, height = 5.3)
+
+################################################################################
+# Survey summary tables --------------------------------------------------------
+
+# MSD summary table ------------------------------------------------------------
+# msd_raw <- readRDS(here::here("data-generated", "multi-species-data-no-abalone-cleaned.rds"))
+msd_catch <- readRDS(here::here("data-generated", "msd-catch.rds"))
+msd_mpas_ecps <- #msd_raw |>
+  msd_catch |>
+  left_join(msd_mpa_df |> select(uid, site, transect_site, year)) |>
+  left_join(ecp_clean |> select(species_code, is_ecp)) |>
+  select(site, uid, year, transect_site, species_code, species, species_science_name, is_ecp)
+
+msd_sites_with_ecps <- msd_mpas_ecps |>
+  filter(is_ecp) |>
+  distinct(site, uid, is_ecp) |>
+  drop_na(uid) |>
+  summarise(n_sites = n())
+
+msd_longest_timeseries <- msd_mpa_df |>
+  filter(in_mpa == 1) |>
+  group_by(site, uid) |>
+  summarise(longest_timeseries = max(year) - min(year),
+            n_years = length(unique(year[in_mpa == 1])),
+            .groups = "drop") |>
+  arrange(desc(longest_timeseries)) |>
+  slice(1) |>
+  mutate(text = paste0(n_years, " years (", site, ")"))
+
+msd_summary_table <-
+msd_mpa_df |>
+  mutate(survey_name = "Multispecies Benthic Invertebrate Dive Survey") |>
+  reframe(
+    `Survey name` = "Multispecies Benthic Invertebrate Dive Survey",
+    `Years conducted` = paste(min(year), max(year), sep = "-"),
+    `Total transects` = n(),
+    `years_not_in_mpa` = paste(setdiff(min(year):max(year), unique(year[in_mpa == 1])), collapse = ", "),
+    `Years with surveys inside MPA boundaries` =
+      paste0(
+        n_distinct(year[in_mpa == 1]), " of ", n_distinct(year),
+        " (no surveys inside MPAs in ", `years_not_in_mpa`, ")"
+      ),
+    `Transects inside MPA boundaries` = sum(in_mpa),
+    `Transects outside MPA boundaries` = sum(in_mpa == 0),
+    `% of effort inside MPA boundaries` = round(100 * `Transects inside MPA boundaries` / `Total transects`, 1),
+    `Number of MPAN sites sampled` = n_distinct(uid, na.rm = TRUE),
+    `Number of MPAs with E-CP sightings` = msd_sites_with_ecps$n_sites,
+    `Longest timeseries at any single site` = msd_longest_timeseries$text
+  ) |>
+  mutate(across(everything(), as.character)) |>
+  pivot_longer(cols = everything(), names_to = "metric", values_to = "value")
+saveRDS(msd_summary_table, file.path("data-generated", "msd-summary-table.rds"))
 
 
-overlay_sf  <- bind_rows(
-  hbll_mpa_sf |>
-    mutate(survey = "HBLL") |>
-    select(survey, uid, subregion, site, in_mpa, year, geometry),
-  syn_mpa_sf |>
-    mutate(survey = "SYN") |>
-    select(survey, uid, subregion, site, in_mpa, year, geometry),
-  iphc_mpa_sf |>
-    mutate(survey = "IPHC") |>
-    select(survey, uid, subregion, site, in_mpa, year, geometry),
-  msd_mpa_sf |>
-    mutate(survey = "MSD") |>
-    select(survey, uid, subregion, site, in_mpa, year, geometry),
-  edna_mpa_sf |>
-    mutate(survey = "eDNA") |>
-    select(survey, uid, subregion, site, in_mpa, year, geometry),
-  rov_mpa_sf |>
-    mutate(survey = "ROV") |>
-    select(survey, uid, subregion, site, in_mpa, year, geometry)
-) |>
-  mutate(site = gsub("_", " ", site))
+# MSD site summary table --------------------
+# Site ID
+# Common Site Name
+# Total transects
+# First survey
+# Last survey
+# No. years
+# Unique species
+# Mean species richness
+msd_species_list <- #msd_raw |>
+  msd_catch |>
+  left_join(msd_mpa_df |> select(uid, site, transect_site, year), by = c("transect_site", "year")) |>
+  left_join(ecp_clean |> select(species_code, is_ecp)) |>
+  filter(!is.na(uid)) |>  # Only keep observations inside MPAs
+  group_by(site, uid) |>
+  summarise(
+    `Unique species` = n_distinct(species),
+    unique_species = paste(unique(species), collapse = ", "),
+    .groups = "drop"
+  )
 
-overlay_counts <- overlay_sf |>
-  st_drop_geometry() |>
-  group_by(survey, subregion) |>
-  summarise(n_transects = n(), .groups = "drop") |>
-  mutate(subregion = ifelse(is.na(subregion), "outside", subregion))
+# msd_raw |>
+msd_catch |>
+  # select(algae_code:species) |>
+  filter(stringr::str_detect(species_science_name, "zostera")) |>
+  distinct() |>
+  glimpse()
 
-overlay_counts
+ecp_clean |>
+  filter(stringr::str_detect(scientific_name, "zostera")) |>
+  distinct() |>
+  glimpse()
 
-plot_hg_nc <- function(survey) {
-  st1 <-
-  sf_dat <- overlay_sf |> st_centroid() |> filter(survey == .env$survey)
-  (p1 + geom_sf(data = sf_dat |> filter(subregion == "HG") |> rotate_sf(), shape = 21) +
-    gfplot::coord_sf_auto(display_mpa |> filter(subregion == "HG") |> rotate_sf(), buffer = 5000) +
-    labs(subtitle = paste0("HG: ", overlay_counts |> filter(survey == .env$survey, subregion == "HG") |> pull(n_transects)))) +
-  (p2 + geom_sf(data = sf_dat |> filter(subregion == "NC") |> rotate_sf(), shape = 21) +
-    gfplot::coord_sf_auto(display_mpa |> filter(subregion == "NC") |> rotate_sf(), buffer = 5000) +
-    labs(subtitle = paste0("NC: ", overlay_counts |> filter(survey == .env$survey, subregion == "NC") |> pull(n_transects))) ) +
-  plot_annotation(title = survey)
-}
+msd_richness <- readRDS(here::here("data-generated", "msd-transect-richness.rds")) |>
+  left_join(msd_mpa_df |> select(uid, site, transect_site, year)) |>
+  mutate(in_mpa = ifelse(is.na(uid), 0, 1)) |>
+  filter(in_mpa == 1) |>  # Only transects inside MPAs
+  group_by(site, uid) |>
+  summarise(`Mean species richness` = mean(richness), .groups = "drop")
 
-plot_hg_nc("ROV")
+msd_site_summary_table <-
+msd_mpa_df |>
+  filter(in_mpa == 1) |>
+  group_by(site, uid) |>
+  summarise(
+    `Site ID` = unique(uid),
+    `Common Site Name` = unique(site),
+    `Total transects` = length(unique(transect_site)),
+    `First survey` = min(year),
+    `Last survey` = max(year),
+    `No. years` = n_distinct(year),
+    `Years in MPA` = paste(unique(year[in_mpa == 1]), collapse = ", "),
+    .groups = "drop"
+  ) |>
+  left_join(msd_richness, by = c("site", "uid")) |>
+  left_join(msd_species_list, by = c("site", "uid")) |>
+  arrange(desc(`Total transects`))
 
-plot_cc_nvi <- function(survey) {
-  sf_dat <- overlay_sf |> st_centroid() |> filter(survey == .env$survey)
-  (p3 + geom_sf(data = sf_dat |> filter(subregion == "CC") |> rotate_sf(), shape = 21) +
-    gfplot::coord_sf_auto(display_mpa |> filter(subregion == "CC") |> rotate_sf(), buffer = 5000)) +
-  (p4 + geom_sf(data = sf_dat |> filter(subregion == "NVI") |> rotate_sf(), shape = 21) +
-    gfplot::coord_sf_auto(display_mpa |> filter(subregion == "NVI") |> rotate_sf(), buffer = 5000)) +
-  plot_annotation(title = survey)
-}
+saveRDS(msd_site_summary_table, file.path("data-generated", "msd-site-summary-table.rds"))
 
-surveys <- c("HBLL", "SYN", "IPHC", "MSD", "eDNA")
-cairo_pdf(file.path(overlay_fig_dir, "survey-plots.pdf"), width = 12, height = 7)
-  walk(surveys, \(survey) {
-    print(plot_hg_nc(survey))
-    print(plot_cc_nvi(survey))
-  })
-dev.off()
+# MSD site summary table --------------------
+msd_species_summary_table <-
+  msd_catch |>
+  left_join(ecp_clean |> select(species_code, is_ecp)) |>
+  distinct(year, transect_site, species_science_name, species_common_name, species_desc, is_ecp, species_group, catch_count) |>
+  arrange(is_ecp) |>
+  left_join(msd_mpa_df |> select(uid, site, transect_site, year), by = c("transect_site", "year")) |>
+  mutate(in_mpa = ifelse(is.na(uid), 0, 1)) |>  # Only keep observations inside MPAs
+  mutate(Species = stringr::str_to_sentence(species_science_name)) |>
+  filter(!is.na(is_ecp) | stringr::str_detect(species_science_name, "pterygophora")) |>  # Only keep E-CP species
+  group_by(Species, species_group, species_desc) |>
+  summarise(
+    `Sightings inside MPAs` = sum(catch_count[in_mpa == 1]),
+    `Sightings outside MPAs` = sum(catch_count[in_mpa == 0]),
+    `Proportion inside MPAs` = round(`Sightings inside MPAs` / (`Sightings inside MPAs` + `Sightings outside MPAs`), 2),
+    .groups = "drop"
+  ) |>
+  select(Species, `Common name` = species_desc, `Sightings inside MPAs`, `Sightings outside MPAs`, `Proportion inside MPAs`, species_group) |>
+  arrange(species_group)
+saveRDS(msd_species_summary_table, file.path("data-generated", "msd-species-summary-table.rds"))
 
-overlay_df <- overlay_sf |> st_drop_geometry() |>
-  mutate(subregion = factor(subregion, levels = c("HG", "NC", "CC", "NVI"))) |>
-  mutate(survey = factor(survey, levels = c("HBLL", "SYN", "IPHC", "MSD", "eDNA")))
+# ------------------------------------------------------------------------------
 
-summary_df <- overlay_df |>
-  # group_by(survey, subregion, site, uid) |>
-  group_by(survey, subregion, site) |>
-  summarise(n_transects = n(), .groups = "drop") |>
-  right_join(all_subregion_sites, by = c("site", "subregion")) |>
-  pivot_wider(names_from = survey, values_from = n_transects, names_vary = "slowest") |>
-  select(-`NA`) |>
-  mutate(subregion = factor(subregion, levels = c("HG", "NC", "CC", "NVI"))) |>
-  arrange(subregion, site)
 
-summary_df
 
-mk_spatial_overlay_table <- function(summary_df) {
-  summary_df |>
-    flextable() |>
-    width(width = c(subregion = 2.3, site = 6, zone_label = 3.3, HBLL = 1.5, SYN = 1.5, IPHC = 1.5, MSD = 1.5, eDNA = 1.5), unit = "cm") |>
-    set_header_labels(
-      subregion = "Subregion",
-      site = "Site",
-      zone_label = "Zones"
-    ) |>
-    theme_zebra(odd_header ="#fcfcfc", odd_body = "#EFEFEF", even_header = "transparent", even_body = "transparent") |>
-    bg(bg = "transparent", part = "header")
-}
 
-ft1 <- summary_df |> filter(subregion == "HG") |> mk_spatial_overlay_table() |> set_caption("Haida Gwaii")
-ft2 <- summary_df |> filter(subregion == "NC") |> mk_spatial_overlay_table() |> set_caption("North Coast")
-ft3 <- summary_df |> filter(subregion == "CC") |> mk_spatial_overlay_table() |> set_caption("Central Coast")
-ft4 <- summary_df |> filter(subregion == "NVI") |> mk_spatial_overlay_table() |> set_caption("North Vancouver Isl")
-
-sect_properties <- prop_section(
-  page_size = page_size(
-    orient = "landscape",
-    width = 8.3, height = 11.7
-  ),
-  type = "continuous",
-  page_margins = page_mar()
+metric_labels <- c(
+  "monitoring_program" = "Monitoring program name",
+  "sampling_frequency" = "Sampling frequency",
+  "year_range" = "Year range",
+  "n_years" = "Number of years",
+  "n_years_in_mpa" = "Number of years in MPA",
+  "n_transects" = "Number of transects",
+  "n_transects_in_mpa" = "Number of transects in MPA",
+  "n_transects_outside_mpa" = "Number of transects outside MPA",
+  "prop_in_mpa" = "Proportion of transects in MPA (%)",
+  "n_mpas" = "Number of MPAs"
 )
 
-
-doc <- read_docx()
-doc <- body_add_flextable(doc, value = ft1)
-doc <- body_add_par(doc, value = "")
-doc <- body_add_flextable(doc, value = ft2)
-doc <- body_add_par(doc, value = "")
-doc <- body_add_flextable(doc, value = ft3)
-doc <- body_add_par(doc, value = "")
-doc <- body_add_flextable(doc, value = ft4)
-doc <- body_set_default_section(doc, value = sect_properties)
-
-print(doc, target = file.path(table_dir, "survey-summary-tables.docx"))
-
-
-
-syn_flextable <- syn_mpa_df |>
-  mutate(survey_name = case_when(
-    survey_abbrev == "SYN HS" ~ "Hecate Strait",
-    survey_abbrev == "SYN QCS" ~ "Queen Charlotte Sound",
-    survey_abbrev == "SYN WCHG" ~ "West Coast Haida Gwaii",
-    TRUE ~ survey_abbrev
-  )) |>
+hbll_flextable <- hbll_mpa_df |>
+  mutate(
+    program = case_when(
+      survey_abbrev %in% c("HBLL OUT N", "HBLL OUT S") ~ "Hard Bottom Longline Outside",
+      survey_abbrev %in% c("HBLL INS N", "HBLL INS S") ~ "Hard Bottom Longline Inside",
+      TRUE ~ survey_abbrev
+    ),
+    region = case_when(
+      survey_abbrev %in% c("HBLL OUT N", "HBLL INS N") ~ "North",
+      survey_abbrev %in% c("HBLL OUT S", "HBLL INS S") ~ "South",
+      TRUE ~ survey_abbrev
+    ),
+    program_region = paste(program, region, sep = " ")
+  ) |>
   select(-fo_id) |>
-  group_by(survey_name) |>
+  group_by(program, region, program_region) |>
   summarise(
-    sampling_frequency = "biannual",
+    program_region = unique(program_region),
+    sampling_frequency = "biennial",
+    year_range = paste(min(year), max(year), sep = "-"),
+    n_years = n_distinct(year),
+    n_years_in_mpa = n_distinct(year[in_mpa == 1]),
+    n_transects = n(),
+    n_transects_in_mpa = sum(in_mpa),
+    prop_in_mpa = round(100 * n_transects_in_mpa / n_transects, 1),
+    n_mpas = n_distinct(uid, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  mutate(across(-c(program, region, program_region), as.character)) |>
+  pivot_longer(cols = -program_region, names_to = "metric", values_to = "value") |>
+  pivot_wider(
+    names_from = program_region,
+    values_from = value,
+    names_vary = "slowest"
+  ) |>
+  select(metric, `Hard Bottom Longline Outside North`, `Hard Bottom Longline Outside South`, `Hard Bottom Longline Inside North`) |>
+  mutate(metric = metric_labels[metric]) |>
+  drop_na(metric) |>
+  flextable() |>
+  add_header_row(
+    values = c("Monitoring program name", "Hard Bottom Longline Outside", "Hard Bottom Longline Inside"),
+    colwidths = c(1, 2, 1),
+    top = TRUE
+  ) |>
+  set_header_labels(
+    metric = "Survey region",
+    `Hard Bottom Longline Outside North` = "North",
+    `Hard Bottom Longline Outside South` = "South",
+    `Hard Bottom Longline Inside North` = "North"
+  ) |>
+  align(align = "right", part = "all") |>
+  autofit()
+
+hbll_flextable
+saveRDS(hbll_flextable, file.path(table_dir, "hbll-summary-flextable.rds"))
+
+# HBLL aggregate (all surveys combined) ----------------------------------------
+hbll_aggregate_flextable <- hbll_mpa_df |>
+  select(-fo_id) |>
+  summarise(
+    monitoring_program = "Hard Bottom Longline",
+    sampling_frequency = "annual",
     year_range = paste(min(year), max(year), sep = "-"),
     n_years = n_distinct(year),
     n_years_in_mpa = n_distinct(year[in_mpa == 1]),
@@ -719,49 +869,217 @@ syn_flextable <- syn_mpa_df |>
     n_mpas = n_distinct(uid, na.rm = TRUE)
   ) |>
   mutate(across(everything(), as.character)) |>
+  pivot_longer(everything(), names_to = "metric", values_to = "value") |>
+  mutate(metric = metric_labels[metric]) |>
+  drop_na(metric) |>
+  flextable(col_keys = c("metric", "value")) |>
+  set_header_labels(metric = "Metric", value = "Hard Bottom Longline (all surveys)") |>
+  align(align = "right", part = "all") |>
+  autofit()
+
+
+
+saveRDS(hbll_aggregate_flextable, file.path(table_dir, "hbll-summary-aggregate-flextable.rds"))
+
+hbll_mpa_df |>
+  filter(in_mpa == 1) |>
+  distinct(site) |>
+  pull(site) |>
+  length()
+
+hbll_mpa_df |>
+  filter(in_mpa == 1) |>
+  group_by(site) |>
+  summarise(n_years = n_distinct(year)) |>
+  arrange(desc(n_years))
+
+hbll_mpa_df |>
+  filter(in_mpa == 1) |>
+  group_by(site, uid) |>
+  summarise(
+    n_transects = length(unique(fe)),
+    first_year = min(year),
+    last_year = max(year),
+    n_years = n_distinct(year)
+  ) |>
+  arrange(desc(n_transects)) |>
+  left_join(gf_ecp_site_summary |> filter(survey_group == "HBLL")) |>
+  left_join(subregion_uid_lu, by = "uid") |>
+  select(-survey_group) |>
+flextable() |>
+  set_header_labels(
+    uid = "Site UID",site = "Site Name",
+    subregion = "Subregion",
+    n_transects = "Total fishing events",
+    first_year = "First year",
+    last_year = "Last year",
+    n_years = "Number of years within-MPA events",
+    n_species = "E-CP species count") |>
+  colformat_int(j = c("first_year", "last_year", "n_transects", "n_years", "n_species"), big.mark = "") |>
+  align(align = "right", part = "all") |>
+  autofit() |>
+saveRDS(file.path(table_dir, "hbll-site-summary.rds"))
+
+
+
+
+# syn summary table ------------------------------------------------------------
+# syn_flextable <- syn_mpa_df |>
+#   mutate(survey_name = case_when(
+#     survey_abbrev == "SYN HS" ~ "Hecate Strait",
+#     survey_abbrev == "SYN QCS" ~ "Queen Charlotte Sound",
+#     survey_abbrev == "SYN WCHG" ~ "West Coast Haida Gwaii",
+#     TRUE ~ survey_abbrev
+#   )) |>
+#   select(-fo_id) |>
+#   group_by(survey_name) |>
+#   summarise(
+#     sampling_frequency = "biennial",
+#     year_range = paste(min(year), max(year), sep = "-"),
+#     n_years = n_distinct(year),
+#     n_years_in_mpa = n_distinct(year[in_mpa == 1]),
+#     n_transects = n(),
+#     n_transects_in_mpa = sum(in_mpa),
+#     prop_in_mpa = round(100 * n_transects_in_mpa / n_transects, 1),
+#     n_mpas = n_distinct(uid, na.rm = TRUE)
+#   ) |>
+#   mutate(across(everything(), as.character)) |>
+#   pivot_longer(cols = -c(survey_name), names_to = "metric", values_to = "value") |>
+#   pivot_wider(
+#     names_from = survey_name,
+#     values_from = value,
+#     names_vary = "slowest"
+#   ) |>
+#   select(metric, `West Coast Haida Gwaii`, `Hecate Strait`, `Queen Charlotte Sound`) |>
+#   mutate(metric = metric_labels[metric]) |>
+#   flextable() |>
+#   add_header_row(
+#     values = c("Monitoring program name", "Synoptic Bottom Trawl Survey"),
+#     colwidths = c(1, 3),
+#     top = TRUE
+#   ) |>
+#   set_header_labels(metric = "Survey region") |>
+#   align(i = 1, align = "center", part = "header") |>  # Center top header row
+#   align(i = 2, align = "right", part = "header") |>  # Right align column names
+#   align(j = 2, align = "center", part = "header") |>  # Right align column names
+#   align(j = 2:4, align = "right", part = "body") |>    # Right align data columns
+#   autofit()
+# syn_flextable
+# saveRDS(syn_flextable, file.path(table_dir, "syn-summary-flextable.rds"))
+
+# # SYN aggregate (all surveys combined) -----------------------------------------
+# syn_aggregate_flextable <- syn_mpa_df |>
+#   select(-fo_id) |>
+#   summarise(
+#     monitoring_program = "Synoptic Bottom Trawl Survey",
+#     sampling_frequency = "biennial",
+#     year_range = paste(min(year), max(year), sep = "-"),
+#     n_years = n_distinct(year),
+#     n_years_in_mpa = n_distinct(year[in_mpa == 1]),
+#     n_transects = n(),
+#     n_transects_in_mpa = sum(in_mpa),
+#     prop_in_mpa = round(100 * n_transects_in_mpa / n_transects, 1),
+#     n_mpas = n_distinct(uid, na.rm = TRUE)
+#   ) |>
+#   mutate(across(everything(), as.character)) |>
+#   pivot_longer(everything(), names_to = "metric", values_to = "value") |>
+#   mutate(metric = metric_labels[metric]) |>
+#   drop_na(metric) |>
+#   flextable(col_keys = c("metric", "value")) |>
+#   set_header_labels(metric = "Metric", value = "Synoptic Bottom Trawl Survey (all regions)") |>
+#   align(align = "right", part = "all") |>
+#   autofit()
+
+# saveRDS(syn_aggregate_flextable, file.path(table_dir, "syn-summary-aggregate-flextable.rds"))
+
+# syn_mpa_df |>
+#   filter(in_mpa == 1) |>
+#   group_by(site, uid) |>
+#   summarise(
+#     n_transects = length(unique(fe)),
+#     first_year = min(year),
+#     last_year = max(year),
+#     n_years = n_distinct(year)
+#   ) |>
+#   arrange(desc(n_transects)) |>
+#   left_join(gf_ecp_site_summary |> filter(survey_group == "Synoptic")) |>
+#   left_join(subregion_uid_lu, by = "uid") |>
+#   select(-survey_group) |>
+# flextable() |>
+#   set_header_labels(
+#     uid = "Site UID",site = "Site Name",
+#     subregion = "Subregion",
+#     n_transects = "Total fishing events",
+#     first_year = "First year",
+#     last_year = "Last year",
+#     n_years = "Number of years within-MPA events",
+#     n_species = "E-CP species count") |>
+#   colformat_int(j = c("first_year", "last_year", "n_transects", "n_years", "n_species"), big.mark = "") |>
+#   align(align = "right", part = "all") |>
+#   autofit() |>
+# saveRDS(file.path(table_dir, "syn-site-summary.rds"))
+
+
+# IPHC summary table ------------------------------------------------------------
+# iphc_flextable <- iphc_mpa_df |>
+#   mutate(survey_name = "IPHC") |>
+#   reframe(
+#     survey_name = "IPHC",
+#     sampling_frequency = "annual",
+#     year_range = paste(min(year), max(year), sep = "-"),
+#     n_years = n_distinct(year),
+#     n_years_in_mpa = n_distinct(year[in_mpa == 1]),
+#     n_transects = n(),
+#     n_transects_in_mpa = sum(in_mpa),
+#     prop_in_mpa = round(100 * n_transects_in_mpa / n_transects, 1),
+#     n_mpas = n_distinct(uid, na.rm = TRUE)
+#   ) |>
+#   mutate(across(everything(), as.character)) |>
+#   pivot_longer(cols = -c(survey_name), names_to = "metric", values_to = "value") |>
+#   pivot_wider(
+#     names_from = survey_name,
+#     values_from = value,
+#     names_vary = "slowest"
+#   ) |>
+#   select(metric, IPHC) |>
+#   mutate(metric = metric_labels[metric]) |>
+#   rename(`International Pacific Halibut Commission Setline Survey` = IPHC) |>
+#   flextable() |>
+#   set_header_labels(metric = "Monitoring program name") |>
+#   align(align = "right", part = "all") |>
+#   autofit()
+
+# saveRDS(iphc_flextable, file.path(table_dir, "iphc-summary-flextable.rds"))
+
+
+
+
+# ROV summary table ------------------------------------------------------------
+rov_flextable <- rov_mpa_df |>
+  mutate(survey_name = "ROV") |>
+  reframe(
+    survey_name = "ROV",
+    sampling_frequency = "annual",
+    year_range = paste(min(year), max(year), sep = "-"),
+    n_years = n_distinct(year),
+    n_years_in_mpa = n_distinct(year[in_mpa == 1]),
+    n_transects = n(),
+    n_transects_in_mpa = sum(in_mpa),
+    prop_in_mpa = round(100 * n_transects_in_mpa / n_transects, 1),
+    n_mpas = n_distinct(uid, na.rm = TRUE),
+  ) |>
+  mutate(across(everything(), as.character)) |>
   pivot_longer(cols = -c(survey_name), names_to = "metric", values_to = "value") |>
   pivot_wider(
     names_from = survey_name,
     values_from = value,
     names_vary = "slowest"
   ) |>
-  select(metric, `West Coast Haida Gwaii`, `Hecate Strait`, `Queen Charlotte Sound`) |>
+  select(metric, ROV) |>
   mutate(metric = metric_labels[metric]) |>
   flextable() |>
   set_header_labels(metric = "") |>
-  # add_header_row(
-  #   values = "DFO Synoptic Bottom Trawl Survey Coverage",
-  #   colwidths = 4
-  # ) |>
-  # theme_vanilla() |>
   align(align = "right", part = "all") |>
-  # bold(part = "header") |>
   autofit()
 
-# Display the table
-syn_flextable
-
-syn_table_cap <-
-"Table X. Summary of DFO Synoptic Bottom Trawl Survey (West Coast Haida Gwaii, Hecate Strait, Queen Charlotte Sound) coverage and overlap within MPA boundaries.
-Open Canada reference: https://open.canada.ca/data/en/dataset/945e0f13-119b-451b-9038-50c6eb641aef"
-
-# Save both tables to single Word document
-read_docx() |>
-  body_add_par(hbll_table_cap) |>
-  body_add_flextable(hbll_flextable) |>
-  body_add_break() |>
-  body_add_par(syn_table_cap) |>
-  body_add_flextable(syn_flextable) |>
-  body_add_par("") |>
-  print(target = file.path(table_dir, "survey-summary-tables.docx"))
-
-
-
-
-msd_mpa_df |>
-  filter(subregion == "CC") |>
-  group_by(site) |>
-  summarise(n_transects = n(), .groups = "drop") |>
-  right_join(all_sites, by = "site")
-
-
+saveRDS(rov_flextable, file.path(table_dir, "rov-summary-flextable.rds"))
