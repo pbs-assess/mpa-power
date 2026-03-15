@@ -159,6 +159,235 @@ prepare_species_fits <- function(sp_name, fit_dir = here::here("data-generated",
   return(survey_fits)
 }
 
+#' Check cache and prepare micro-tasks for missing replicates
+#'
+#' Pre-computes hashes for all parameter combos, checks which replicate files
+#' already exist, and creates micro-tasks only for missing replicates.
+#'
+#' @param task_grid Task grid with species, survey_config, param_combo, param_grid
+#' @param sim_dir Directory containing simulation files
+#'
+#' @return Tibble with micro-tasks (one row per replicate to simulate)
+check_cache_and_prepare_tasks <- function(task_grid, sim_dir) {
+  message("Checking cache for ", nrow(task_grid), " parameter combinations...")
+
+  micro_tasks <- purrr::pmap_dfr(task_grid, function(species, survey_config, param_combo, param_grid) {
+    survey_abbrev <- survey_config$abbrev
+
+    # Get replicates for this parameter combination
+    combo_reps <- param_grid |>
+      filter(
+        mpa_trend == param_combo$mpa_trend,
+        ar1_scenario == param_combo$ar1_scenario,
+        time_scenario == param_combo$time_scenario,
+        formula_scenario == param_combo$formula_scenario
+      )
+
+    # Calculate hash (must match original formula exactly)
+    hash_string <- paste(
+      species,
+      survey_abbrev,
+      param_combo$mpa_trend,
+      param_combo$ar1_scenario,
+      param_combo$time_scenario,
+      deparse(param_combo$formula[[1]]),
+      param_combo$rho_V,
+      param_combo$sigma_V,
+      param_combo$phi,
+      nrow(combo_reps),
+      sep = "|"
+    )
+    sim_hash <- digest::digest(hash_string, algo = "xxhash64")
+
+    # Generate base filename pattern (without rep number)
+    sp <- sp_to_hyphens(species)
+    mpa_str <- paste0("mpa", round(param_combo$mpa_trend, digits = 3))
+    ar1_str <- param_combo$ar1_scenario
+    time_str <- param_combo$time_scenario
+    formula_str <- if (param_combo$formula_scenario != "standard") {
+      param_combo$formula_scenario
+    } else {
+      NULL
+    }
+    name_parts <- c(sp, survey_abbrev, mpa_str, ar1_str, time_str, formula_str)
+    base_name <- paste(name_parts, collapse = "-")
+    base_name <- gsub("[^a-zA-Z0-9_.-]", "-", base_name)
+
+    # Check which replicate files are missing
+    missing_reps <- purrr::map_dfr(1:nrow(combo_reps), function(i) {
+      rep_num <- combo_reps$replicate[i]
+      rep_seed <- combo_reps$seed[i]
+
+      # Generate replicate filename
+      rep_fname <- paste0(base_name, "-rep", sprintf("%03d", rep_num), "-",
+                          substr(sim_hash, 1, 8), ".rds")
+      rep_fpath <- file.path(sim_dir, rep_fname)
+
+      # Only add to micro_tasks if file doesn't exist
+      if (!file.exists(rep_fpath)) {
+        tibble(
+          species = species,
+          survey_config = list(survey_config),
+          param_combo = list(param_combo),
+          replicate = rep_num,
+          seed = rep_seed,
+          replicate_file_path = rep_fpath,
+          sim_hash = sim_hash
+        )
+      } else {
+        NULL
+      }
+    })
+
+    return(missing_reps)
+  })
+
+  if (nrow(micro_tasks) == 0) {
+    message("All replicates already cached!")
+  } else {
+    message("Found ", nrow(micro_tasks), " missing replicates to simulate")
+  }
+
+  return(micro_tasks)
+}
+
+#' Run single replicate simulation and save immediately
+#'
+#' Simulates ONE replicate and saves it to individual file for fault tolerance.
+#'
+#' @param species Species name
+#' @param survey_config Survey configuration (fit, abbrev, tag_prefix)
+#' @param param_combo Parameter combination (single row with mpa_trend, ar1_scenario, etc.)
+#' @param replicate Replicate number
+#' @param seed Random seed for this replicate
+#' @param replicate_file_path Full path where to save this replicate
+#' @param sim_hash Hash for this parameter combination
+#' @param restricted_df Restricted dataframe for simulation
+#' @param hbll_grid HBLL grid for spatial joins
+#' @param hbll_last_sampled_year Last sampled year by survey
+#'
+#' @return TRUE if successful, FALSE otherwise
+run_single_replicate_simulation <- function(species,
+                                           survey_config,
+                                           param_combo,
+                                           replicate,
+                                           seed,
+                                           replicate_file_path,
+                                           sim_hash,
+                                           restricted_df,
+                                           hbll_grid,
+                                           hbll_last_sampled_year) {
+
+  survey_abbrev <- survey_config$abbrev
+
+  # Run simulation for this single replicate
+  survey_sim <- simulate_hbll(
+    fit = survey_config$fit,
+    restricted_df = restricted_df,
+    sim_dir = dirname(replicate_file_path),
+    check_cache = FALSE,
+    save_sim = FALSE,
+    formula = param_combo$formula[[1]],
+    seed = seed,
+    year_covariate = param_combo$year_covariate[[1]],
+    mpa_trend = log(param_combo$mpa_trend),
+    rho_V = if (is.na(param_combo$rho_V)) NULL else param_combo$rho_V,
+    sigma_V = if (is.na(param_combo$sigma_V)) NULL else param_combo$sigma_V,
+    use_fixed_spatial_field = TRUE,
+    sigma_E = NULL,
+    phi = if (is.na(param_combo$phi)) NULL else param_combo$phi,
+    tag = paste0(survey_config$tag_prefix, "-rep", replicate)
+  )
+
+  # Add block_id and convert year to calendar year
+  sim_dat <- survey_sim |>
+    select(!contains("fyear")) |>
+    left_join(hbll_grid |> select(X, Y, block_id, grouping_code), by = c("X", "Y")) |>
+    left_join(hbll_last_sampled_year, by = "survey_abbrev") |>
+    mutate(
+      year_counter = year,
+      year = last_sampled_year + year,
+      d = "simulated",
+      replicate = replicate
+    ) |>
+    select(-last_sampled_year)
+
+  # Add parameter metadata as attributes
+  attr(sim_dat, "sim_params") <- list(
+    species = species,
+    survey_abbrev = survey_abbrev,
+    mpa_trend = param_combo$mpa_trend,
+    ar1_scenario = param_combo$ar1_scenario,
+    time_scenario = param_combo$time_scenario,
+    formula_scenario = param_combo$formula_scenario,
+    rho_V = param_combo$rho_V,
+    sigma_V = param_combo$sigma_V,
+    phi = param_combo$phi,
+    year_covariate = param_combo$year_covariate[[1]],
+    formula = param_combo$formula[[1]],
+    replicate = replicate,
+    sim_hash = sim_hash,
+    created_date = Sys.time()
+  )
+
+  # Save immediately
+  saveRDS(sim_dat, replicate_file_path)
+
+  return(TRUE)
+}
+
+#' Create simulation summary from replicate files
+#'
+#' Scans directory for replicate files and builds summary tibble.
+#'
+#' @param sim_dir Directory containing replicate files
+#'
+#' @return Tibble with simulation summary
+create_summary_from_replicate_files <- function(sim_dir) {
+  message("Scanning ", sim_dir, " for replicate files...")
+
+  # Find all replicate files
+  replicate_files <- list.files(sim_dir, pattern = "-rep[0-9]{3}-.*\\.rds$", full.names = TRUE)
+
+  if (length(replicate_files) == 0) {
+    warning("No replicate files found in ", sim_dir)
+    return(tibble())
+  }
+
+  message("Found ", length(replicate_files), " replicate files")
+
+  # Parse filenames and load attributes to build summary
+  summary <- purrr::map_dfr(replicate_files, function(fpath) {
+    # Load attributes without loading full data
+    params <- attr(readRDS(fpath), "sim_params")
+
+    tibble(
+      species = params$species,
+      survey_abbrev = params$survey_abbrev,
+      mpa_trend = round(params$mpa_trend, 3),
+      ar1_scenario = params$ar1_scenario,
+      time_scenario = params$time_scenario,
+      replicate = params$replicate,
+      file = basename(fpath),
+      sim_hash = params$sim_hash
+    )
+  })
+
+  # Group by combo and count replicates
+  summary_by_combo <- summary |>
+    group_by(species, survey_abbrev, mpa_trend, ar1_scenario, time_scenario, sim_hash) |>
+    summarise(
+      n_replicates = n(),
+      file_pattern = paste0(
+        gsub("-rep[0-9]{3}-", "-rep*-", first(file))
+      ),
+      .groups = "drop"
+    ) |>
+    rename(file = file_pattern)
+
+  return(summary_by_combo)
+}
+
 #' Run simulation for species × survey × parameter combination
 #'
 #' @param sp_name Species name
@@ -346,8 +575,8 @@ message("Running simulations for ", length(species_list), " species")
 # - sigma_V: marginal standard deviation for AR(1) process
 ar1_scenarios <- tribble(
   ~ar1_scenario, ~rho_V, ~sigma_V,
-  "no_AR1", NA_real_, NA_real_,           # No temporal AR1 variation
-  "moderate_AR1", 0.3, 0.2                # Some temporal autocorrelation; 0.2 similar to sd on year effects from conditioning models
+  "no_AR1", NA_real_, NA_real_#,           # No temporal AR1 variation
+  # "moderate_AR1", 0.3, 0.2                # Some temporal autocorrelation; 0.2 similar to sd on year effects from conditioning models
 )
 
 # Time scenarios
@@ -367,6 +596,7 @@ formula_scenarios <- tribble(
 )
 
 nreps <- 120
+nreps <- 50
 
 # Note: Parameter grids are now created per-species using recovery rates
 # See task grid creation below for species-specific implementation
@@ -435,72 +665,50 @@ message("  Species: ", length(unique(task_grid$species)))
 message("  Average tasks per species: ", round(nrow(task_grid) / length(unique(task_grid$species)), 1))
 
 # Setup parallel processing
-future::plan(future::sequential)
+tictoc::tic("Starting micro-task simulations")
 map_fn <- setup_parallel(USE_PARALLEL, N_WORKERS)
 
-# Run simulations across all tasks in parallel
-message("\n=== Running Simulations ===")
-tictoc::tic("All simulations completed")
-if (USE_PARALLEL) {
-  all_results <- furrr::future_pmap(
-    task_grid,
-    function(species, survey_config, param_combo, param_grid) {
-      run_survey_simulation(
-        sp_name = species,
-        survey_config = survey_config,
-        param_combo = param_combo,
-        param_grid = param_grid,
-        restricted_df = restricted_df,
-        hbll_grid = hbll_grid,
-        hbll_last_sampled_year = hbll_last_sampled_year,
-        sim_dir = sim_dir,
-        check_cache = TRUE
-      )
-    },
-    .options = furrr::furrr_options(seed = TRUE)
-  )
+# Pre-computation: check which replicate files are missing
+message("\n=== Checking Cache and Preparing Micro-Tasks ===")
+micro_tasks <- check_cache_and_prepare_tasks(task_grid, sim_dir)
+
+# Parallel execution (only if missing replicates exist)
+if (nrow(micro_tasks) > 0) {
+  message("\n=== Running ", nrow(micro_tasks), " Micro-Tasks ===")
+  message("Missing replicates will be simulated and saved individually")
+
+
+  if (USE_PARALLEL) {
+    results <- furrr::future_pmap(
+      micro_tasks,
+      run_single_replicate_simulation,
+      restricted_df = restricted_df,
+      hbll_grid = hbll_grid,
+      hbll_last_sampled_year = hbll_last_sampled_year
+    )
+  } else {
+    results <- purrr::pmap(
+      micro_tasks,
+      run_single_replicate_simulation,
+      restricted_df = restricted_df,
+      hbll_grid = hbll_grid,
+      hbll_last_sampled_year = hbll_last_sampled_year
+    )
+  }
+
+
+  # Count successful saves
+  n_success <- sum(unlist(results))
+  message("Successfully saved ", n_success, " / ", nrow(micro_tasks), " replicates")
+
 } else {
-  all_results <- purrr::pmap(
-    task_grid,
-    function(species, survey_config, param_combo, param_grid) {
-      run_survey_simulation(
-        sp_name = species,
-        survey_config = survey_config,
-        param_combo = param_combo,
-        param_grid = param_grid,
-        restricted_df = restricted_df,
-        hbll_grid = hbll_grid,
-        hbll_last_sampled_year = hbll_last_sampled_year,
-        sim_dir = sim_dir,
-        check_cache = TRUE
-      )
-    }
-  )
+  message("\n=== All Replicates Cached ===")
+  message("No simulations needed!")
 }
-tictoc::toc()
 
-# Create summary from all results if I've cancelled the process early
-# sim_files <- list.files(sim_dir, pattern = "\\.rds$", full.names = TRUE)
-# sim_summary <- purrr::map_dfr(sim_files, ~{
-#   params <- attr(readRDS(.x), "sim_params")
-#   tibble(species = params$species, survey_abbrev = params$survey_abbrev,
-#          mpa_trend = round(params$mpa_trend, 3), ar1_scenario = params$ar1_scenario,
-#          time_scenario = params$time_scenario, file = basename(.x), from_cache = FALSE)
-# })
-# saveRDS(sim_summary, file.path(sim_dir, "simulation-summary.rds"))
-
-# Create summary
-sim_summary <- purrr::map_dfr(all_results, function(x) {
-  tibble(
-    species = x$species,
-    survey_abbrev = x$survey_abbrev,
-    mpa_trend = round(x$param_combo$mpa_trend, digits = 3),
-    ar1_scenario = x$param_combo$ar1_scenario,
-    time_scenario = x$param_combo$time_scenario,
-    file = basename(x$file),
-    from_cache = x$from_cache
-  )
-})
+# Create summary by scanning all replicate files
+message("\n=== Creating Simulation Summary ===")
+sim_summary <- create_summary_from_replicate_files(sim_dir)
 
 # Save summary
 saveRDS(sim_summary, file.path(sim_dir, "simulation-summary.rds"))
@@ -510,6 +718,7 @@ message("\nSummary saved to: ", file.path(sim_dir, "simulation-summary.rds"))
 
 # Reset to sequential processing
 future::plan(future::sequential)
+tictoc::toc()
 meep()
 
 test <- readRDS(file.path(sim_dir, "simulation-summary.rds"))

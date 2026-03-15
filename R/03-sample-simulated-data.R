@@ -93,9 +93,49 @@ load_sim_data <- function(species, survey_abbrev, mpa_trend, ar1_scenario,
     file_info <- file_info[1, ]
   }
 
-  # Load data
-  fpath <- file.path(sim_dir, file_info$file)
-  sim_dat <- readRDS(fpath)
+  # Load data - handle both old combined files and new replicate files
+  file_pattern <- file_info$file
+
+  # Check if this is a pattern for replicate files (contains rep*)
+  if (grepl("-rep\\*-", file_pattern)) {
+    # New approach: glob for all replicate files
+    replicate_files <- list.files(
+      path = sim_dir,
+      pattern = glob2rx(file_pattern),
+      full.names = TRUE
+    )
+
+    if (length(replicate_files) == 0) {
+      stop("No replicate files found matching pattern: ", file_pattern)
+    }
+
+    message("Loading ", length(replicate_files), " replicate files matching: ", file_pattern)
+
+    # Load and combine all replicate files
+    sim_dat <- purrr::map_dfr(replicate_files, readRDS)
+
+    # Verify we have all expected replicates
+    n_reps <- length(unique(sim_dat$replicate))
+    expected_reps <- file_info$n_replicates
+
+    if (n_reps != expected_reps) {
+      warning("Expected ", expected_reps, " replicates, found ", n_reps,
+              " for ", file_pattern)
+    } else {
+      message("Successfully loaded all ", n_reps, " replicates")
+    }
+
+  } else {
+    # Old approach: single combined file (for backward compatibility)
+    fpath <- file.path(sim_dir, file_pattern)
+
+    if (!file.exists(fpath)) {
+      stop("Simulation file not found: ", fpath)
+    }
+
+    message("Loading combined file: ", basename(fpath))
+    sim_dat <- readRDS(fpath)
+  }
 
   # Add joins that were moved from script 02 to reduce file size
   sim_dat <- sim_dat |>
@@ -109,8 +149,6 @@ load_sim_data <- function(species, survey_abbrev, mpa_trend, ar1_scenario,
 
   sim_dat <- sim_dat |>
     mutate(historical_location = ifelse(block_id %in% historical_locations$block_id, 1, 0))
-
-  message("Loaded: ", file_info$file)
 
   return(sim_dat)
 }
