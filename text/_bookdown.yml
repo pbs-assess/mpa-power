@@ -1,5 +1,8 @@
 book_filename: "resdoc"
-rmd_files: ["index.Rmd",
+rmd_files: [
+  #"index.Rmd",
             "overlay-tables.Rmd",
-            "power.Rmd"]
+            "power.Rmd",
+            "98-references.Rmd",
+            "99-appendix.Rmd"]
 delete_merged_file: true

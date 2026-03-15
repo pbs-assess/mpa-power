@@ -1,0 +1,6 @@
+Dimension,Values,Implications
+Species,"Lingcod; Pacific Spiny Dogfish; Yelloweye Rockfish; Quillback Rockfish; Pacific Halibut","Species vary in life histories, movement, habitat preferences, distribution, abundance. More abundant, widely distributed species, with stronger recovery trends, will be easier to detect."
+Effect size,"Low; Moderate; High","Values based on current stock status, provides a plausible range of values. Larger effect sizes will be easier to detect."
+Sampling effort,"Status quo (biennial within survey region); Reduced MPA sampling (every 4 years)","Trade-off between minimising sampling within MPA and maintaining ability to detect within MPA effects. Reduced MPA sampling has effort redistributed to non-MPA areas in ""Non-MPA"" years."
+Temporal autocorrelation,"No temporal autocorrelation; Moderate temporal autocorrelation","No temporal autocorrelation will overestimate power (but useful to include to make sure the simulation is working as expected). Additional temporal correlation adds noise (e.g., multiple years of good or bad conditions) making MPA effects harder to detect."
+Evaluation time frame,"2030, 2034, 2038, 2042, 2046","How soon can we expect that we can detect an effect? More likely to detect an effect over longer time frames."
