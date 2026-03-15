@@ -1,9 +1,17 @@
 # Core libraries
 library(sdmTMB) # pak::pak("tidyverse/dplyr@778e413
-library(dplyr)
 library(ggplot2)
 # library(here)
 library(sf)
+library(dplyr)
+library(future)
+library(furrr)
+
+# Handle namespace conflicts
+library(conflicted)
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+conflict_prefer("lag", "dplyr")
 
 theme_set(gfplot::theme_pbs())
 
@@ -47,7 +55,7 @@ if (!file.exists(file.path("data-generated", "hbll-last-sampled-year.rds")) |
     # select(ssid = survey_series_id.x, survey_abbrev, year, fishing_event_id,
     #   latitude, longitude, X, Y,block_id,
     #   fe_grouping_code = grouping_code.x, grouping_code = grouping_code.y, restricted)
-    distinct(survey_abbrev, block_id, latitude, longitude, X, Y)
+    distinct(survey_abbrev, block_id, latitude, longitude, X, Y, restricted)
   saveRDS(historical_locations, file.path("data-generated", "historical-locations.rds"))
 }
 
