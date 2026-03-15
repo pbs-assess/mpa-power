@@ -1,4 +1,5 @@
 book_filename: "resdoc"
 rmd_files: ["index.Rmd",
+            "overlay-tables.Rmd",
             "power.Rmd"]
 delete_merged_file: true
