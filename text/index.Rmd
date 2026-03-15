@@ -94,3 +94,11 @@ library(dplyr) # used in examples in template example
 library(ggplot2) # used in examples in template example
 # add more packages here as needed
 ```
+
+```{r get-asp}
+# a little function to grab the aspect ratio of our .png file:
+get_asp <- function(x) {
+  info <- magick::image_info(magick::image_read(x))
+  info$height / info$width
+}
+```
