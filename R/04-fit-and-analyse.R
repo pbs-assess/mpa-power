@@ -150,13 +150,11 @@ N_REPLICATES <- 25
 results_dir <- here::here("data-generated", "power-results")
 dir.create(results_dir, showWarnings = FALSE, recursive = TRUE)
 
-
-
 task_grid <- create_task_grid(sampling_summary, sample_dir) |>
   add_combined_survey_tasks(sampling_summary, sample_dir) |>
   dplyr::filter(
     #species %in% c("yelloweye rockfish", "lingcod", "pacific halibut"),
-    survey_abbrev == "HBLL"
+    survey_abbrev == "HBLL" # this combines all three surveys
     ) |>
   dplyr::filter(ar1_scenario == "no_AR1") |>
   dplyr::arrange(species)
