@@ -85,7 +85,7 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
   sprf <- "on"
   strf <- "iid"
   fit_ON <- fit_cached_sdmTMB(
-    model_tag = paste0(sp, "-HBLL-OUT-N-betabinomial-time-varying-ar1", sprf, "-", strf),
+    model_tag = paste0(sp, "-HBLL-OUT-N-betabinomial-", sprf, "-", strf),
     fit_dir = fit_dir,
     data = d_ON,
     formula = catch_prop ~ 0 + fyear,
@@ -94,8 +94,6 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
     spatial = sprf,
     spatiotemporal = strf,
     time = "year",
-    time_varying = ~ 1,
-    time_varying_type = "ar1",
     anisotropy = FALSE,
     weights = d_ON$hook_count,
     control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
@@ -104,7 +102,7 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
   )
 
   fit_OS <- fit_cached_sdmTMB(
-    model_tag = paste0(sp, "-HBLL-OUT-S-betabinomial-time-varying-ar1", sprf, "-", strf),
+    model_tag = paste0(sp, "-HBLL-OUT-S-betabinomial-", sprf, "-", strf),
     fit_dir = fit_dir,
     data = d_OS,
     formula = catch_prop ~ 0 + fyear,
@@ -113,8 +111,6 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
     spatial = sprf,
     spatiotemporal = strf,
     time = "year",
-    time_varying = ~ 1,
-    time_varying_type = "ar1",
     anisotropy = FALSE,
     weights = d_OS$hook_count,
     control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
@@ -123,7 +119,7 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
   )
 
   fit_IN <- fit_cached_sdmTMB(
-    model_tag = paste0(sp, "-HBLL-INS-N-betabinomial-time-varying-ar1", sprf, "-", strf),
+    model_tag = paste0(sp, "-HBLL-INS-N-betabinomial-", sprf, "-", strf),
     fit_dir = fit_dir,
     data = d_IN,
     formula = catch_prop ~ 0 + fyear,
@@ -132,8 +128,6 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
     spatial = sprf,
     spatiotemporal = strf,
     time = "year",
-    time_varying = ~ 1,
-    time_varying_type = "ar1",
     anisotropy = FALSE,
     weights = d_IN$hook_count,
     control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
@@ -183,3 +177,22 @@ if (USE_PARALLEL) {
 
 # Reset to sequential
 future::plan(future::sequential)
+
+
+# Get ar1 estimates from fits
+# Demo
+# x <- arima.sim(n = 10000L, list(ar = c(0.8)), sd = sqrt(0.17))
+# m <- ar(x, order.max = 1L)
+# m$var.pred
+# m$ar
+
+year_ests <- all_fits[[1]]$fit_ON |> # all_fits[[1]]$fit_OS |>
+  get_model_pars() |>
+  filter(stringr::str_detect(term, "fyear")) |>
+  pull(estimate)
+
+year_ests
+m <- ar(year_ests, order.max = 1L)
+m$var.pred
+m$ar
+
