@@ -419,40 +419,43 @@ if (!file.exists(file.path("data-generated", "ecp-clean.rds"))) {
 # 7 surfgrass                    phyllospadix sp.
 
 # Get GFBio data for ECPs-------------------------------------------------------
-if (!file.exists(file.path("data-raw", "mpan-csas-gf-ecp-data.rds"))) {
+if (!file.exists(file.path("data-generated", "hbll-ecp-species.rds"))) {
+  if (!file.exists(file.path("data-raw", "mpan-csas-gf-ecp-data.rds"))) {
   ssid_lu0 <- get_ssids()
   ssid_lu <- ssid_lu0 |> janitor::clean_names() |>
     select(-survey_abbrev)
   survey_sets <- get_all_survey_sets(species = ecps_clean$species_common_name,
                       ssid =c(1, 3, 4, 6, 16, 22, 35, 36, 39, 40, 41, 42, 43, 46))
 
-  gf_ecp_data <- left_join(survey_sets, ssid_lu, by = "survey_series_id")
-  saveRDS(gf_ecp_data, file.path("data-raw", "mpan-csas-gf-ecp-data.rds"))
-} else {
-  gf_ecp_data0 <- readRDS(file.path("data-raw", "mpan-csas-gf-ecp-data.rds")) |>
-    as_tibble()
+  gf_ecp_data0 <- left_join(survey_sets, ssid_lu, by = "survey_series_id") |>
+    saveRDS(gf_ecp_data0, file.path("data-raw", "mpan-csas-gf-ecp-data.rds"))
+  } else {
+    gf_ecp_data0 <- readRDS(file.path("data-raw", "mpan-csas-gf-ecp-data.rds"))
+  }
+
+  ssid_lu <- gf_ecp_data0 |>
+    distinct(survey_series_id, survey_abbrev)
+
+  in_mpa_lu <- bind_rows(syn_mpa_df, hbll_mpa_df) |>
+    distinct(survey_series_id = ssid, survey_abbrev, fishing_event_id = fe, in_mpa, uid, site)
+
+  gf_ecp_data <- gf_ecp_data0 |>
+    select(survey_series_id, species_common_name, species_science_name,
+      fishing_event_id,
+      survey_abbrev, year, month, day, latitude, longitude, latitude_end, longitude_end,
+      catch_count, catch_weight) |>
+    left_join(survey_group_lu, by = "survey_series_id") |>
+    mutate(present = if_else(catch_count > 0 | catch_weight > 0, 1, 0)) |>
+    filter(survey_abbrev %in% c(#"SYN HS", "SYN QCS", "SYN WCHG",
+    "HBLL OUT N", "HBLL OUT S", "HBLL INS N")) |>
+    tidyr::drop_na(species_common_name) |>
+    filter(present == 1) |>
+    left_join(in_mpa_lu, by = c("survey_series_id", "survey_abbrev", "fishing_event_id"), relationship = "many-to-many") |>
+    drop_na(in_mpa)
+    saveRDS(gf_ecp_data, file.path("data-generated", "hbll-ecp-species.rds"))
+  } else {
+    gf_ecp_data <- readRDS(file.path("data-generated", "hbll-ecp-species.rds"))
 }
-
-ssid_lu <- gf_ecp_data0 |>
-  distinct(survey_series_id, survey_abbrev)
-
-in_mpa_lu <- bind_rows(syn_mpa_df, hbll_mpa_df) |>
-  distinct(survey_series_id = ssid, survey_abbrev, fishing_event_id = fe, in_mpa, uid, site)
-
-gf_ecp_data <- gf_ecp_data0 |>
-  select(survey_series_id, species_common_name, species_science_name,
-    fishing_event_id,
-    survey_abbrev, year, month, day, latitude, longitude, latitude_end, longitude_end,
-    catch_count, catch_weight) |>
-  left_join(survey_group_lu, by = "survey_series_id") |>
-  mutate(present = if_else(catch_count > 0 | catch_weight > 0, 1, 0)) |>
-  filter(survey_abbrev %in% c("SYN HS", "SYN QCS", "SYN WCHG",
-   "HBLL OUT N", "HBLL OUT S", "HBLL INS N")) |>
-  tidyr::drop_na(species_common_name) |>
-  filter(present == 1) |>
-  left_join(in_mpa_lu, by = c("survey_series_id", "fishing_event_id"), relationship = "many-to-many") |>
-  drop_na(in_mpa)
-
 
 gf_ecp_summary <- gf_ecp_data |>
   distinct(survey_group, species_common_name, species_science_name, in_mpa) |>
@@ -476,6 +479,32 @@ gf_ecp_data |>
   distinct(survey_group, fishing_event_id, species_common_name, species_science_name, in_mpa, .keep_all = TRUE) |>
   group_by(survey_group, species_common_name, species_science_name, in_mpa) |>
   summarise(encounters = n(), .groups = "drop")
+
+# Complete to one row per (event, species) with zero catch where species was not observed
+hbll_event_rows <- gf_ecp_data |>
+  distinct(fishing_event_id, survey_series_id, survey_abbrev, year, month, day,
+    latitude, longitude, latitude_end, longitude_end, survey_group, in_mpa, uid, site)
+hbll_species_lu <- gf_ecp_data |> distinct(species_common_name, species_science_name)
+
+gf_ecp_data_complete <- expand_grid(hbll_event_rows, hbll_species_lu) |>
+  left_join(
+    gf_ecp_data |> select(fishing_event_id, species_common_name, in_mpa, uid, site, catch_count, catch_weight, present),
+    by = c("fishing_event_id", "species_common_name", "in_mpa", "uid", "site")
+  ) |>
+  mutate(
+    catch_weight = replace_na(catch_weight, 0),
+    present = replace_na(present, 0)
+  )
+
+hbll_spp_encounter_rate <- gf_ecp_data_complete |>
+  group_by(survey_group, species_common_name, species_science_name) |>
+  summarise(encounters = sum(present), .groups = "drop",
+            n_sets = n(),
+            pos_sets = encounters / n_sets) |>
+  arrange(desc(pos_sets))
+saveRDS(hbll_spp_encounter_rate, file.path("data-generated", "hbll-spp-encounter-rate.rds"))
+
+
 
 # -----------------------------------------------------------------------------
 
@@ -649,6 +678,238 @@ ggsave(file.path(overlay_fig_dir, "heatmap-rov-mpa-sf.png"), width = 4.5, height
 ################################################################################
 # Survey summary tables --------------------------------------------------------
 
+# HBLL summary tables
+hbll_sites_with_ecps <- gf_ecp_data_complete |>
+  filter(in_mpa == 1) |>
+  distinct(site) |>
+  summarise(n_sites = n())
+
+hbll_longest_timeseries <- hbll_mpa_df |>
+  filter(in_mpa == 1) |>
+  group_by(site, uid) |>
+  summarise(longest_timeseries = max(year) - min(year),
+            n_years = length(unique(year[in_mpa == 1])),
+            .groups = "drop") |>
+  arrange(desc(longest_timeseries)) |>
+  mutate(text = paste0(n_years, " years (", site, ")"))
+
+hbll_summary_table <- hbll_mpa_df |>
+  mutate(survey_name = "Hard Bottom Longline Survey") |>
+  reframe(
+    `Survey name` = "Hard Bottom Longline Survey",
+    `Years conducted` = paste(min(year), max(year), sep = "-"),
+    `Survey schedule` = "Biennial (North and South regions in alternating years)",
+    `Total transects` = paste0(n(), " fishing events"),
+    `years_not_in_mpa` = paste(setdiff(min(year):max(year), unique(year[in_mpa == 1])), collapse = ", "),
+    `Years with surveys inside MPA boundaries` =
+      paste0(
+        n_distinct(year[in_mpa == 1]), " of ", max(year) - min(year) + 1,
+        " (no surveys inside MPAs in ", `years_not_in_mpa`, ")"
+      ),
+    `Transects inside MPA boundaries` = sum(in_mpa),
+    `Transects outside MPA boundaries` = sum(in_mpa == 0),
+    `% of effort inside MPA boundaries` = round(100 * `Transects inside MPA boundaries` / `Total transects`, 1),
+    `Number of MPAN sites sampled` = n_distinct(uid, na.rm = TRUE),
+    `Number of MPAs with E-CP sightings` = hbll_sites_with_ecps$n_sites,
+    `Longest timeseries at any single site` = hbll_longest_timeseries[1, ]$text
+  ) |>
+  mutate(across(everything(), as.character)) |>
+  pivot_longer(cols = everything(), names_to = "metric", values_to = "value")
+saveRDS(hbll_summary_table, file.path("data-generated", "hbll-summary-table.rds"))
+
+
+# HBLL site summary table --------------------
+# Site ID
+# Common Site Name
+# Total transects
+# First survey
+# Last survey
+# No. years
+# Unique species
+# Mean species richness
+
+hbll_ecp_richness <- gf_ecp_data_complete |>
+  filter(in_mpa == 1) |>
+  filter(present == 1) |>
+  group_by(site, uid) |>
+  summarise(`E-CP species count` = n_distinct(species_science_name), .groups = "drop")
+
+
+hbll_site_summary_table <-
+  hbll_mpa_df |>
+  filter(in_mpa == 1) |>
+  group_by(site, uid) |>
+  summarise(
+    `Site ID` = unique(uid),
+    `Common Site Name` = unique(site),
+    `Total transects` = length(unique(fe)),
+    `First survey` = min(year),
+    `Last survey` = max(year),
+    `No. years` = n_distinct(year),
+    `Years in MPA` = paste(min(year), max(year), sep = "-"),
+    .groups = "drop"
+  ) |>
+  left_join(hbll_ecp_richness, by = c("site", "uid")) |>
+  arrange(desc(`Total transects`))
+
+saveRDS(hbll_site_summary_table, file.path("data-generated", "hbll-site-summary-table.rds"))
+
+
+
+
+# [TO BE COMPLETED] Insert species sightings table once data are extracted from the
+# spatial analysis — equivalent to Table 5.4.3 in the dive survey case study.
+# Recommended columns: Latin name | Common name | MPAN status (E-CP / other) |
+# Count inside MPAs | Count outside MPAs | Proportion inside MPAs |
+# Proportion with biological samples. Note: figure described as
+# 'total counts of each species sighted within NSB MPA sites' is already in the
+# document and should be retained here.
+#
+# For comparability per unit effort, catch is scaled by effort (number of sets)
+# in each zone (CPUE = catch per set). Encounter rates use zone-specific
+# denominators (sets inside vs outside MPAs).
+
+hbll_ecp_encounter_cpue <-
+  gf_ecp_data_complete |>
+  group_by(species_science_name, species_common_name) |>
+  mutate(species_common_name = gsub("north pacific", "pacific", species_common_name)) |>
+  summarise(
+    n_sets_inside = n_distinct(.data$fishing_event_id[.data$in_mpa == 1]),
+    n_sets_outside = n_distinct(.data$fishing_event_id[.data$in_mpa == 0]),
+    encounters_inside = sum(present[in_mpa == 1]),
+    encounters_outside = sum(present[in_mpa == 0]),
+    encounter_rate_inside = encounters_inside / n_sets_inside,
+    encounter_rate_outside = encounters_outside / n_sets_outside,
+    total_catch_inside = sum(catch_count[in_mpa == 1], na.rm = TRUE),
+    total_catch_outside = sum(catch_count[in_mpa == 0], na.rm = TRUE),
+    cpue_inside = total_catch_inside / n_sets_inside,
+    cpue_outside = total_catch_outside / n_sets_outside,
+    .groups = "drop"
+  ) |>
+  arrange(desc(encounter_rate_inside))
+
+saveRDS(hbll_ecp_encounter_cpue, file.path("data-generated", "hbll-ecp-encounter-cpue.rds"))
+# Long data for tigures: encounter rate and CPUE by zone
+hbll_ecp_encounter_long <-
+  hbll_ecp_encounter_cpue |>
+  select(species_common_name, encounter_rate_inside, encounter_rate_outside) |>
+  tidyr::pivot_longer(
+    cols = c(encounter_rate_inside, encounter_rate_outside),
+    names_to = "zone", values_to = "val"
+  ) |>
+  mutate(zone = if_else(zone == "encounter_rate_inside", "Inside MPAs", "Outside MPAs"))
+# saveRDS(hbll_ecp_encounter_long, file.path("data-generated", "hbll-ecp-encounter-long.rds"))
+
+hbll_ecp_cpue_long <-
+  hbll_ecp_encounter_cpue |>
+  select(species_common_name, cpue_inside, cpue_outside) |>
+  tidyr::pivot_longer(
+    cols = c(cpue_inside, cpue_outside),
+    names_to = "zone", values_to = "val"
+  ) |>
+  mutate(zone = if_else(zone == "cpue_inside", "Inside MPAs", "Outside MPAs"))
+
+# Bar chart of CPUE inside vs outside MPAs ------------------------------------
+hbll_ecp_cpue_bar <-
+  hbll_ecp_cpue_long |>
+  mutate(
+    species_common_name = stringr::str_to_title(species_common_name),
+    species_common_name = gsub(" North Pacific", "", species_common_name)
+  ) |>
+  group_by(species_common_name) |>
+  mutate(max_cpue = max(val, na.rm = TRUE)) |>
+  ungroup() |>
+  mutate(
+    species_common_name = forcats::fct_reorder(species_common_name, max_cpue)
+  ) |>
+  ggplot(aes(x = val, y = species_common_name, fill = zone)) +
+  geom_col(position = position_dodge(width = 0.7), width = 0.7) +
+  scale_fill_manual(
+    values = c(
+      "Inside MPAs" = "#0072B2",  # blue, colourblind friendly
+      "Outside MPAs" = "#D55E00"  # reddish orange, colourblind friendly
+    )
+  ) +
+  labs(
+    x = "CPUE (catch per set)",
+    y = "",
+    fill = "",
+    title = "HBLL E-CP species: CPUE inside vs outside MPAs"
+  ) +
+  gfplot::theme_pbs() +
+  theme(
+    legend.position = "top",
+    axis.text.y = element_text(hjust = 1.03)
+  )
+hbll_ecp_cpue_bar
+
+
+# Tigure (table + figure): tile heatmap with values, matching make_mssm_tigure style.
+# df must have species_common_name, zone (x-axis), val (fill and text).
+# show_species_labels: if FALSE, omit y-axis (species) labels for use as right panel.
+make_hbll_ecp_tigure <- function(df, fill_limits = c(0, NA), padding = 0.5, digits = 2L,
+                                show_species_labels = TRUE) {
+  df$species_common_name <- stringr::str_to_title(df$species_common_name)
+  df$species_common_name <- gsub(" North Pacific", "", df$species_common_name)
+  sp <- df |>
+    filter(zone == "Inside MPAs") |>
+    arrange(val) |>
+    pull(species_common_name) |>
+    unique()
+  if (length(sp) == 0) sp <- unique(df$species_common_name)
+  df$species_common_name <- factor(df$species_common_name, levels = sp)
+  df$zone <- factor(df$zone, levels = c("Inside MPAs", "Outside MPAs"))
+  df$txt <- round(df$val, digits)
+  g <- df |>
+    ggplot(aes(x = zone, y = species_common_name)) +
+    geom_tile(aes(fill = val), colour = "white") +
+    geom_text(aes(label = txt), size = ggplot2::rel(3), hjust = 0.5, vjust = 0.5) +
+    scale_fill_viridis_c(
+      limits = fill_limits, begin = 0.15, end = 1, alpha = 0.9, option = "D", direction = 1
+    ) +
+    xlab("") +
+    ylab("") +
+    coord_cartesian(
+      expand = FALSE,
+      xlim = range(as.numeric(df$zone)) + c(-padding, padding),
+      ylim = range(as.numeric(df$species_common_name)) + c(-padding - 0.5, padding + 0.5),
+      clip = "off"
+    ) +
+    gfplot::theme_pbs() +
+    guides(fill = guide_colourbar(title.position = "top", title.hjust = 0.5, barwidth = unit(5, "cm"))) +
+    theme(
+      plot.background = element_rect(fill = NA),
+      plot.margin = margin(t = 0, r = -2, b = 0, l = -2),
+      panel.border = element_blank(),
+      axis.ticks.x = element_blank(),
+      axis.ticks.y = element_blank(),
+      axis.text.x = element_text(colour = "grey10"),
+      axis.text.y = if (show_species_labels) element_text(hjust = 1.03) else element_blank(),
+      legend.margin = margin(t = 0, r = 0.1, b = -15, l = 0),
+      legend.position = "top",
+      legend.box = "horizontal"
+    ) +
+    scale_x_discrete(position = "top")
+  g
+}
+
+hbll_ecp_encounter_tigure <- make_hbll_ecp_tigure(
+  hbll_ecp_encounter_long, fill_limits = c(0, 1), digits = 2L, show_species_labels = TRUE
+) + labs(fill = "Encounter rate")
+
+hbll_ecp_cpue_tigure <- make_hbll_ecp_tigure(
+  hbll_ecp_cpue_long, fill_limits = c(0, NA), digits = 2L, show_species_labels = FALSE
+) + labs(fill = "CPUE (catch per set)")
+
+hbll_ecp_tigure_combined <-
+  hbll_ecp_encounter_tigure + hbll_ecp_cpue_tigure +
+  patchwork::plot_annotation(
+    title = "HBLL E-CP species: inside vs outside MPAs (per unit effort)",
+    theme = theme(plot.title = element_text(size = 11))
+  )
+hbll_ecp_tigure_combined
+
+
 # MSD summary table ------------------------------------------------------------
 # msd_raw <- readRDS(here::here("data-generated", "multi-species-data-no-abalone-cleaned.rds"))
 msd_catch <- readRDS(here::here("data-generated", "msd-catch.rds"))
@@ -680,15 +941,15 @@ msd_mpa_df |>
   reframe(
     `Survey name` = "Multispecies Benthic Invertebrate Dive Survey",
     `Years conducted` = paste(min(year), max(year), sep = "-"),
-    `Total transects` = n(),
+    `Total transects` = dplyr::n_distinct(transect_site),
     `years_not_in_mpa` = paste(setdiff(min(year):max(year), unique(year[in_mpa == 1])), collapse = ", "),
     `Years with surveys inside MPA boundaries` =
       paste0(
-        n_distinct(year[in_mpa == 1]), " of ", n_distinct(year),
+        n_distinct(year[in_mpa == 1]), " of ", max(year) - min(year) + 1,
         " (no surveys inside MPAs in ", `years_not_in_mpa`, ")"
       ),
-    `Transects inside MPA boundaries` = sum(in_mpa),
-    `Transects outside MPA boundaries` = sum(in_mpa == 0),
+    `Transects inside MPA boundaries` = dplyr::n_distinct(transect_site[in_mpa == 1]),
+    `Transects outside MPA boundaries` = dplyr::n_distinct(transect_site[in_mpa == 0]),
     `% of effort inside MPA boundaries` = round(100 * `Transects inside MPA boundaries` / `Total transects`, 1),
     `Number of MPAN sites sampled` = n_distinct(uid, na.rm = TRUE),
     `Number of MPAs with E-CP sightings` = msd_sites_with_ecps$n_sites,
@@ -780,7 +1041,22 @@ msd_species_summary_table <-
   arrange(species_group)
 saveRDS(msd_species_summary_table, file.path("data-generated", "msd-species-summary-table.rds"))
 
+# Site-level E-CP sightings (for narrative: "most productive sites")
+msd_site_ecp_sightings <-
+  msd_catch |>
+  left_join(msd_mpa_df |> select(uid, site, transect_site, year), by = c("transect_site", "year")) |>
+  left_join(ecp_clean |> select(species_code, is_ecp)) |>
+  filter(is_ecp == TRUE) |>
+  group_by(site) |>
+  summarise(total_ecp_sightings = sum(catch_count), .groups = "drop") |>
+  arrange(desc(total_ecp_sightings))
+saveRDS(msd_site_ecp_sightings, file.path("data-generated", "msd-site-ecp-sightings.rds"))
+
 # ------------------------------------------------------------------------------
+
+
+################################################################################
+################################################################################
 
 
 
@@ -876,8 +1152,6 @@ hbll_aggregate_flextable <- hbll_mpa_df |>
   set_header_labels(metric = "Metric", value = "Hard Bottom Longline (all surveys)") |>
   align(align = "right", part = "all") |>
   autofit()
-
-
 
 saveRDS(hbll_aggregate_flextable, file.path(table_dir, "hbll-summary-aggregate-flextable.rds"))
 

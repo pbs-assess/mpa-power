@@ -1,5 +1,22 @@
 \newpage
 
+# APPENDIX `r new_appendix()`. SPATIAL OVERLAY ADDITIONAL INFORMATION {#app:spatial-overlay-additional-information}
+
+```{r}
+
+hbll_sites <- readRDS(here::here("data-generated", "hbll-site-summary-table.rds"))
+
+hbll_sites |> 
+  select(`Site ID`, `Common Site Name`, `Total transects`, `First survey`, `Last survey`, `No. years`, `E-CP species count`) |>
+  flextable() |>
+  colformat_int(j = c("First survey", "Last survey"), big.mark = "") |>
+  set_table_properties(layout = "autofit") |>
+  set_caption("The MPAN Hard Bottom Longline Survey sites in decreasing order of the number of fishing events recorded within site boundaries (2003–2024), showing total transects, first and last survey years, number of survey years, and E-CP species richness. ")
+
+```
+
+\newpage
+
 # APPENDIX `r new_appendix()`. POWER ANAYLSIS SUPPORTING INFORMATION {#app:power}
 
 ## A SUBHEADING HERE
@@ -11,4 +28,5 @@ knitr::include_graphics(here::here("figures/spatial-random-field.png"))
 ```{r bias-check-lingcod, fig.cap="Power bias check caption here.", fig.asp=get_asp(here::here("figures/supplementary/bias-check-on-estimate-lingcod.png")), out.width="100%"}
 knitr::include_graphics(here::here("figures/supplementary/bias-check-on-estimate-lingcod.png"))
 ```
+
 

@@ -1,0 +1,607 @@
+### HARD BOTTOM LONGLINE SURVEY
+
+**General Survey Information**  
+
+The Hard Bottom Longline (HBLL) Surveys (Outside and Inside) are part of a coordinated set of DFO fishery-independent monitoring programs designed to provide abundance indices and biological data for nearshore rockfish and other groundfish species in hard-bottom, untrawlable habitats throughout coastal British Columbia. 
+The program is one of the few survey platforms capable of reaching the rocky reef and pinnacle habitats where rockfish concentrate and where conventional bottom trawl surveys cannot operate, making it irreplaceable for monitoring species that are both ecologically and culturally important to the Great Bear Sea MPAN.
+
+The Inside Hard Bottom Longline Survey (HBLL INS) is conducted by DFO while the Outside Hard Bottom Longline Survey (HBLL OUT) is conducted by DFO in collaboration with the Pacific Halibut Management Association. 
+Each survey is divided into North and South regions sampled biennially, with the HBLL INS operating since 2003 and the HBLL OUT since 2006.
+The Inside North survey covers the eastern portion of the North Vancouver Island subregion between Vancouver Island and the mainland coast.
+The Outside South survey covers the southern NSB, including the mainland coast south of Milbanke Sound, Queen Charlotte Sound, and the north and west coasts of Vancouver Island. 
+Together, these surveys provide coast-wide biennial coverage of hard-bottom nearshore habitat across the full NSB.
+
+<br><br>
+
+
+```{r hbll-program-description-table}
+hbll_spp_encounter_rate <- readRDS(here::here("data-generated", "hbll-spp-encounter-rate.rds"))
+
+top_10_hbll_spp <- hbll_spp_encounter_rate |>
+  head(10) |>
+  mutate(species_common_name = gsub("north pacific", "Pacific", species_common_name)) |>
+  mutate(text = paste0(stringr::str_to_sentence(species_common_name), " (", stringr::str_to_sentence(species_science_name), ")"))
+
+hbll_program_description <- tibble(
+  Category = c(
+    "Program overview",
+    "Target species",
+    "Methods",
+    "Spatial coverage",
+    "Temporal characteristics",
+    "MPAN relevance"
+  ),
+  Description = c(
+    "A long-term fisheries-independent survey targeting rockfish and other demersal species on hard bottom substrate across the Northern Shelf Bioregion. Conducted annually by DFO Science (Stock Assessment and Research division) and managed as part of the coordinated groundfish survey program.",
+    paste0("Inshore rockfish, with the top 10 most frequently encountered species being: ", paste(top_10_hbll_spp$text, collapse = ", ")),
+    "Random depth-stratified hook-and-line longline sets on confirmed hard bottom substrate. Each set uses standardised gear (1,200 hooks, 120-minute soak time) at georeferenced stations. Detailed biological sampling at each station: species identification, fork length, weight, sex, maturity stage, and otolith extraction for age determination. Bottom depth and temperature recorded at midline.",
+    "Hard bottom substrate across the Northern Shelf Bioregion, spanning the continental shelf from the North Vancouver Island subregion to Haida Gwaii. Station locations are randomly selected within depth-stratified survey blocks across the survey domain. Multiple stations fall within or adjacent to proposed MPAN site boundaries across all four subregions.",
+    "Annual survey, 2003 to present (22 years as of 2025). Consistent standardised protocols throughout the time series. Survey timing is mid to late summer.",
+    "Rockfish are MPAN Ecological Conservation Priority (E-CP) species. The annual time series, detailed biological sampling, and spatial footprint within hard bottom habitat directly overlapping MPAN sites make this program the highest-priority candidate for BACI-based MPA performance monitoring. Spatial overlap analysis (Section 5.1) confirms high inside–outside MPA coverage across multiple MPAN sites."
+  )
+)
+
+
+hbll_program_description |>
+  flextable() |>
+  bold(part = "body", j = c("Category")) |>
+  set_table_properties(layout = "autofit") |>
+  set_caption("Program description, summary information and MPAN relevance for the Hard Bottom Longline Hook Survey (HBLL): Outside [StARGF_01] and Inside [StARGF 03]. Ecological. 2003–2025. 19 years.")
+
+
+hbll_distinct_ecps_n <- hbll_spp_encounter_rate |> nrow()
+
+```
+
+<br><br>
+
+**Framework Application: Primary Screening Results**
+
+The Hard Bottom Longline Survey — Outside was assessed using the primary quantitative screening criteria:
+
+<br><br>
+
+
+```{r hbll-screening-table}
+hbll_screening <- tibble(
+  Criterion = c(
+    "A) Temporal suitability",
+    "B) Domain/Theme relevance",
+    "Data availability",
+    "Combined suitability"
+  ),
+  Score = c("2", "2", "2", "High"),
+  Rationale = c(
+    "Program operational since 2003; biennial schedule maintained consistently for 19 years to 2023. Time series among the longest available for nearshore groundfish in the NSB. Classified as 'Highly suitable'.",
+    paste0("Directly monitors rockfish species designated as MPAN E-CPs. Detailed biological sampling (length, weight, sex, maturity, age structures, genetics) collected for priority species. ", hbll_distinct_ecps_n, " E-CP species documented within MPA boundaries; >200 total species recorded across the full program extent."),
+    "Complete spatial-temporal datasets — including catch data, biological samples, and fishing event locations — are publicly available through the DFO Open Government Portal.",
+    "Advanced to Stage 4 spatial suitability analysis."
+  )
+)
+
+hbll_screening |>
+  flextable() |>
+  bold(part = "body", j = c("Criterion", "Score")) |>
+  set_table_properties(layout = "autofit") |>
+  set_caption("How each criterion was assessed for the Hard Bottom Longline Survey — Outside.")
+```
+
+
+<br><br>
+
+**General Survey Information**
+
+```{r hbll-general-info-table}
+hbll_general <- readRDS(here::here("data-generated", "hbll-summary-table.rds"))
+
+hbll_general |>
+  filter(metric != "years_not_in_mpa") |>
+  filter(metric != "Longest timeseries at any single site") |>
+  flextable() |>
+  set_table_properties(layout = "autofit") |>
+  set_caption("General information for the Hard Bottom Longline Survey — Outside and Inside (2003–2024).")
+```
+
+<br><br>
+
+
+```{r hbll-stage4-text-vars, include=FALSE}
+hbll_summary_wide <-
+  readRDS(here::here("data-generated", "hbll-summary-table.rds")) |>
+  tidyr::pivot_wider(names_from = metric, values_from = value)
+
+hbll_n_events_total    <- as.integer(hbll_summary_wide$`Total transects`)
+hbll_n_events_inside   <- as.integer(hbll_summary_wide$`Transects inside MPA boundaries`)
+hbll_pct_inside        <- as.numeric(hbll_summary_wide$`% of effort inside MPA boundaries`)
+hbll_years_conducted   <- hbll_summary_wide$`Years conducted`
+
+hbll_sites_all         <- readRDS(here::here("data-generated", "hbll-site-summary-table.rds"))
+hbll_n_site_rows       <- nrow(hbll_sites_all)
+hbll_n_sites_unique    <- length(unique(hbll_sites_all$`Common Site Name`))
+hbll_first_year        <- min(hbll_sites_all$`First survey`)
+hbll_last_year         <- max(hbll_sites_all$`Last survey`)
+hbll_years_min         <- min(hbll_sites_all$`No. years`)
+hbll_years_max         <- max(hbll_sites_all$`No. years`)
+hbll_n_sites_gt10      <- sum(hbll_sites_all$`No. years` > 10)
+
+hbll_site_agg <- aggregate(`Total transects` ~ `Common Site Name`, hbll_sites_all, sum)
+hbll_site_agg <- hbll_site_agg[order(-hbll_site_agg$`Total transects`), ]
+
+hbll_top1_name <- hbll_site_agg$`Common Site Name`[1]
+hbll_top1_n    <- hbll_site_agg$`Total transects`[1]
+hbll_top2_name <- hbll_site_agg$`Common Site Name`[2]
+hbll_top2_n    <- hbll_site_agg$`Total transects`[2]
+hbll_top3_name <- hbll_site_agg$`Common Site Name`[3]
+hbll_top3_n    <- hbll_site_agg$`Total transects`[3]
+```
+
+**Stage 4: Spatial Suitability Analysis**
+
+Geospatial analysis of fishing event coordinates against MPAN site boundary polygons revealed `r hbll_n_events_inside` fishing events conducted within Network boundaries over the `r hbll_years_conducted` period, representing `r hbll_pct_inside`% of total survey effort (`r hbll_n_events_inside` of `r hbll_n_events_total` total survey fishing events). The program samples both inside MPA boundaries and in surrounding outside areas across the full NSB, providing the spatial structure required for BACI-compatible analyses (Figure \ref{fig:hbll-heatmap}).
+
+Monitoring has been conducted within `r hbll_n_sites_unique` individual MPAN sites (`r hbll_n_site_rows` zones**?**) — the broadest spatial footprint of any case study program assessed in this report. The three highest-effort sites are `r hbll_top1_name` (`r hbll_top1_n` events), `r hbll_top2_name` (`r hbll_top2_n` events), and `r hbll_top3_name` (`r hbll_top3_n` events). Time series coverage within individual sites ranges from `r hbll_years_min`–`r hbll_years_max` years, with `r hbll_n_sites_gt10` site accumulating more than 10 years of within-MPA fishing event data.
+
+**Stage 4 spatial suitability score: 2 — Strong overlap.** The program has been conducted across the NSB over the `r hbll_years_conducted` period, with consistent sampling both inside and outside MPA boundaries across all years with HBLL effort. This is the highest spatial suitability result of any program assessed. Advanced to detailed case study analysis.
+
+<br><br>
+
+```{r hbll-heatmap, fig.cap="Figure 7. Maps of the Marine Protected Areas (MPAs, grey outline) across the Northern Shelf Bioregion (NSB), including overlay with the Hard Bottom Longline Survey. The left panel (a) shows the georeferenced transects of the Hard Bottom Longline Survey (2003–2024). Right panel (b) shows total counts of surveys within NSB MPA sites.", fig.asp=get_asp(here::here("figures/spatial-overlays/heatmap-hbll-mpa-sf.png")), out.width="80%"}
+
+```
+
+<br><br>
+
+```{r}
+
+hbll_mpa_df <- readRDS(file.path(here::here("data-generated", "spatial", "overlays", "hbll-mpa-sf.rds"))) |>
+  sf::st_drop_geometry()
+
+hbll_mpa_df |>
+  filter(in_mpa == 1) |>
+  group_by(site) |>
+  summarise(n_events = dplyr::n_distinct(fe),
+            years = paste(min(year), max(year), sep = "-"),
+            n_years = n_distinct(year),
+            .groups = "drop") |>
+  arrange(desc(n_events)) |>
+  slice(1:3) |>
+  mutate(Notes = "") |>
+  select(`Site Name` = site, `Total fishing events` = n_events,
+         `Years of coverage` = years, Notes) |>
+  flextable() |>
+  set_table_properties(layout = "autofit") |>
+  set_caption("The three MPAN sites with the highest number of Hard Bottom Longline fishing events recorded within site boundaries (2003–2024).")
+
+
+```
+
+<br><br>
+
+```{r}
+hbll_sites <- readRDS(here::here("data-generated", "hbll-site-summary-table.rds"))
+
+hbll_sites |> 
+  select(`Site ID`, `Common Site Name`, `Total transects`, `First survey`, `Last survey`, `No. years`, `E-CP species count`) |>
+  slice(1:5) |>
+  flextable() |>
+  colformat_int(j = c("First survey", "Last survey"), big.mark = "") |>
+  set_table_properties(layout = "autofit") |>
+  set_caption("The five MPAN Hard Bottom Longline Survey sites with the highest number of fishing events recorded within site boundaries (2003–2024), showing total transects, first and last survey years, number of survey years, and E-CP species richness. See Appendix XX for the complete list of 74 sites.")
+
+```
+
+<br><br>
+
+```{r hbll-ecp-text-vars, include=FALSE}
+hbll_ecp_encounter_cpue <- readRDS(here::here("data-generated", "hbll-ecp-encounter-cpue.rds"))
+
+hbll_ecp_top_inside <-
+  hbll_ecp_encounter_cpue |>
+  dplyr::arrange(dplyr::desc(total_catch_inside))
+
+hbll_yerow <- hbll_ecp_encounter_cpue |>
+  dplyr::filter(species_common_name == "yelloweye rockfish")
+
+hbll_ecp_top1_name  <- "yelloweye rockfish"
+hbll_ecp_top1_n_raw <- hbll_yerow$total_catch_inside[1]
+hbll_ecp_top2_name  <- hbll_ecp_top_inside$species_common_name[2]
+hbll_ecp_top2_n_raw <- hbll_ecp_top_inside$total_catch_inside[2]
+hbll_ecp_top3_name  <- hbll_ecp_top_inside$species_common_name[3]
+hbll_ecp_top3_n_raw <- hbll_ecp_top_inside$total_catch_inside[3]
+
+hbll_ecp_top1_n <- formatC(hbll_ecp_top1_n_raw, format = "f", big.mark = ",", digits = 0)
+hbll_ecp_top2_n <- formatC(hbll_ecp_top2_n_raw, format = "f", big.mark = ",", digits = 0)
+hbll_ecp_top3_n <- formatC(hbll_ecp_top3_n_raw, format = "f", big.mark = ",", digits = 0)
+
+hbll_ecp_raw <- readRDS(here::here("data-generated", "hbll-ecp-species.rds"))
+hbll_ecp_n_species <- length(unique(hbll_ecp_raw$species_common_name))
+
+ecp_clean <- readRDS(here::here("data-generated", "ecp-clean.rds"))
+hbll_ecp_species_lu <- hbll_ecp_raw |>
+  dplyr::distinct(species_science_name, species_common_name) |>
+  dplyr::left_join(
+    ecp_clean |>
+      dplyr::select(scientific_name, is_ecp),
+    by = c("species_science_name" = "scientific_name")
+  )
+hbll_ecp_n_species_ecp <- sum(!is.na(hbll_ecp_species_lu$is_ecp) & hbll_ecp_species_lu$is_ecp)
+```
+
+**Conservation Priority Species — Catches Inside MPA Boundaries**
+
+Within MPAN boundaries, the Hard Bottom Longline Survey has documented substantial catches of rockfish and other groundfish species designated as MPAN Ecological Conservation Priorities. The three highest-count species inside MPA boundaries are `r hbll_ecp_top1_name` (`r hbll_ecp_top1_n` individuals), `r hbll_ecp_top2_name` (`r hbll_ecp_top2_n` individuals), and `r hbll_ecp_top3_name` (`r hbll_ecp_top3_n` individuals). Across the full HBLL E-CP dataset (both inside and outside MPAs), `r hbll_ecp_n_species` E-CP species have been recorded.
+
+Yelloweye rockfish is a particularly high-priority conservation target: it is long-lived (up to ~150 years), has extremely low natural mortality, and is highly susceptible to overfishing due to its association with hard-bottom habitat. Its high count within MPA boundaries, combined with the availability of age structure data from archived otoliths, makes it the species best positioned for detailed before–after population structure analyses within MPAN sites.
+
+
+<br><br>
+
+```{r, fig.cap="Catch-per-unit-effort (CPUE; counts per set) for Ecologically (E‑CP) and Culturally Important (C-CP) species in the HBLL surveys that are encountered in at least 5% of survey sets, comparing inside (blue) and outside (orange) MPAs. Species are ordered from top to bottom by their maximum CPUE across zones.", fig.width=7.5, fig.height=8}
+
+hbll_ecp_encounter_cpue <- readRDS(file.path(here::here("data-generated", "hbll-ecp-encounter-cpue.rds")))
+
+hbll_ecp_encounter_long <-
+  hbll_ecp_encounter_cpue |>
+  select(species_common_name, encounter_rate_inside, encounter_rate_outside) |>
+  tidyr::pivot_longer(
+    cols = c(encounter_rate_inside, encounter_rate_outside),
+    names_to = "zone", values_to = "encounter_rate"
+  ) |>
+  mutate(zone = if_else(zone == "encounter_rate_inside", "Inside MPAs", "Outside MPAs"))
+
+hbll_ecp_cpue_long <-
+  hbll_ecp_encounter_cpue |>
+  left_join(hbll_ecp_encounter_long) |>
+  filter(encounter_rate > 0.05) |>
+  select(species_common_name, cpue_inside, cpue_outside) |>
+  tidyr::pivot_longer(
+    cols = c(cpue_inside, cpue_outside),
+    names_to = "zone", values_to = "cpue"
+  ) |>
+  mutate(zone = if_else(zone == "cpue_inside", "Inside MPAs", "Outside MPAs"))
+
+hbll_ecp_cpue_bar <-
+  hbll_ecp_cpue_long |>
+  filter(cpue > 0) |>
+  mutate(
+    species_common_name = stringr::str_to_title(species_common_name),
+    species_common_name = gsub(" North Pacific", "", species_common_name)
+  ) |>
+  group_by(species_common_name) |>
+  mutate(max_cpue = max(cpue, na.rm = TRUE)) |>
+  ungroup() |>
+  mutate(
+    species_common_name = forcats::fct_reorder(species_common_name, max_cpue)
+  ) |>
+  ggplot(aes(x = cpue, y = species_common_name, fill = zone)) +
+  geom_col(position = position_dodge(width = 0.7), width = 0.7) +
+  scale_fill_manual(
+    values = c(
+      "Inside MPAs" = "#0072B2",  # blue, colourblind friendly
+      "Outside MPAs" = "#D55E00"  # reddish orange, colourblind friendly
+    )
+  ) +
+  labs(
+    x = "CPUE (catch per set)",
+    y = "",
+    fill = "",
+    title = "HBLL E-CP species: CPUE inside vs outside MPAs"
+  ) +
+  gfplot::theme_pbs() +
+  theme(
+    legend.position = "top",
+    axis.text.y = element_text(hjust = 1.03)
+  )
+hbll_ecp_cpue_bar
+
+
+```
+<br><br>
+
+**Metrics Collected**
+
+*	**Catch data:** Total number of fish retained per set for each species. Catch per unit effort (CPUE) calculated per hook and per set as the primary abundance index.
+
+*	**Biological sampling:** Fork length (or total length depending on species), weight, sex, and maturity stage recorded for sampled individuals. Species-specific length types are applied consistently across years to ensure comparability.
+
+*	**Age structures:** Otoliths or other hard parts collected from priority species where validated ageing methods exist, and archived until required for stock assessments. Archived structures represent an underutilized resource for retrospective age-structure analyses within MPA boundaries.
+
+*	**Genetic samples:** Tissue samples (fin clips) collected from selected individuals of priority species for DNA analysis, enabling population structure and connectivity assessments relevant to MPA Network design.
+
+*	**Environmental data:** Bottom depth, water temperature at the midline of each set, and substrate type (hard/soft classification) recorded at each fishing event location.
+
+
+**Leveraging Biological Metrics for MPA Effectiveness Assessment**
+
+Beyond catch-per-unit-effort (CPUE) as a population abundance index, the biological data collected by the HBLL program — length, weight, age, sex, maturity, and genetic samples — provide a suite of additional indicators capable of detecting more nuanced MPA responses that abundance indices alone cannot capture. This is particularly important in the early years following MPA designation, when measurable changes in abundance may not yet be statistically detectable but changes in population structure may already be apparent.
+
+*	**Length and size-at-age:** MPAs that reduce fishing mortality allow fish to grow 
+older and larger before removal. A shift toward larger mean size or older age structure within MPA boundaries — detected through comparison with outside reference areas or with pre-designation data — is one of the earliest and most reliable indicators of a positive MPA response for targeted groundfish species. Archived otoliths from yelloweye rockfish, quillback rockfish, and other priority species provide an immediately available resource for retrospective age-structure analysis that should be prioritised.
+
+*	**Sex ratios and maturity:** Rockfish exhibit protogyny in some species and are selectively harvested at sizes that often include reproductively active fish. Changes in the proportion of mature individuals or sex ratio within MPA boundaries over time can indicate demographic recovery. These data are already collected at every fishing event.
+
+*	**Genetic connectivity:** Fin clips collected for DNA analysis enable population genetic analyses that can quantify larval connectivity between MPAN sites and adjacent non-protected areas. This is directly relevant to evaluating whether the Network design supports the connectivity objectives that individual MPAs alone cannot achieve, and represents a unique contribution of the HBLL program not replicated by any other survey in the inventory.
+
+*	**Depth-structured analysis:** Bottom depth is recorded at each fishing event, enabling stratification of catches by depth zone within and outside MPA boundaries. Many rockfish species show strong depth preferences, and depth-stratified CPUE trends within MPAs can distinguish habitat-specific responses from Network-wide patterns.
+
+A practical recommendation is to prioritize yelloweye rockfish as the primary biological indicator species for HBLL-based MPA performance assessment. Yelloweye rockfish has the highest inside-MPA count (`r hbll_ecp_top1_n` individuals), well-validated ageing methods, archived otolith collections extending back to 2003, and known sensitivity to protection effects at multi-year timescales. Establishing a formal analysis protocol for yelloweye age structure and size distribution within the `r hbll_n_sites_gt10` MPAN sites with >10 years of HBLL data would represent the highest-return biological investment from this program.
+
+
+<br><br>
+
+**Value for Assessing MPA Effectiveness**
+
+**Longest pre-designation baselines:** With a time series beginning in 2003, the HBLL program provides the longest pre-MPAN-designation baseline of any case study program, covering the full period before formal Network site designations. For MPAs established after 2003, this baseline directly supports before–after analyses. For newly designated sites, the archive of unaged otolith samples from those sites provides a retrospective biological baseline that can be immediately mobilized without additional field work.
+
+**Broadest MPAN spatial footprint:** Coverage of `r hbll_n_sites_unique` individual MPAN sites — more than any other program assessed — makes the HBLL survey the most spatially comprehensive monitoring program for Network-level synthesis. The combination of `r hbll_n_sites_gt10` site(s) with >10 years of data and `r hbll_n_sites_unique` sites with any within-MPA sampling provides a tiered analytical structure, with the high-coverage sites enabling robust trend analyses and the full Network supporting distribution and co-occurrence assessments.
+
+**Inside–outside balance for BACI:** With `r hbll_pct_inside`% of effort inside MPA boundaries and `r round(100 - hbll_pct_inside, 1)`% outside, the program's spatial effort distribution naturally supports BACI designs across all `r hbll_n_sites_unique` sites. The outside-MPA component of the program serves as the reference baseline for detecting relative changes in abundance and population structure attributable to MPA protection, rather than broader regional trends.
+
+**Publicly available, standardised data:** Data are publicly accessible through the DFO Open Government Portal in standardised formats — the only case study program with fully public data availability — eliminating data access barriers and enabling independent verification and third-party analyses in support of Network performance reporting.
+
+**Untrawlable habitat specialization:** The HBLL survey is the only fishery-independent survey capable of providing quantitative rockfish abundance data in the rocky reef and pinnacle habitats that comprise many of the highest-priority ecological features within MPAN sites. No alternative program can substitute for this spatial niche.
+
+**Survey Considerations and Limitations**
+
+*	**Biennial schedule:** The biennial design means each region (Outside North / Outside South) is surveyed every two years. Within any given MPAN site, within-site data may be collected only every two years, which limits the temporal resolution for detecting rapid ecological changes and reduces statistical power relative to an annual survey design.
+
+*	**Gear selectivity:** Hook-and-line gear is selective for species and sizes that take baited hooks. Very small individuals, pelagic species, and species with low susceptibility to hook gear are not sampled. CPUE indices reflect the catchable biomass of hook-susceptible species only and cannot be directly compared with trawl-based indices for the same species.
+
+*	**Habitat-specific deployment:** Surveys are restricted to confirmed hard-bottom substrate. This means MPAN sites with predominantly soft-bottom or mixed-substrate habitats have limited or no HBLL coverage, and within hard-bottom sites, not all depth zones may be accessible. The `r hbll_n_sites_unique`-site coverage figure reflects sites with any hard-bottom habitat overlap, not whole-site coverage.
+
+*	**Archived otolith utilization:** Age structures collected from archived otoliths have not yet been systematically aged and analyzed for within-MPA population dynamics. Realizing this analytical potential requires dedicated funding for otolith processing and a prioritised analytical work plan — this is identified as a high-return near-term investment for the Network monitoring strategy.
+
+<br><br>
+
+
+### MULTISPECIES BENTHIC INVERTEBRATE DIVE SURVEY
+
+**General Survey Information** 
+
+<br><br>
+
+```{r}
+
+msd_general <- readRDS(here::here("data-generated", "msd-summary-table.rds"))
+
+msd_general |>
+  filter(metric != "years_not_in_mpa") |>
+  flextable() |>
+  set_table_properties(layout = "autofit") |>
+  set_caption("General information for the DFO Multispecies Benthic Invertebrate Dive Survey (2016–2024).")
+
+```
+
+<br><br>
+
+
+```{r msd-stage4-narrative-values, include = FALSE}
+# Stage 4 and general narrative values (from msd_general and msd_sites only)
+msd_v <- msd_general |> filter(metric != "years_not_in_mpa") |> tibble::deframe()
+msd_transects_inside <- as.integer(msd_v["Transects inside MPA boundaries"])
+msd_transects_total <- as.integer(msd_v["Total transects"])
+msd_transects_outside <- as.integer(msd_v["Transects outside MPA boundaries"])
+msd_pct_inside <- as.numeric(msd_v["% of effort inside MPA boundaries"])
+msd_pct_outside <- round(100 - msd_pct_inside, 0)
+msd_n_sites <- as.integer(msd_v["Number of MPAN sites sampled"])
+msd_years_conducted <- msd_v["Years conducted"]
+msd_first_year <- as.integer(sub("^([0-9]+)-.*", "\\1", msd_years_conducted))
+msd_last_year <- as.integer(sub("^[0-9]+-(.*)", "\\1", msd_years_conducted))
+msd_years_in_mpa_str <- msd_v["Years with surveys inside MPA boundaries"]
+msd_n_years_in_mpa <- as.integer(sub("^(\\d+) of.*", "\\1", msd_years_in_mpa_str))
+msd_n_years_total <- as.integer(sub("^\\d+ of (\\d+).*", "\\1", msd_years_in_mpa_str))
+msd_years_not_in_mpa <- msd_general$value[msd_general$metric == "years_not_in_mpa"]
+msd_years_not_in_mpa_text <- gsub(", ", " or ", msd_years_not_in_mpa)
+
+msd_sites_ranked <- msd_sites |> arrange(desc(`No. years`)) |> slice_head(n = 3)
+msd_sites_by_transects <- msd_sites |> arrange(desc(`Total transects`)) |> slice_head(n = 3)
+msd_top3_effort_sites <- paste0(
+  msd_sites_by_transects$`Common Site Name`, " (", msd_sites_by_transects$`Total transects`, " transects)",
+  collapse = ", "
+)
+msd_site_3yr <- msd_sites$`Common Site Name`[msd_sites$`No. years` == 3][1]
+msd_site_2yr <- msd_sites$`Common Site Name`[msd_sites$`No. years` == 2][1]
+msd_timeseries_sites <- paste0(
+  msd_sites_ranked$`Common Site Name`, " (", msd_sites_ranked$`No. years`, " year",
+  ifelse(msd_sites_ranked$`No. years` == 1, "", "s"), ")",
+  collapse = ", "
+)
+msd_n_sites_single_year <- sum(msd_sites$`No. years` == 1, na.rm = TRUE)
+msd_top3_sites_names <- paste(msd_sites_ranked$`Common Site Name`, collapse = ", ")
+msd_years_range <- paste0(min(msd_sites$`No. years`, na.rm = TRUE), "\u2013", max(msd_sites$`No. years`, na.rm = TRUE))
+```
+
+<br><br>
+
+
+**Stage 4: Spatial Suitability Analysis**
+
+Geospatial analysis of survey station coordinates against MPAN site boundary polygons (Figure \@ref(fig:msd-heatmap)) revealed `r msd_transects_inside` transects conducted within Network boundaries, representing `r msd_pct_inside`% of total survey effort over the `r msd_years_conducted` period. The program samples both inside MPA boundaries (`r msd_transects_inside` transects) and outside (`r msd_transects_outside` transects), providing the inside–outside data distribution required for BACI analytical designs.
+
+Monitoring has been conducted within `r msd_n_sites` individual MPAN sites. The greatest effort is concentrated in three sites: `r msd_top3_effort_sites`. Of the `r msd_n_years_total` years the program has been operational, all `r msd_n_years_total` years have data collected outside MPAs, while `r msd_n_years_in_mpa` years have data collected inside MPA boundaries (no within-MPA surveys in `r msd_years_not_in_mpa_text`).
+
+**Time series coverage per site:** Time series length within individual MPAN sites ranges from `r msd_years_range` years. Only `r msd_site_3yr` has a 3-year time series; `r msd_site_2yr` has 2 years of within-MPA data suitable for preliminary trend analysis. The remaining `r msd_n_sites_single_year` of `r msd_n_sites` sites have only single-year sampling events within MPA boundaries, which limits trend detection capacity at individual sites but establishes important baseline presence data.
+
+**Stage 4 spatial suitability score:** 2 — Strong overlap. The program samples both within multiple MPAN sites and in adjacent outside/reference areas with reasonable temporal coverage. Advanced to detailed case study analysis.
+
+
+```{r msd-heatmap, fig.cap="Figure 7. Maps of the Marine Protected Areas (MPAs, grey outline) across the Northern Shelf Bioregion (NSB), including overlay with the multispecies dive surveys. The left panel (a) shows the georeferenced transects of the multispecies dive survey (2016-2024). Right panel (b) shows total counts of surveys within NSB MPA sites.", fig.asp=get_asp(here::here("figures/spatial-overlays/heatmap-msd-mpa-sf.png")), out.width="80%"}
+knitr::include_graphics(here::here("figures/spatial-overlays/heatmap-msd-mpa-sf.png"))
+```
+
+
+
+
+<br><br>
+
+```{r}
+
+msd_sites <- readRDS(here::here("data-generated", "msd-site-summary-table.rds"))
+
+msd_sites |> 
+  mutate(`Mean species richness` = round(`Mean species richness`, 1)) |>
+  select(`Site ID`, `Common Site Name`, `Total transects`, `Years in MPA`, `Unique species`, `Mean species richness`) |>
+  flextable() |>
+  set_table_properties(layout = "autofit") |>
+  set_caption("MPAN sites where multispecies benthic invertebrate surveys have been conducted (2016–2024), showing total transects, survey years, and species richness. Northern Abalone transect data are excluded from site-level species counts due to data confidentiality provisions (DFO 2012)")
+
+
+```
+
+<br><br>
+
+```{r}
+
+msd_species_summary <- readRDS(here::here("data-generated", "msd-species-summary-table.rds"))
+
+# see: https://esajournals.onlinelibrary.wiley.com/doi/full/10.1002/ecs2.4959
+# macrocystis pyrifera is different from macrocystis integrifola and is found in california while integrifolia is found in BC
+ecp_lu <- tribble(
+  ~Species, ~ecp_label,
+  "Apostichopus californicus", "(C-CP)",
+  "Macrocystis integrifolia", "",
+  "Mesocentrotus franciscanus", "(E-CP)",
+  "Nereocystis luetkeanus", "(E-CP)",
+  "Panopea generosa", "(E-CP)",
+  "Phyllospadix (genus)", "(E-CP)",
+  "Pterygophora californica", "",
+  "Pycnopodia helianthoides", "(E-CP)",
+  "Strongylocentrotus droebachiensis", "(E-CP)",
+  "Strongylocentrotus purpuratus", "",
+  "Zostera (genus)", "(E-CP)"
+)
+
+msd_species_summary_clean <- msd_species_summary |>
+  mutate(Species = ifelse(Species == "Zostera", "Zostera (genus)", Species),
+         Species = ifelse(Species == "Phyllospadix", "Phyllospadix (genus)", Species),
+         `Common name` = gsub("red urchin", "red sea urchin", `Common name`),
+         `Common name` = gsub("green urchin", "green sea urchin", `Common name`),
+         `Common name` = gsub("pacific geoduck", "geoduck", `Common name`),
+         `Common name` = gsub("eel grass", "eelgrass", `Common name`),
+         `Common name` = gsub("walking kelp", "stalked kelp", `Common name`),
+         `Common name` = gsub("small perennial kelp", "giant kelp", `Common name`),
+         `Common name` = stringr::str_to_title(`Common name`)) |>
+  left_join(ecp_lu, by = "Species") |>
+  # mutate(ecp_label = ifelse(is.na(ecp_label), "", ecp_label)) |>
+  mutate(Species = paste(`Species`, ecp_label, sep = " "))
+```
+
+```{r msd-narrative-values, include = FALSE}
+# Conservation Priority Species narrative (from msd_species_summary_clean)
+msd_top3_inside_df <- msd_species_summary_clean |>
+  arrange(desc(`Sightings inside MPAs`)) |>
+  slice_head(n = 3)
+msd_top1_inside <- msd_top3_inside_df$`Common name`[1]
+msd_top1_inside_n <- format(msd_top3_inside_df$`Sightings inside MPAs`[1], big.mark = ",")
+msd_top2_inside <- msd_top3_inside_df$`Common name`[2]
+msd_top2_inside_n <- format(msd_top3_inside_df$`Sightings inside MPAs`[2], big.mark = ",")
+msd_top3_inside_name <- msd_top3_inside_df$`Common name`[3]
+msd_top3_inside_n <- format(msd_top3_inside_df$`Sightings inside MPAs`[3], big.mark = ",")
+
+msd_top2_proportion <- msd_species_summary_clean |>
+  arrange(desc(`Proportion inside MPAs`)) |>
+  slice_head(n = 2)
+msd_geoduck_pct <- round(msd_species_summary_clean$`Proportion inside MPAs`[grepl("Geoduck", msd_species_summary_clean$`Common name`, ignore.case = TRUE)][1] * 100)
+msd_red_urchin_pct <- round(msd_species_summary_clean$`Proportion inside MPAs`[grepl("Red sea urchin", msd_species_summary_clean$`Common name`, ignore.case = TRUE)][1] * 100)
+if (length(msd_geoduck_pct) == 0 || is.na(msd_geoduck_pct)) msd_geoduck_pct <- round(msd_top2_proportion$`Proportion inside MPAs`[1] * 100)
+if (length(msd_red_urchin_pct) == 0 || is.na(msd_red_urchin_pct)) msd_red_urchin_pct <- round(msd_top2_proportion$`Proportion inside MPAs`[2] * 100)
+
+msd_sunflower <- msd_species_summary_clean |>
+  filter(grepl("Sunflower|Pycnopodia", Species, ignore.case = TRUE)) |>
+  slice(1)
+msd_sunflower_inside <- msd_sunflower$`Sightings inside MPAs`
+msd_sunflower_outside <- msd_sunflower$`Sightings outside MPAs`
+msd_sunflower_pct <- round(msd_sunflower$`Proportion inside MPAs` * 100)
+
+msd_eelgrass <- msd_species_summary_clean |>
+  filter(grepl("Eelgrass|Zostera", `Common name`, ignore.case = TRUE)) |>
+  slice(1)
+msd_eelgrass_pct <- round(msd_eelgrass$`Proportion inside MPAs` * 100)
+
+# Top 3 sites by E-CP species sightings; order so longest time series is last ("notably...")
+msd_site_ecp <- readRDS(here::here("data-generated", "msd-site-ecp-sightings.rds")) |>
+  filter(!is.na(site))
+msd_top3_ecp <- msd_site_ecp |>
+  left_join(msd_sites |> select(site = `Common Site Name`, `No. years`), by = "site") |>
+  distinct() |>
+  arrange(desc(`No. years`)) |>
+  slice_head(n = 3)
+msd_longest_among_top3 <- msd_top3_ecp |>
+  filter(`No. years` == max(`No. years`, na.rm = TRUE)) |>
+  slice(1)
+msd_other_two <- msd_top3_ecp |> filter(site != msd_longest_among_top3$site)
+msd_ecp_site1 <- msd_other_two$site[1]
+msd_ecp_site1_n <- format(round(msd_other_two$total_ecp_sightings[1], -2), big.mark = ",")
+msd_ecp_site2 <- msd_other_two$site[2]
+msd_ecp_site2_n <- format(round(msd_other_two$total_ecp_sightings[2], -2), big.mark = ",")
+msd_ecp_site3 <- msd_longest_among_top3$site
+```
+
+<br><br>
+
+
+**Conservation Priority Species — Sightings Inside and Outside MPAs**
+
+Within MPAN boundaries, the survey has documented all target E-CP and C-CP species across the `r msd_n_sites` sampled sites. `r msd_top1_inside` recorded the highest absolute counts inside MPAs (`r msd_top1_inside_n` sightings), followed by `r msd_top2_inside` (`r msd_top2_inside_n` sightings) and `r msd_top3_inside_name` (`r msd_top3_inside_n` sightings). The proportion of sightings inside versus outside MPAs varies substantially by species, reflecting differences in habitat associations and the spatial distribution of survey effort (`r here::here("tables", "msd-species-summary-table.rds")`).
+
+Geoduck (`r msd_geoduck_pct`% of sightings inside MPAs) and Red Sea Urchin (`r msd_red_urchin_pct`%) show the highest proportional representation inside MPA boundaries, suggesting these species may be concentrated in the rocky reef habitats sampled within MPA sites. Sunflower Sea Star sightings, while lower in absolute numbers (`r msd_sunflower_inside` inside, `r msd_sunflower_outside` outside), show `r msd_sunflower_pct`% of records inside MPAs — notable given this species is IUCN Critically Endangered and recovering from Sea Star Wasting Disease. Eelgrass sightings are predominantly recorded outside MPA boundaries (`r msd_eelgrass_pct`% inside), consistent with the distribution of eelgrass habitat in more sheltered intertidal and shallow subtidal areas not concentrated within the current MPAN sites.
+
+~~The three most productive sites for E-CP species monitoring were `r msd_ecp_site1` (>`r msd_ecp_site1_n` total species sightings), `r msd_ecp_site2` (>`r msd_ecp_site2_n` sightings), and `r msd_ecp_site3` — notably the site with the longest temporal coverage.~~ Not sure this text fits anymore because these are also the most sampled sites.
+
+<br><br>
+
+```{r}
+
+msd_species_summary_clean |>
+  arrange(desc(species_group), desc(`Proportion inside MPAs`)) |>
+  select(Species, `Common name`, `Sightings inside MPAs`, `Sightings outside MPAs`, `Proportion inside MPAs`) |>
+  flextable() |>
+  set_table_properties(layout = "autofit") |>
+  set_caption("Species sightings inside and outside Network boundaries, 2016–2024. E-CP = MPAN Ecological Conservation Priority, C-CP = MPAN Cultural Conservation Priority. Note: Northern Abalone sightings not included due to data confidentiality.")
+
+```
+
+<br><br>
+
+```{r, fig.cap="Alternative to previous table"}
+msd_species_summary_clean |>
+  mutate(
+    total = `Sightings inside MPAs` + `Sightings outside MPAs`,
+    Species = gsub("\\(E-CP\\)", "", Species),
+    Species = gsub("\\(genus\\)", "", Species),
+    Species = forcats::fct_reorder(Species, total, .desc = FALSE)
+  ) |>
+  ggplot(aes(y = Species, x = total)) +
+  geom_col() +
+  labs(x = "Total sightings", y = "Species") +
+  gfplot::theme_pbs()
+
+```
+
+**Value for Assessing MPA Effectiveness**
+
+The Multispecies Benthic Invertebrate Dive Survey offers several complementary strengths for MPAN performance assessment:
+
+* Multi-year trend analysis capability: The program's established time series at `r msd_timeseries_sites` provides a foundation for detecting population-level trends in multiple E-CP species simultaneously. Expanding temporal coverage to additional high-priority MPAN sites is the most critical investment needed to increase this program's utility for Network performance monitoring.
+
+* Informs BACI framework: Approximately half of all survey effort falls outside MPA boundaries (`r msd_transects_outside` transects, ~`r msd_pct_outside`%), providing the reference-area data required for Before-After-Control-Impact (BACI) analyses. The program's spatial design directly supports inside–outside comparisons at a Network level, even where individual site time series remain short. Given that the surveys fall both inside and outside MPAs, these could be used…counterfactual
+
+* Comprehensive ecosystem assessment: The integration of invertebrate population data with detailed habitat metrics enables analysis of species-habitat relationships and ecosystem-level responses to MPA protection. This is particularly important as habitat data complements First Nations-led kelp monitoring and provides spatial context for E-CP habitat-forming species across the region.
+
+* Coast-wide standardization: Detailed, peer-reviewed standardised protocols (Lochead et al. 2023) with random transect selection and systematic quadrat sampling ensure data comparability across the entire BC coast, supporting both site-level assessment and Network-level synthesis.
+
+* Historical continuity: By consolidating historical single-species monitoring programs (Geoduck, Green Sea Urchin, Red Sea Urchin), the survey inherits extended temporal baselines for these species beyond 2016. This legacy data substantially enhances statistical power for detecting long-term population trends and MPA effects for these priority taxa.
+
+Survey Considerations and Limitations
+
+* Time series length: With only `r msd_n_years_total` years of data to `r msd_last_year` (and `r msd_n_years_in_mpa` years with within-MPA surveys), the current time series is relatively short for detecting MPA effects on longer-lived species such as Red Sea Urchin, Geoduck, and Northern Abalone, which may exhibit population responses over decadal timescales. Continued annual monitoring is essential.
+
+* Within-MPA site coverage: Of `r msd_n_sites` MPAN sites sampled, `r msd_n_sites_single_year` have only a single year of within-MPA data, which is insufficient for individual-site trend analysis. Prioritizing repeat visits to high-value sites identified in the spatial analysis is recommended.
+
+* Northern Abalone data confidentiality: Location-specific abalone data are subject to data confidentiality provisions under SARA. Monitoring outputs for this species require careful data management protocols to balance confidentiality requirements with the need for MPA performance reporting.
+
+* Survey timing: Surveys are conducted in September. Inter-annual variability in survey timing relative to species phenology (e.g., sea urchin spawning, algae seasonal cycles) should be considered when interpreting year-to-year trends.
+
+* Rotating spatiotemporal sampling: To get broad spatial coverage, the survey uses a rotating schedule of sites, resulting in most sites being sampled only 1-3 times over the 9 years of survey. This limits the ability to distinguish MPA recovery trends from natural mortality patterns and detect episodic recruitment pulses. ADDED
+
+
