@@ -146,7 +146,7 @@ future::plan(future::sequential)
 setup_parallel(USE_PARALLEL, N_WORKERS)
 
 sampling_summary <- readRDS(file.path(sample_dir, "sampling-summary.rds"))
-N_REPLICATES <- 25
+N_REPLICATES <- 20
 results_dir <- here::here("data-generated", "power-results")
 dir.create(results_dir, showWarnings = FALSE, recursive = TRUE)
 
