@@ -25,7 +25,7 @@ N_REPLICATES <- 100
 if (Sys.info()['user'] %in% c("dunic", "anderson")) {
   USE_PARALLEL <- TRUE
   N_WORKERS <- 40
-  N_REPLICATES <- 20
+  N_REPLICATES <- 100
 }
 
 if (Sys.info()['user'] %in% c("jillian", "jilliandunic")) {
@@ -144,7 +144,6 @@ message("\n=== Power Analysis: Model Fitting ===")
 tictoc::tic("Starting power analysis")
 future::plan(future::sequential)
 
-if (isFALSE(USE_PARALLEL)) warning("Note that USE_PARALLEL is FALSE!")
 setup_parallel(USE_PARALLEL, N_WORKERS)
 
 sampling_summary <- readRDS(file.path(sample_dir, "sampling-summary.rds"))

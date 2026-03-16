@@ -342,6 +342,7 @@ setup_parallel <- function(use_parallel, n_workers = NULL) {
     }
     return(furrr::future_map)
   } else {
+    warning("USE_PARALLEL is FALSE! 🙀")
     future::plan(future::sequential)
     message("Using sequential processing")
     return(purrr::map)
