@@ -147,13 +147,19 @@ setup_parallel(USE_PARALLEL, N_WORKERS)
 
 sampling_summary <- readRDS(file.path(sample_dir, "sampling-summary.rds"))
 N_REPLICATES <- 25
+results_dir <- here::here("data-generated", "power-results")
+dir.create(results_dir, showWarnings = FALSE, recursive = TRUE)
+
+
 
 task_grid <- create_task_grid(sampling_summary, sample_dir) |>
   add_combined_survey_tasks(sampling_summary, sample_dir) |>
-  filter(species %in% c("yelloweye rockfish", "lingcod", "pacific halibut"),
-    survey_abbrev == "HBLL") |>
-  filter(ar1_scenario == "no_AR1") |>
-  arrange(species)
+  dplyr::filter(
+    #species %in% c("yelloweye rockfish", "lingcod", "pacific halibut"),
+    survey_abbrev == "HBLL"
+    ) |>
+  dplyr::filter(ar1_scenario == "no_AR1") |>
+  dplyr::arrange(species)
 
 cat("Task grid:\n")
 print(task_grid)
