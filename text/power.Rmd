@@ -1,19 +1,4 @@
-# ABSTRACT
-
-The Abstract is mandatory. This section will be posted in HTML format on the CSAS website followed by the link to the full PDF version of the publication.
-
-The Abstract must not be more than half a page (roughly 400 words).
-
 \newpage
-
-```{r}
-# a little function to grab the aspect ratio of our .png file:
-get_asp <- function(x) {
-  info <- magick::image_info(magick::image_read(x))
-  info$height / info$width
-}
-```
-
 # POWER ANAYLSIS --- RECOMMENDATIONS FOR MONITORING PROGRAM DESIGN/SAMPLING FREQUENCY
 
 We chose a case study of the Hard Bottom Longline Hook Survey to evaluate sampling design requirements using power analysis to assess how monitoring programs could be adapted or expanded to detect meaningful changes in conservation priority species. 
@@ -180,14 +165,18 @@ rates_table <- rates |>
     lambda = round(lambda, 3),
     percent_rate = 100 * (lambda - 1)
   ) |>
+  mutate(citekey = ifelse(citekey == "haggarty2021yelloweyeinside", "haggarty2022yelloweye_inside_fsar", citekey)) |>
+  mutate(citekey = ifelse(citekey == "iphc2024halibut", "iphc2024", citekey)) |>
   select(species, case, time, `annual percent change` = percent_rate, citekey, source) |>
   arrange(species, `annual percent change`)
 
 rates_table |>
-  select(-time) |>
-  rename(Species = species, Case = case, `Annual % change` = `annual percent change`, Citation = citekey, Source = source) |> 
+  mutate(source = paste0(source, "; @", citekey)) |>
+  select(-time, -citekey) |>
+  rename(Species = species, Case = case, `Annual % change` = `annual percent change`, Source = source) |>
   flextable() |>
-  set_table_properties(layout = "autofit") |> 
+  ftExtra::colformat_md() |>
+  set_table_properties(layout = "autofit") |>
   set_caption("Annual rates of change used in simulation of population recovery. Values derived from most recent stock assessment projections of no fishing scenarios.")
 ```
 
@@ -197,8 +186,7 @@ rates_table |>
 knitr::include_graphics(here::here("figures/sampling-scenario-comparison.png"))
 ```
 
-```{r historical-simulated-index-example, fig.cap="Example of a simulated timeseries used in the power analysis for Yelloweye Rockfish in HBLL OUT S. The historical index (dark grey) shows the relative abundance estimated from the conditioning model, capturing temporal variation from 2004 -- 2024. Simulated projections diverge after 2024 (first vertical dashed line), with abundance increasing inside the MPA (orange), and no trend outside of the MPA (blue). Indices are scaled to align at 2024 for visualization; values represent relative trends, ot absolute abundance. Power to detect the MPA effect is evaluated at subsequent years indicated by vertical dashed lines (2030, 2034, 2038, 2042, 2046) by fitting analysis models to historical data combined with the simulated data up to each evaluation year.", fig.asp=get_asp(here::here("figures/sampling-scenario-comparison.png")), out.width="80%"}
-plot(1)
+```{r historical-simulated-index-example, fig.cap="Example of a simulated timeseries used in the power analysis for Yelloweye Rockfish in HBLL OUT S. The historical index (dark grey) shows the relative abundance estimated from the conditioning model, capturing temporal variation from 2004 -- 2024. Simulated projections diverge after 2024 (first vertical dashed line), with abundance increasing inside the MPA (orange), and no trend outside of the MPA (blue). Indices are scaled to align at 2024 for visualization; values represent relative trends, ot absolute abundance. Power to detect the MPA effect is evaluated at subsequent years indicated by vertical dashed lines (2030, 2034, 2038, 2042, 2046) by fitting analysis models to historical data combined with the simulated data up to each evaluation year.", fig.asp=get_asp(here::here("figures/relative-index-single-survey.png")), out.width="80%"}
 ```
 
 **Step 4: Refit combined historical and simulated data to calculate (1) Power, (2) Exaggeration rates, (3) Sign error**
