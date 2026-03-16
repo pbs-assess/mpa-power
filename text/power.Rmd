@@ -1,19 +1,19 @@
 \newpage
 # POWER ANAYLSIS --- RECOMMENDATIONS FOR MONITORING PROGRAM DESIGN/SAMPLING FREQUENCY
 
-We chose a case study of the Hard Bottom Longline Hook Survey to evaluate sampling design requirements using power analysis to assess how monitoring programs could be adapted or expanded to detect meaningful changes in conservation priority species. 
-Power analysis is a widely used approach for evaluating how sampling design and replication influence the ability to detect ecological change when it occurs. 
-Statistical power depends on the magnitude of the effect being tested, the degree of spatial and temporal variability in indicators, and the level of replication across sites, years, and sampling units (Stewart-Oaten et al. 1986; Underwood 1994). 
-In impact monitoring frameworks such as Before--After--Control--Impact (BACI) designs, balanced designs with comparable numbers of observations in pre- and post-impact periods generally provide greater statistical power than unbalanced designs with the same total sampling effort (Underwood 1994; Smokorowski and Randall 2017).
+We chose a case study of the Hard Bottom Longline (HBLL) survey to evaluate sampling design requirements using power analysis to assess how monitoring programs could be adapted or expanded to detect meaningful changes in conservation priority species.
+Power analysis is a widely used approach for evaluating how sampling design and replication influence the ability to detect ecological change when it occurs.
+Statistical power depends on the magnitude of the effect being tested, the degree of spatial and temporal variability in indicators, and the level of replication across sites, years, and sampling units [@underwoodBACISampling1994; @stewart-oatenEnvironmentalImpact1986].
+In impact monitoring frameworks such as Before--After--Control--Impact (BACI) designs, balanced designs with comparable numbers of observations in pre- and post-impact periods generally provide greater statistical power than unbalanced designs with the same total sampling effort [@underwoodBACISampling1994; @smokorowskiCautionsUsing2017].
 
-The Hard Bottom Longline Survey was selected as an illustrative example for several reasons. 
+The HBLL survey was selected as an illustrative example for several reasons.
 The HBLL was one of the programs that scored highest in our program assessment based on temporal suitability, domain relevance, and spatial coverage criteria. 
 It has a 19-year time series providing sufficient historical data to characterize baseline variability, monitors multiple MPAN Ecological Conservation Priority rockfish species (yelloweye, quillback), samples 54 individual protected areas with coverage both inside and outside MPAN boundaries, and collects detailed biological data (length, weight, archived otoliths) enabling analysis of multiple response metrics.
 
-The power analyses conducted on the HBLL were used to inform recommendations on sampling frequency, spatial replication, and temporal coverage needed to support robust evaluation of Marine Protected Area (MPA) performance.
+The power analyses conducted on the HBLL were used to inform recommendations on sampling frequency, spatial replication, and temporal coverage needed to support robust evaluation of MPA performance.
 Importantly, this case study serves as one methodological example---not a prescription. 
-The HBLL was not originally designed for MPA performance assessment; sampling locations were selected for regional stock assessment. 
-The power analysis demonstrates what is currently feasible with existing data and what adaptations would strengthen performance monitoring. 
+The HBLL was not originally designed for MPA performance assessment; sampling locations were selected for regional stock assessment and conservation monitoring. 
+The power analysis demonstrates what is currently feasible with existing data.
 Different programs will require different adaptations depending on their design, species monitored, spatial scale, logistical constraints, and organizational priorities.
 This case study illustrates a general analytical workflow that can be applied to other high-suitability programs, with final decisions about program adaptation to be made collaboratively by Network Partners through the Network Monitoring Strategy process.
 
@@ -79,17 +79,22 @@ readr::read_csv(here::here("text/data/power-definitions.csv")) |>
 ## POWER ANALYSIS METHODOLOGY
 
 Since 2003, Fisheries and Oceans Canada has conducted Hard Bottom Longline (HBLL) surveys to monitor groundfish abundance and distribution off the coast of BC. 
-The survey targets inshore rockfish habitat, specifically Yelloweye and Quillback rockfish habitat [@doherty2019]. 
+The survey targets inshore rockfish habitat, specifically that of Yelloweye and Quillback rockfish [@doherty2019]. 
 The HBLL survey consists of two survey series: inside (HBLL INS, referring to waters between Vancouver Island and the mainland) and the outside (HBLL OUT, all other BC waters). 
 North and south areas within each series are surveyed biennially. 
-Three of the four regions (HBLL OUT N, HBLL OUT S, and HBLL INS N) overlap with the GBS MPA Network (Figure hbll-mpa-historical-overlay). 
+Three of the four regions (HBLL OUT N, HBLL OUT S, and HBLL INS N) overlap with the GBS MPA Network (Figure \@ref(fig:hbll-mpa-historical-overlay)).
+
+```{r hbll-mpa-historical-overlay, fig.cap="HBLL-MPA historical overlay.", fig.asp=get_asp(here::here("figures/hbll-mpa-historical-overlay.png")), out.width="90%"}
+knitr::include_graphics(here::here("figures/hbll-mpa-historical-overlay.png"))
+```
+
 The surveys use a depth-stratified random sampling design, with a target allocation of 189 sets (HBLL OUT N), 252 (HBLL OUT S), and 70 (HBLL INS N).
 
 We used a simulation-based power analysis to assess the ability of existing monitoring programs to detect changes in population indices of groundfish across the MPA Network. 
 Our approach consisted of four steps: (1) fit conditioning models to empirical data, (2) simulate population recovery trends inside and outside of the MPAs under the assumption of fishing cessation within MPAs, (3) apply two different sampling strategies to the simulated population, and (4) test the power of these sampling strategies to detect trends across the MPA Network by fitting another spatiotemporal model to the combined historical and simulated data.
 
 Using a spatiotemporal modelling approach, we applied this power analysis to five conservation priority species that are well sampled by the HBLL survey: Yelloweye Rockfish, Quillback Rockfish, Lingcod, Pacific Halibut, and Pacific Spiny Dogfish. 
-This approach allows us to test different scenarios, such as recovery trends within the MPA or evaluation time frame, while incorporating some ecological complexity and variability (Table \@ref(tab:scenario-summary)). 
+This approach allows us to test different scenarios, such as varying recovery rates within MPAs or evaluation time frames, while incorporating some ecological complexity and variability (Table \@ref(tab:scenario-summary)). 
 Power increases with larger MPA effect sizes (e.g., faster recovery), higher abundances, wider spatial distribution, more frequent sampling, and longer evaluation times. 
 Conversely, species with slower recovery rates, patchy distributions, and/or lower abundance will require more intensive sampling and longer evaluation time frames to detect population changes.
 
@@ -139,7 +144,7 @@ Fit conditioning models for each of the three HBLL survey regions to maximize th
 
 Figure \@ref(fig:spp-distribution) shows the average spatial distribution from the fitted models for each species.
 
-```{r spp-distribution, fig.cap="Spatial distributions of five groundfish species across the British Columbia coast. Predicted relative abundance (mean catch per 100 hooks) from the most recent survey year for each region, as estimated from the spatiotemporal models used to inform the simulation.", fig.asp=get_asp(here::here("figures/predicted-distributions.png")), out.width="90%"}
+```{r spp-distribution, fig.cap="Spatial distributions of five groundfish species across the British Columbia coast. Predicted relative abundance (mean catch per 100 hooks) from the most recent survey year for each region, as estimated from the spatiotemporal models used to inform the simulation.", fig.asp=get_asp(here::here("figures/predicted-distributions.png")), out.width="100%"}
 knitr::include_graphics(here::here("figures/predicted-distributions.png"))
 ```
 
@@ -182,7 +187,7 @@ rates_table |>
 
 ### Step 3: Two different sampling scenarios
 
-```{r sampling-scenarios, fig.cap="Example of one replicate of sampled, simulated data from yelloweye rockfish (one replicate) by sampling plan and year. (top) The status quo sampling uses the same allocations and excludes MPA locations. (bottom) MPAs are only sampled every 4 years within each region and in the 'non-MPA' years survey effort is redistributed outside the MPAs following the same depth-stratified random allocations. Closed points indicate sites within the MPAs.", fig.asp=get_asp(here::here("figures/sampling-scenario-comparison.png")), out.width="80%"}
+```{r sampling-scenarios, fig.cap="Example of one replicate of sampled, simulated data from yelloweye rockfish (one replicate) by sampling plan and year. (top) The status quo sampling uses the same allocations and excludes MPA locations. (bottom) MPAs are only sampled every 4 years within each region and in the 'non-MPA' years survey effort is redistributed outside the MPAs following the same depth-stratified random allocations. Closed points indicate sites within the MPAs.", fig.asp=get_asp(here::here("figures/sampling-scenario-comparison.png")), out.width="100%"}
 knitr::include_graphics(here::here("figures/sampling-scenario-comparison.png"))
 ```
 

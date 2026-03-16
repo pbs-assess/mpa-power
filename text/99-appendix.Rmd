@@ -29,4 +29,6 @@ knitr::include_graphics(here::here("figures/spatial-random-field.png"))
 knitr::include_graphics(here::here("figures/supplementary/bias-check-on-estimate-lingcod.png"))
 ```
 
-
+```{r cumulative-power, fig.cap="Comulative power TODO.", fig.asp=get_asp(here::here("figures/supplementary/cumulative-power-plot-all-species.png")), out.width="100%"}
+knitr::include_graphics(here::here("figures/supplementary/cumulative-power-plot-all-species.png"))
+```
