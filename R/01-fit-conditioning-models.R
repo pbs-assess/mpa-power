@@ -178,21 +178,26 @@ if (USE_PARALLEL) {
 # Reset to sequential
 future::plan(future::sequential)
 
+# Get process error parameters from conditioning models
 
-# Get ar1 estimates from fits
-# Demo
-# x <- arima.sim(n = 10000L, list(ar = c(0.8)), sd = sqrt(0.17))
-# m <- ar(x, order.max = 1L)
-# m$var.pred
-# m$ar
+ar1_estimates <- all_fits |>
+  purrr::flatten() |>
+  purrr::map_dfr(function(fit) {
+    species <- unique(fit$data$species_common_name)
+    survey_abbrev <- unique(fit$data$survey_abbrev)
 
-year_ests <- all_fits[[1]]$fit_ON |> # all_fits[[1]]$fit_OS |>
-  get_model_pars() |>
-  filter(stringr::str_detect(term, "fyear")) |>
-  pull(estimate)
+    year_ests <- fit |>
+      get_model_pars() |>
+      filter(stringr::str_detect(term, "fyear")) |>
+      mutate(year = as.numeric(stringr::str_extract(term, "\\d+"))) |>
+      select(year, estimate)
+    afit <- arima(year_ests$estimate, order = c(1, 0, 0))
+    tibble(
+           species = species,
+           survey_abbrev = survey_abbrev,
+           rho_V = afit$coef[["ar1"]],
+           sigma_V = sqrt(afit$sigma2))
+  })
 
-year_ests
-m <- ar(year_ests, order.max = 1L)
-m$var.pred
-m$ar
-
+saveRDS(ar1_estimates, here::here("data-generated", "ar1-parameters.rds"))
+message("Saved AR1 parameters for ", nrow(ar1_estimates), " species × survey combinations")

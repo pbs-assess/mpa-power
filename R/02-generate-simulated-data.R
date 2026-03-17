@@ -33,6 +33,9 @@ dir.create(sim_dir, showWarnings = FALSE, recursive = TRUE)
 recovery_rates <- readRDS(here::here("data-generated", "recovery-rates-lambda.rds"))
 message("Loaded recovery rates for ", length(unique(recovery_rates$species)), " species")
 
+ar1_parameters <- readRDS(here::here("data-generated", "ar1-parameters.rds"))
+message("Loaded AR1 parameters for ", nrow(ar1_parameters), " species × survey combinations")
+
 # Grid for data simulation
 # ------------------------
 restricted_df <- readRDS(file.path("data-generated", "hbll-restricted-sf.rds")) |>
@@ -570,13 +573,14 @@ message("Running simulations for ", length(species_list), " species")
 # =============================================================================
 
 # AR1 temporal variation scenarios
+# Note: rho_V and sigma_V are added per-survey in task grid creation
 # - NA_real_ means no AR1 process (converted to NULL when passed to simulate_hbll)
 # - rho_V: AR(1) correlation parameter
 # - sigma_V: marginal standard deviation for AR(1) process
 ar1_scenarios <- tribble(
-  ~ar1_scenario, ~rho_V, ~sigma_V,
-  "no_AR1", NA_real_, NA_real_#,           # No temporal AR1 variation
-  # "moderate_AR1", 0.3, 0.2                # Some temporal autocorrelation; 0.2 similar to sd on year effects from conditioning models
+  ~ar1_scenario,
+  "no_AR1",           # No temporal AR1 variation
+  "fitted_AR1"        # Use species-survey-specific values from ar1_parameters.rds
 )
 
 # Time scenarios
@@ -596,7 +600,7 @@ formula_scenarios <- tribble(
 )
 
 nreps <- 120
-nreps <- 50
+nreps <- 1
 
 # Note: Parameter grids are now created per-species using recovery rates
 # See task grid creation below for species-specific implementation
@@ -617,8 +621,8 @@ if (length(all_species_fits) == 0) {
   stop("No valid fits for any species. Stopping.")
 }
 
-# Create species-specific task grid
-message("\n=== Creating Species-Specific Parameter Grids ===")
+# Create species × survey-specific task grid
+message("\n=== Creating Species × Survey-Specific Parameter Grids ===")
 
 task_grid <- purrr::map_dfr(names(all_species_fits), function(sp_name) {
   # Get species-specific recovery rates
@@ -628,32 +632,55 @@ task_grid <- purrr::map_dfr(names(all_species_fits), function(sp_name) {
 
   message("Species: ", sp_name, " - Rates: ", paste(round(sp_rates, 4), collapse = ", "))
 
-  # Create parameter grid for this species
-  sp_param_grid <- create_sim_param_grid(
-    mpa_trend = sp_rates,
-    ar1_scenarios = ar1_scenarios,
-    time_scenarios = time_scenarios,
-    formula_scenarios = formula_scenarios,
-    nreps = nreps
-  )
-
-  # Get unique parameter combinations (excluding replicate)
-  sp_param_combos <- sp_param_grid |>
-    distinct(mpa_trend, ar1_scenario, time_scenario, formula_scenario,
-             phi, rho_V, sigma_V, formula, year_covariate)
-
   # Get survey fits for this species
   survey_fits <- all_species_fits[[sp_name]]
 
   # Create tasks for each survey × param combination
   purrr::map_dfr(survey_fits, function(survey_config) {
-    purrr::pmap_dfr(sp_param_combos, function(...) {
+    survey_abbrev <- survey_config$abbrev
+
+    # Get species-survey-specific AR1 parameters
+    sp_survey_ar1 <- ar1_parameters |>
+      filter(species == sp_name, survey_abbrev == !!survey_abbrev)
+
+    if (nrow(sp_survey_ar1) != 1) {
+      warning("Expected 1 AR1 parameter row for ", sp_name, " × ", survey_abbrev,
+              ", found ", nrow(sp_survey_ar1))
+    }
+
+    # Extract AR1 values safely (NA if missing)
+    fitted_rho_V <- if (nrow(sp_survey_ar1) == 1) sp_survey_ar1$rho_V[1] else NA_real_
+    fitted_sigma_V <- if (nrow(sp_survey_ar1) == 1) sp_survey_ar1$sigma_V[1] else NA_real_
+
+    # Create AR1 scenarios with survey-specific values
+    ar1_scenarios_survey <- ar1_scenarios |>
+      mutate(
+        rho_V = if_else(ar1_scenario == "no_AR1", NA_real_, fitted_rho_V),
+        sigma_V = if_else(ar1_scenario == "no_AR1", NA_real_, fitted_sigma_V)
+      )
+
+    # Create parameter grid for this species × survey combination
+    sp_survey_param_grid <- create_sim_param_grid(
+      mpa_trend = sp_rates,
+      ar1_scenarios = ar1_scenarios_survey,  # Survey-specific AR1 values
+      time_scenarios = time_scenarios,
+      formula_scenarios = formula_scenarios,
+      nreps = nreps
+    )
+
+    # Get unique parameter combinations (excluding replicate)
+    sp_survey_param_combos <- sp_survey_param_grid |>
+      distinct(mpa_trend, ar1_scenario, time_scenario, formula_scenario,
+               phi, rho_V, sigma_V, formula, year_covariate)
+
+    # Create task rows
+    purrr::pmap_dfr(sp_survey_param_combos, function(...) {
       param_combo <- tibble(...)
       tibble(
         species = sp_name,
         survey_config = list(survey_config),
         param_combo = list(param_combo),
-        param_grid = list(sp_param_grid)  # Store full grid for this species
+        param_grid = list(sp_survey_param_grid)
       )
     })
   })
@@ -670,7 +697,6 @@ map_fn <- setup_parallel(USE_PARALLEL, N_WORKERS)
 
 # Pre-computation: check which replicate files are missing
 message("\n=== Checking Cache and Preparing Micro-Tasks ===")
-micro_tasks <- check_cache_and_prepare_tasks(task_grid, sim_dir)
 
 # Parallel execution (only if missing replicates exist)
 if (nrow(micro_tasks) > 0) {
@@ -721,7 +747,7 @@ future::plan(future::sequential)
 tictoc::toc()
 meep()
 
-test <- readRDS(file.path(sim_dir, "simulation-summary.rds"))
+# test <- readRDS(file.path(sim_dir, "simulation-summary.rds"))
 
 # test2 <- readRDS(file.path(sim_dir, test$file[1]))
 # glimpse(test2)
