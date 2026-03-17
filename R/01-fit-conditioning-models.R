@@ -62,17 +62,6 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
       log_depth = log(depth_m)
     )
 
-  # Prepare data and meshes
-  d_IN <- sp_dat |> filter(survey_abbrev == "HBLL INS N")
-  d_IN$weights <- d_IN$hook_count / mean(d_IN$hook_count)
-  mesh_IN <- local(make_mesh(d_IN, xy_cols = c("X", "Y"), cutoff = 10))
-  d_OS <- sp_dat |> filter(survey_abbrev == "HBLL OUT S")
-  d_OS$weights <- d_OS$hook_count / mean(d_OS$hook_count)
-  mesh_OS <- local(make_mesh(d_OS, xy_cols = c("X", "Y"), cutoff = 10))
-  d_ON <- sp_dat |> filter(survey_abbrev == "HBLL OUT N")
-  d_ON$weights <- d_ON$hook_count / mean(d_ON$hook_count)
-  mesh_ON <- local(make_mesh(d_ON, xy_cols = c("X", "Y"), cutoff = 10))
-
   # Save cleaned datasets
   if (save_cleaned_data) {
     saveRDS(d_ON, file.path(cleaned_data_dir, paste0(sp, "-HBLL-OUT-N.rds")))
