@@ -66,6 +66,10 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
   d_OS <- filter(sp_dat, survey_abbrev == "HBLL OUT S")
   d_IN <- filter(sp_dat, survey_abbrev == "HBLL INS N")
 
+  mesh_ON <- local(make_mesh(d_ON, xy_cols = c("X", "Y"), cutoff = 10))
+  mesh_OS <- local(make_mesh(d_OS, xy_cols = c("X", "Y"), cutoff = 10))
+  mesh_IN <- local(make_mesh(d_IN, xy_cols = c("X", "Y"), cutoff = 10))
+
   # Save cleaned datasets
   if (save_cleaned_data) {
     saveRDS(d_ON, file.path(cleaned_data_dir, paste0(sp, "-HBLL-OUT-N.rds")))
