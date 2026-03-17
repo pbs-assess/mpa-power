@@ -16,7 +16,7 @@ N_WORKERS <- NULL
 
 if (Sys.info()['user'] %in% c("dunic", "anderson")) {
   USE_PARALLEL <- TRUE
-  N_WORKERS <- 40 #NULL
+  N_WORKERS <- 80 #NULL
 }
 
 if (Sys.info()['user'] %in% c("jillian", "jilliandunic")) {
@@ -600,7 +600,7 @@ formula_scenarios <- tribble(
 )
 
 nreps <- 120
-nreps <- 1
+nreps <- 50
 
 # Note: Parameter grids are now created per-species using recovery rates
 # See task grid creation below for species-specific implementation
@@ -697,6 +697,7 @@ map_fn <- setup_parallel(USE_PARALLEL, N_WORKERS)
 
 # Pre-computation: check which replicate files are missing
 message("\n=== Checking Cache and Preparing Micro-Tasks ===")
+micro_tasks <- check_cache_and_prepare_tasks(task_grid, sim_dir)
 
 # Parallel execution (only if missing replicates exist)
 if (nrow(micro_tasks) > 0) {
