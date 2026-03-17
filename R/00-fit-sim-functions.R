@@ -48,6 +48,7 @@ prep_hbll_data <- function(dat, bait_counts) {
       prop_bait_hooks = count_bait_only / hook_count,
       hook_adjust_factor = -log(prop_bait_hooks) / (1 - prop_bait_hooks),
       prop_removed = 1 - prop_bait_hooks,
+      adjusted_hook_count = hook_count / hook_adjust_factor,
       offset = log(hook_count / hook_adjust_factor),
       log_depth = log(depth_m),
       fyear = as.factor(year)
@@ -429,7 +430,7 @@ simulate_hbll <- function(fit,
 
   if (family(fit)$family == "betabinomial") {
     if (!is.null(seed)) set.seed(seed)
-    weights <- sample(fit$data$hook_count, size = nrow(input_dat), replace = TRUE)
+    weights <- sample(fit$data$adjusted_hook_count, size = nrow(input_dat), replace = TRUE)
   } else {
     weights <- NULL
   }
