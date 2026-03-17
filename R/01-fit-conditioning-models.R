@@ -62,6 +62,10 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
       log_depth = log(depth_m)
     )
 
+  d_ON <- filter(sp_dat, survey_abbrev == "HBLL OUT N")
+  d_OS <- filter(sp_dat, survey_abbrev == "HBLL OUT S")
+  d_IN <- filter(sp_dat, survey_abbrev == "HBLL INS N")
+
   # Save cleaned datasets
   if (save_cleaned_data) {
     saveRDS(d_ON, file.path(cleaned_data_dir, paste0(sp, "-HBLL-OUT-N.rds")))
