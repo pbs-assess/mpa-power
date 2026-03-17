@@ -601,6 +601,7 @@ formula_scenarios <- tribble(
 
 nreps <- 120
 nreps <- 50
+nreps <- 10
 
 # Note: Parameter grids are now created per-species using recovery rates
 # See task grid creation below for species-specific implementation
@@ -711,7 +712,8 @@ if (nrow(micro_tasks) > 0) {
       run_single_replicate_simulation,
       restricted_df = restricted_df,
       hbll_grid = hbll_grid,
-      hbll_last_sampled_year = hbll_last_sampled_year
+      hbll_last_sampled_year = hbll_last_sampled_year,
+      .options = furrr::furrr_options(seed = TRUE, globals = TRUE)
     )
   } else {
     results <- purrr::pmap(
