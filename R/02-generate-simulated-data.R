@@ -127,34 +127,57 @@ generate_sim_filename <- function(species, survey_abbrev, param_row, sim_hash) {
 prepare_species_fits <- function(sp_name, fit_dir = here::here("data-generated", "fits")) {
   message("Loading fits for species: ", sp_name)
 
-  # Load fits
-  fits <- load_cached_species(sp_name, fit_dir = fit_dir)
+  sp <- sp_to_hyphens(sp_name)
 
-  # Separate passed vs failed
-  fits_passed <- purrr::keep(fits, ~ isTRUE(.x$sanity_check$passed))
-  fits_failed <- purrr::keep(fits, ~ isFALSE(.x$sanity_check$passed))
+  # Pattern for each survey's betabinomial models
+  patterns <- c(
+    fit_ON = paste0(sp, "-HBLL-OUT-N-betabinomial-on-iid-"),
+    fit_OS = paste0(sp, "-HBLL-OUT-S-betabinomial-on-iid-"),
+    fit_IN = paste0(sp, "-HBLL-INS-N-betabinomial-on-iid-")
+  )
 
-  if (length(fits_failed) > 0) {
-    failed_surveys <- purrr::map_chr(fits_failed,
-                                     ~ unique(.x$data$survey_abbrev))
-    message("Warning: Skipping failed surveys for ", sp_name, ": ",
-            paste(failed_surveys, collapse = ", "))
-  }
+  # Find fit files and check sanity
+  fit_info <- purrr::map(patterns, function(pattern) {
+    files <- list.files(fit_dir, pattern = paste0("^", pattern), full.names = TRUE)
 
-  if (length(fits_passed) == 0) {
+    if (length(files) == 0) return(NULL)
+
+    if (length(files) > 1) {
+      warning("Multiple models found for ", pattern, ". Using most recent.")
+      files <- files[which.max(file.mtime(files))]
+    }
+
+    # Load fit to check sanity (but don't keep in memory)
+    fit <- readRDS(files)
+    passed <- isTRUE(fit$sanity_check$passed)
+
+    if (passed) {
+      list(
+        fit_path = files,
+        abbrev = unique(fit$data$survey_abbrev)
+      )
+    } else {
+      NULL
+    }
+  })
+
+  # Remove failed fits
+  fit_info <- purrr::compact(fit_info)
+
+  if (length(fit_info) == 0) {
     warning("No valid fits for ", sp_name, ". Skipping species.")
     return(NULL)
   }
 
-  message("Valid surveys for ", sp_name, ": ", length(fits_passed))
+  message("Valid surveys for ", sp_name, ": ", length(fit_info))
 
-  # Create survey list from passed fits
-  survey_names <- names(fits_passed)
+  # Create survey list with fit paths instead of fit objects
+  survey_names <- names(fit_info)
   survey_fits <- purrr::map(survey_names, ~ {
     list(
       species = sp_name,
-      fit = fits_passed[[.x]],
-      abbrev = unique(fits_passed[[.x]]$data$survey_abbrev),
+      fit_path = fit_info[[.x]]$fit_path,  # Store path, not object
+      abbrev = fit_info[[.x]]$abbrev,
       tag_prefix = tolower(gsub("fit_", "", .x))
     )
   })
@@ -283,9 +306,12 @@ run_single_replicate_simulation <- function(species,
 
   survey_abbrev <- survey_config$abbrev
 
+  # Load fit from disk - each worker gets independent TMB object
+  fit <- readRDS(survey_config$fit_path)
+
   # Run simulation for this single replicate
   survey_sim <- simulate_hbll(
-    fit = survey_config$fit,
+    fit = fit,
     restricted_df = restricted_df,
     sim_dir = dirname(replicate_file_path),
     check_cache = FALSE,
@@ -579,7 +605,7 @@ message("Running simulations for ", length(species_list), " species")
 # - sigma_V: marginal standard deviation for AR(1) process
 ar1_scenarios <- tribble(
   ~ar1_scenario,
-  "no_AR1",           # No temporal AR1 variation
+  # "no_AR1",           # No temporal AR1 variation
   "fitted_AR1"        # Use species-survey-specific values from ar1_parameters.rds
 )
 
