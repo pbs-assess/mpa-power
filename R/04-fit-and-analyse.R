@@ -196,7 +196,7 @@ message("Parallel workers: ", if (is.null(N_WORKERS)) "auto" else N_WORKERS)
 
 message("\n=== Executing Parallel Fitting ===")
 message("Evaluation years: ", paste(EVALUATION_YEARS, collapse = ", "))
-summary_stats <- execute_parallel_fitting(
+summary_stats <- execute_parallel_fitting_flat(
   task_grid = task_grid,
   results_dir = results_dir,
   hist_path = hist_path,
