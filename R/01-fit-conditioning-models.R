@@ -49,13 +49,18 @@ silent <- TRUE
 fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
                         save_cleaned_data = TRUE,
                         .options = furrr::furrr_options(seed = TRUE)) {
+
+  restricted_df <- readRDS(file.path("data-generated", "hbll-restricted-sf.rds")) |>
+    st_drop_geometry() |>
+    select(X, Y, uid, restricted)
+
   sp <- sp_to_hyphens(sp_name)
   message(paste0("Fitting conditioning models for ", sp))
   sp_dat0 <- readRDS(file.path(synopsis_cache, paste0(sp, ".rds")))$survey_sets
 
   sp_dat <- filter(sp_dat0, stringr::str_detect(survey_abbrev, "HBLL")) |>
     filter(survey_abbrev != "HBLL INS S") |> # may as well remove this up here
-    prep_hbll_data(bait_counts = bait_counts) |>
+    prep_hbll_data(bait_counts = bait_counts, restricted_df = restricted_df) |>
     mutate(
       obs_id = factor(row_number()),
       catch_prop = catch_count / hook_count,
@@ -92,7 +97,7 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
     spatiotemporal = strf,
     time = "year",
     anisotropy = FALSE,
-    weights = d_ON$adjusted_hook_count,
+    weights = d_ON$hook_count,
     control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
     check_cache = check_cache,
     silent = silent
@@ -109,7 +114,7 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
     spatiotemporal = strf,
     time = "year",
     anisotropy = FALSE,
-    weights = d_OS$adjusted_hook_count,
+    weights = d_OS$hook_count,
     control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
     check_cache = check_cache,
     silent = silent
@@ -126,7 +131,7 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
     spatiotemporal = strf,
     time = "year",
     anisotropy = FALSE,
-    weights = d_IN$adjusted_hook_count,
+    weights = d_IN$hook_count,
     control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
     check_cache = check_cache,
     silent = silent
@@ -156,8 +161,8 @@ sp_list <- c(
 )
 
 # # Setup parallel processing
-map_fn <- setup_parallel(USE_PARALLEL, N_WORKERS)
 
+map_fn <- setup_parallel(USE_PARALLEL, N_WORKERS)
 # Fit all species
 if (USE_PARALLEL) {
   all_fits <- map_fn(sp_list, fit_species,

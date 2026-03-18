@@ -561,6 +561,34 @@ run_survey_simulation <- function(sp_name,
 }
 
 # =============================================================================
+# Defensive check: Test simulation validity
+# =============================================================================
+
+sp <- sp_to_hyphens("yelloweye rockfish")
+fit_files <- list.files(here::here("data-generated", "fits"),
+                        pattern = paste0("^", sp, "-HBLL-OUT-N-betabinomial-on-iid-"),
+                        full.names = TRUE)
+if (length(fit_files) > 0) {
+  test_sim <- simulate_hbll(
+    fit = readRDS(fit_files[1]), restricted_df = restricted_df, sim_dir = sim_dir,
+    check_cache = FALSE, save_sim = FALSE, formula = ~ 1 + restricted * year_covariate,
+    seed = 999, year_covariate = 1:5, mpa_trend = log(1.01), use_fixed_spatial_field = TRUE
+  )
+
+  catch_prop <- test_sim$catch_count / test_sim$hook_count
+
+  checks <- c(
+    `NaN` = sum(is.nan(test_sim$observed)),
+    `Inf` = sum(is.infinite(test_sim$observed)),
+    all_zero = all(test_sim$observed == 0, na.rm = TRUE),
+    bad_range = any(catch_prop < 0 | catch_prop > 1, na.rm = TRUE)
+  )
+
+  if (any(checks > 0)) stop("Simulation check failed: ", paste(names(checks)[checks > 0], collapse = ", "))
+  message("✓ Simulation check passed")
+}
+
+# =============================================================================
 # Main execution
 # =============================================================================
 
@@ -627,7 +655,6 @@ formula_scenarios <- tribble(
 
 nreps <- 120
 nreps <- 50
-nreps <- 10
 
 # Note: Parameter grids are now created per-species using recovery rates
 # See task grid creation below for species-specific implementation
@@ -781,3 +808,47 @@ meep()
 # test2 <- readRDS(file.path(sim_dir, test$file[1]))
 # glimpse(test2)
 # max(test2$replicate)
+
+# fit <- readRDS(file.path("data-generated", "fits", "yelloweye-rockfish-HBLL-OUT-N-betabinomial-on-iid-31cebb495143a6d5.rds" ))
+# recovery_rates |> filter(species == "yelloweye rockfish")
+# ar1_parameters |> filter(species == "yelloweye rockfish", survey_abbrev == "HBLL OUT N")
+
+# test <- simulate_hbll(
+#   fit = fit,
+#   restricted_df = restricted_df,
+#   sim_dir = sim_dir,
+#   check_cache = FALSE,
+#   save_sim = FALSE,
+#   formula = ~ 1 + restricted * year_covariate,
+#   seed = 1,
+#   year_covariate = 1:25,
+#   mpa_trend = log(1.02),
+#   rho_V = -0.126,
+#   sigma_V = 0.106
+# )
+
+# test_w <- sample(fit$data$hook_count, size = nrow(input_dat), replace = TRUE)
+#  test <- sdmTMB::simulate_new(
+#     formula = formula,
+#     data = input_dat,
+#     mesh = input_mesh,
+#     family = family,
+#     time = "year",
+#     time_varying = ~ 1,
+#     time_varying_type = "ar1",
+#     sigma_V = sigma_V,
+#     rho_time = rho_V,
+#     # rho = ar1_rho, # affects AR1 deviations of the GMRF
+#     sigma_E = sigma_E_sim,
+#     phi = phi,
+#     range = range_val,
+#     fixed_re = fixed_re,
+#     B = B,
+#     # offset = offset,
+#     # weights = weights,
+#     weights = test_w,
+#     seed = seed,
+#     silent = FALSE,
+#     ...
+#   ) |>
+#     as_tibble()

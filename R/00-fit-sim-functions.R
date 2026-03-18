@@ -35,7 +35,7 @@ load_cached_species <- function(sp_name, fit_dir = here::here("data-generated", 
   return(fits)
 }
 
-prep_hbll_data <- function(dat, bait_counts) {
+prep_hbll_data <- function(dat, bait_counts, restricted_df) {
   dat |>
     rename(ssid = "survey_series_id.x") |>
     left_join(bait_counts, by = c("year", "fishing_event_id", "ssid")) |>
@@ -53,7 +53,8 @@ prep_hbll_data <- function(dat, bait_counts) {
       log_depth = log(depth_m),
       fyear = as.factor(year)
     ) |>
-    sdmTMB::add_utm_columns()
+    sdmTMB::add_utm_columns() |>
+    left_join(restricted_df, by = c("X", "Y"))
 }
 
 #' Fit sdmTMB model to HBLL survey data
@@ -430,7 +431,7 @@ simulate_hbll <- function(fit,
 
   if (family(fit)$family == "betabinomial") {
     if (!is.null(seed)) set.seed(seed)
-    weights <- sample(fit$data$adjusted_hook_count, size = nrow(input_dat), replace = TRUE)
+    weights <- sample(fit$data$hook_count, size = nrow(input_dat), replace = TRUE)
   } else {
     weights <- NULL
   }
