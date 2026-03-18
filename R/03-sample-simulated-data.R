@@ -309,6 +309,26 @@ run_sampling <- function(sim_dat, replicates = NULL) {
 }
 
 # =============================================================================
+# Defensive check: test sampling on yelloweye before main execution
+# =============================================================================
+ye_sim <- purrr::map_dfr(c("HBLL OUT N", "HBLL OUT S", "HBLL INS N"), ~{
+  load_sim_data("yelloweye rockfish", .x, 1.011, "fitted_AR1", "twenty-five_years", sim_summary, sim_dir) |> filter(replicate == 1)
+}) |> filter(replicate == 1)
+
+unique(ye_sim$survey_abbrev)
+
+ye_sampled <- run_sampling(ye_sim)
+
+ggplot() +
+  aes(X, Y, colour = observed, shape = factor(restricted)) +
+  geom_point(data = ye_sampled |> filter(restricted == 0), shape = 21) +
+  geom_point(data = ye_sampled |> filter(restricted == 1), shape = 19) +
+  scale_colour_viridis_c(trans = "log10") +
+  facet_grid(cols = vars(plan), rows = vars(year))
+
+janitor::tabyl(ye_sampled, year, restricted, survey_abbrev)
+
+# =============================================================================
 # Main execution
 # =============================================================================
 
