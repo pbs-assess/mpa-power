@@ -20,11 +20,11 @@ dir.create(results_dir, showWarnings = FALSE, recursive = TRUE)
 
 USE_PARALLEL <- TRUE
 N_WORKERS <- 8 #NULL
-N_REPLICATES <- 100
+N_REPLICATES <- 50
 
 if (Sys.info()['user'] %in% c("dunic", "anderson")) {
   USE_PARALLEL <- TRUE
-  N_WORKERS <- 40
+  N_WORKERS <- 70
   N_REPLICATES <- 100
 }
 
@@ -171,8 +171,9 @@ future::plan(future::sequential)
 setup_parallel(USE_PARALLEL, N_WORKERS)
 
 sampling_summary <- readRDS(file.path(sample_dir, "sampling-summary.rds"))
-N_REPLICATES <- max(sampling_summary$n_replicates)
-N_REPLICATES
+# N_REPLICATES <- max(sampling_summary$n_replicates)
+# N_REPLICATES
+N_REPLICATES <- 50
 results_dir <- here::here("data-generated", "power-results")
 dir.create(results_dir, showWarnings = FALSE, recursive = TRUE)
 
@@ -182,7 +183,7 @@ task_grid <- create_task_grid(sampling_summary, sample_dir) |>
     #species %in% c("yelloweye rockfish", "lingcod", "pacific halibut"),
     survey_abbrev == "HBLL" # this combines all three surveys
     ) |>
-  dplyr::filter(ar1_scenario == "no_AR1") |>
+  dplyr::filter(ar1_scenario == "fitted_AR1") |>
   dplyr::arrange(species)
 
 cat("Task grid:\n")
