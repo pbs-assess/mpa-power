@@ -326,7 +326,22 @@ ggplot() +
   scale_colour_viridis_c(trans = "log10") +
   facet_grid(cols = vars(plan), rows = vars(year))
 
-janitor::tabyl(ye_sampled, year, restricted, survey_abbrev)
+ye_sampled |>
+  filter(plan == "status quo") |>
+  janitor::tabyl(year, restricted, survey_abbrev)
+
+ye_sampled |>
+  filter(plan == "MPAs at 5 year intervals") |>
+  janitor::tabyl(year, restricted, survey_abbrev)
+
+# Quick checks
+stopifnot("Odd years: HBLL INS N/OUT N" =
+  all((ye_sampled |> filter(survey_abbrev %in% c("HBLL INS N", "HBLL OUT N")) |> pull(year)) %% 2 == 1))
+stopifnot("Even years: HBLL OUT S" =
+  all((ye_sampled |> filter(survey_abbrev == "HBLL OUT S") |> pull(year)) %% 2 == 0))
+stopifnot("MPA 4-yr: restricted every 4 years" =
+  all(diff(unique((ye_sampled |> filter(plan == "MPAs at 4 year intervals", restricted == 1) |> pull(year)))) %in% c(4, 5)))
+message("✓ Sampling checks passed")
 
 # =============================================================================
 # Main execution

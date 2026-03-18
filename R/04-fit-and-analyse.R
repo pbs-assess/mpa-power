@@ -37,14 +37,14 @@ if (Sys.info()['user'] %in% c("jillian", "jilliandunic")) {
 FORMULA <- catch_prop ~ 0 + fyear + restricted:year_covariate
 EVALUATION_YEARS <- c(2030, 2034, 2038, 2042, 2046)
 
-# hbll_last_sampled_year <- readRDS(file.path("data-generated", "hbll-last-sampled-year.rds"))
+hbll_last_sampled_year <- readRDS(file.path("data-generated", "hbll-last-sampled-year.rds"))
 
 # # Testing
 # sample_summary <- readRDS(file.path(sample_dir,  "sampling-summary.rds"))
 
 # # species <- "lingcod"
 # species <- "yelloweye rockfish"
-# ar1_scenarios <- c("no_AR1", "moderate_AR1")
+# ar1_scenarios <- c("fitted_AR1")
 
 # # time_scenarios <- c("twentyfive_years")
 # plans <- c(
@@ -137,6 +137,30 @@ EVALUATION_YEARS <- c(2030, 2034, 2038, 2042, 2046)
 source(here::here("R", "00-fit-power-analysis-functions.R"))
 
 # =============================================================================
+# Defensive check: fit one combined HBLL model
+# =============================================================================
+hist_cache <- new.env(parent = emptyenv())
+ye_hist <- purrr::map_dfr(c("HBLL OUT N", "HBLL OUT S", "HBLL INS N"),
+  ~get_hist_data("yelloweye rockfish", .x, hist_path, hist_cache))
+
+ye_files <- list.files(file.path(sample_dir, "yelloweye-rockfish"), pattern = "mpa1.011.*status-quo", full.names = TRUE)
+ye_samp <- purrr::map_dfr(ye_files, readRDS) |> filter(replicate == 1)
+hbll_last_sampled_year
+ye_combined <- combine_hist_sim_data(ye_samp, ye_hist, 2034) |> mutate(survey_abbrev = "HBLL")
+
+ye_fit <- fit_simulation(ye_combined, formula = FORMULA, cutoff = 20, silent = FALSE)
+meep()
+sanity(ye_fit)
+tidy(ye_fit, conf.int = TRUE) |> filter(term == "restricted:year_covariate")
+get_model_pars(ye_fit)
+
+stopifnot("Model converged" = all(sanity(ye_fit)))
+stopifnot("Has historical data" = any(ye_combined$historical))
+stopifnot("Has MPA sites" = sum(ye_combined$restricted) > 0)
+stopifnot("No fit errors" = is.na(ye_trend$error_msg))
+message("✓ Model checks passed")
+
+# =============================================================================
 # Main Workflow
 # =============================================================================
 
@@ -147,7 +171,8 @@ future::plan(future::sequential)
 setup_parallel(USE_PARALLEL, N_WORKERS)
 
 sampling_summary <- readRDS(file.path(sample_dir, "sampling-summary.rds"))
-N_REPLICATES <- 20
+N_REPLICATES <- max(sampling_summary$n_replicates)
+N_REPLICATES
 results_dir <- here::here("data-generated", "power-results")
 dir.create(results_dir, showWarnings = FALSE, recursive = TRUE)
 
