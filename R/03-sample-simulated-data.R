@@ -312,8 +312,8 @@ run_sampling <- function(sim_dat, replicates = NULL) {
 # Main execution
 # =============================================================================
 
-USE_PARALLEL <- FALSE
-N_WORKERS <- NULL
+USE_PARALLEL <- TRUE
+N_WORKERS <- 6
 
 # Setup parallel processing
 if (USE_PARALLEL) {
