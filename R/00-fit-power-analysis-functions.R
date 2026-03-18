@@ -65,7 +65,7 @@ get_hist_data <- function(species, survey_abbrev, hist_path, cache_env) {
 }
 
 #' Combine historical and simulated data
-combine_hist_sim_data <- function(sim_data, hist_data, eval_year, last_sampled_year) {
+combine_hist_sim_data <- function(sim_data, hist_data, eval_year) {
   hbll_last_sampled_year <- readRDS(file.path("data-generated", "hbll-last-sampled-year.rds"))
 
   sim_data_prep <- sim_data |>
@@ -174,7 +174,7 @@ extract_trend_estimate <- function(fit, trend_param = "restricted:year_covariate
       ci_lower = NA_real_,
       ci_upper = NA_real_,
       converged = FALSE,
-#  sanity=="ok"     sanity = NA_character_,
+      sanity = NA_character_,
       error_msg = fit$message
     ))
   }
