@@ -791,9 +791,8 @@ if (nrow(micro_tasks) > 0) {
 # Create summary by scanning all replicate files
 message("\n=== Creating Simulation Summary ===")
 sim_summary <- create_summary_from_replicate_files(sim_dir)
-
-# Save summary
 saveRDS(sim_summary, file.path(sim_dir, "simulation-summary.rds"))
+
 message("\n=== Simulation Summary ===")
 print(sim_summary)
 message("\nSummary saved to: ", file.path(sim_dir, "simulation-summary.rds"))
