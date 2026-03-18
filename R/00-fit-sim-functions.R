@@ -431,7 +431,7 @@ simulate_hbll <- function(fit,
 
   if (family(fit)$family == "betabinomial") {
     if (!is.null(seed)) set.seed(seed)
-    weights <- sample(fit$data$hook_count, size = nrow(input_dat), replace = TRUE)
+    weights <- sample(round(fit$data$adjusted_hook_count), size = nrow(input_dat), replace = TRUE)
   } else {
     weights <- NULL
   }
