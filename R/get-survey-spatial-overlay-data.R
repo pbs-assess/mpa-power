@@ -78,7 +78,7 @@ format_label_ranges <- function(labels) {
 table_dir <- here::here("tables")
 dir.create(table_dir, recursive = TRUE, showWarnings = FALSE)
 
-overlay_dir <- here::here("data-generated", "spatial", "overlays")
+overlay_dir <- here::here("data-generated", "overlays")
 dir.create(overlay_dir, recursive = TRUE, showWarnings = FALSE)
 
 overlay_fig_dir <- here::here("figures", "spatial-overlays")
@@ -502,9 +502,7 @@ hbll_spp_encounter_rate <- gf_ecp_data_complete |>
             n_sets = n(),
             pos_sets = encounters / n_sets) |>
   arrange(desc(pos_sets))
-saveRDS(hbll_spp_encounter_rate, file.path("data-generated", "hbll-spp-encounter-rate.rds"))
-
-
+saveRDS(hbll_spp_encounter_rate, file.path(overlay_dir, "hbll-spp-encounter-rate.rds"))
 
 # -----------------------------------------------------------------------------
 
@@ -649,18 +647,18 @@ plot_overlays(hbll_mpa_df, hbll_mpa_sf, title = "HBLL set locations",
               breaks = c(-0.1, 0, 10, 50, 100, Inf),
               labels = c("0", "1-10", "11-50", "51-100", "100+"))
 ggsave(file.path(overlay_fig_dir, "heatmap-hbll-mpa-sf.png"), width = 4.5, height = 5.3)
-plot_overlays(syn_mpa_df, syn_mpa_sf, title = "SYN set locations",
-              geom_size = 0.2,
-              legend_title = "Number of SYN survey sets",
-              breaks = c(-0.1, 0, 20, 50, 100, Inf),
-              labels = c("0", "1-20", "21-50", "51-100", "100+"))
-ggsave(file.path(overlay_fig_dir, "heatmap-syn-mpa-sf.png"), width = 4.5, height = 5.3)
-plot_overlays(iphc_mpa_df, iphc_mpa_sf, title = "IPHC set locations",
-              geom_size = 0.2,
-              legend_title = "Number of IPHC survey sets",
-              breaks = c(-0.1, 0, 10, 50, 100, Inf),
-              labels = c("0", "1-10", "11-50", "51-100", "100+"))
-ggsave(file.path(overlay_fig_dir, "heatmap-iphc-mpa-sf.png"), width = 4.5, height = 5.3)
+# plot_overlays(syn_mpa_df, syn_mpa_sf, title = "SYN set locations",
+#               geom_size = 0.2,
+#               legend_title = "Number of SYN survey sets",
+#               breaks = c(-0.1, 0, 20, 50, 100, Inf),
+#               labels = c("0", "1-20", "21-50", "51-100", "100+"))
+# ggsave(file.path(overlay_fig_dir, "heatmap-syn-mpa-sf.png"), width = 4.5, height = 5.3)
+# plot_overlays(iphc_mpa_df, iphc_mpa_sf, title = "IPHC set locations",
+#               geom_size = 0.2,
+#               legend_title = "Number of IPHC survey sets",
+#               breaks = c(-0.1, 0, 10, 50, 100, Inf),
+#               labels = c("0", "1-10", "11-50", "51-100", "100+"))
+# ggsave(file.path(overlay_fig_dir, "heatmap-iphc-mpa-sf.png"), width = 4.5, height = 5.3)
 plot_overlays(msd_mpa_df, msd_mpa_sf |> st_centroid(), title = "MSD dive locations",
               geom_size = 0.2,
               legend_title = "Number of MSD dives",
@@ -668,12 +666,12 @@ plot_overlays(msd_mpa_df, msd_mpa_sf |> st_centroid(), title = "MSD dive locatio
               labels = c("0", "1-5", "6-20", "21-50", "50+"))
 ggsave(file.path(overlay_fig_dir, "heatmap-msd-mpa-sf.png"), width = 4.5, height = 5.3)
 # plot_overlays(edna_mpa_df, "Number of eDNA samples") # No NVI subregion in eDNA data
-plot_overlays(rov_mpa_df, rov_mpa_sf, title = "ROV dive locations",
-              geom_size = 0.8,
-              legend_title = "Number of ROV dives",
-              breaks = c(-0.1, 0, 10, 30, 100, Inf),
-              labels = c("0", "1-10", "11-30", "31-100", "100+"))
-ggsave(file.path(overlay_fig_dir, "heatmap-rov-mpa-sf.png"), width = 4.5, height = 5.3)
+# plot_overlays(rov_mpa_df, rov_mpa_sf, title = "ROV dive locations",
+#               geom_size = 0.8,
+#               legend_title = "Number of ROV dives",
+#               breaks = c(-0.1, 0, 10, 30, 100, Inf),
+#               labels = c("0", "1-10", "11-30", "31-100", "100+"))
+# ggsave(file.path(overlay_fig_dir, "heatmap-rov-mpa-sf.png"), width = 4.5, height = 5.3)
 
 ################################################################################
 # Survey summary tables --------------------------------------------------------
@@ -700,6 +698,7 @@ hbll_summary_table <- hbll_mpa_df |>
     `Years conducted` = paste(min(year), max(year), sep = "-"),
     `Survey schedule` = "Biennial (North and South regions in alternating years)",
     `Total transects` = paste0(n(), " fishing events"),
+    n_transects = n(),
     `years_not_in_mpa` = paste(setdiff(min(year):max(year), unique(year[in_mpa == 1])), collapse = ", "),
     `Years with surveys inside MPA boundaries` =
       paste0(
@@ -708,14 +707,14 @@ hbll_summary_table <- hbll_mpa_df |>
       ),
     `Transects inside MPA boundaries` = sum(in_mpa),
     `Transects outside MPA boundaries` = sum(in_mpa == 0),
-    `% of effort inside MPA boundaries` = round(100 * `Transects inside MPA boundaries` / `Total transects`, 1),
+    `% of effort inside MPA boundaries` = round(100 * `Transects inside MPA boundaries` / n_transects, 1),
     `Number of MPAN sites sampled` = n_distinct(uid, na.rm = TRUE),
     `Number of MPAs with E-CP sightings` = hbll_sites_with_ecps$n_sites,
     `Longest timeseries at any single site` = hbll_longest_timeseries[1, ]$text
   ) |>
   mutate(across(everything(), as.character)) |>
   pivot_longer(cols = everything(), names_to = "metric", values_to = "value")
-saveRDS(hbll_summary_table, file.path("data-generated", "hbll-summary-table.rds"))
+saveRDS(hbll_summary_table, file.path(overlay_dir, "hbll-summary-table.rds"))
 
 
 # HBLL site summary table --------------------
@@ -752,7 +751,7 @@ hbll_site_summary_table <-
   left_join(hbll_ecp_richness, by = c("site", "uid")) |>
   arrange(desc(`Total transects`))
 
-saveRDS(hbll_site_summary_table, file.path("data-generated", "hbll-site-summary-table.rds"))
+saveRDS(hbll_site_summary_table, file.path(overlay_dir, "hbll-site-summary-table.rds"))
 
 
 
@@ -788,7 +787,7 @@ hbll_ecp_encounter_cpue <-
   ) |>
   arrange(desc(encounter_rate_inside))
 
-saveRDS(hbll_ecp_encounter_cpue, file.path("data-generated", "hbll-ecp-encounter-cpue.rds"))
+saveRDS(hbll_ecp_encounter_cpue, file.path(overlay_dir, "hbll-ecp-encounter-cpue.rds"))
 # Long data for tigures: encounter rate and CPUE by zone
 hbll_ecp_encounter_long <-
   hbll_ecp_encounter_cpue |>
@@ -957,7 +956,7 @@ msd_mpa_df |>
   ) |>
   mutate(across(everything(), as.character)) |>
   pivot_longer(cols = everything(), names_to = "metric", values_to = "value")
-saveRDS(msd_summary_table, file.path("data-generated", "msd-summary-table.rds"))
+saveRDS(msd_summary_table, file.path(overlay_dir, "msd-summary-table.rds"))
 
 
 # MSD site summary table --------------------
@@ -1018,7 +1017,7 @@ msd_mpa_df |>
   left_join(msd_species_list, by = c("site", "uid")) |>
   arrange(desc(`Total transects`))
 
-saveRDS(msd_site_summary_table, file.path("data-generated", "msd-site-summary-table.rds"))
+saveRDS(msd_site_summary_table, file.path(overlay_dir, "msd-site-summary-table.rds"))
 
 # MSD site summary table --------------------
 msd_species_summary_table <-
@@ -1039,7 +1038,7 @@ msd_species_summary_table <-
   ) |>
   select(Species, `Common name` = species_desc, `Sightings inside MPAs`, `Sightings outside MPAs`, `Proportion inside MPAs`, species_group) |>
   arrange(species_group)
-saveRDS(msd_species_summary_table, file.path("data-generated", "msd-species-summary-table.rds"))
+saveRDS(msd_species_summary_table, file.path(overlay_dir, "msd-species-summary-table.rds"))
 
 # Site-level E-CP sightings (for narrative: "most productive sites")
 msd_site_ecp_sightings <-
@@ -1050,7 +1049,7 @@ msd_site_ecp_sightings <-
   group_by(site) |>
   summarise(total_ecp_sightings = sum(catch_count), .groups = "drop") |>
   arrange(desc(total_ecp_sightings))
-saveRDS(msd_site_ecp_sightings, file.path("data-generated", "msd-site-ecp-sightings.rds"))
+saveRDS(msd_site_ecp_sightings, file.path(overlay_dir, "msd-site-ecp-sightings.rds"))
 
 # ------------------------------------------------------------------------------
 
@@ -1058,146 +1057,20 @@ saveRDS(msd_site_ecp_sightings, file.path("data-generated", "msd-site-ecp-sighti
 ################################################################################
 ################################################################################
 
-
-
-
-metric_labels <- c(
-  "monitoring_program" = "Monitoring program name",
-  "sampling_frequency" = "Sampling frequency",
-  "year_range" = "Year range",
-  "n_years" = "Number of years",
-  "n_years_in_mpa" = "Number of years in MPA",
-  "n_transects" = "Number of transects",
-  "n_transects_in_mpa" = "Number of transects in MPA",
-  "n_transects_outside_mpa" = "Number of transects outside MPA",
-  "prop_in_mpa" = "Proportion of transects in MPA (%)",
-  "n_mpas" = "Number of MPAs"
-)
-
-hbll_flextable <- hbll_mpa_df |>
-  mutate(
-    program = case_when(
-      survey_abbrev %in% c("HBLL OUT N", "HBLL OUT S") ~ "Hard Bottom Longline Outside",
-      survey_abbrev %in% c("HBLL INS N", "HBLL INS S") ~ "Hard Bottom Longline Inside",
-      TRUE ~ survey_abbrev
-    ),
-    region = case_when(
-      survey_abbrev %in% c("HBLL OUT N", "HBLL INS N") ~ "North",
-      survey_abbrev %in% c("HBLL OUT S", "HBLL INS S") ~ "South",
-      TRUE ~ survey_abbrev
-    ),
-    program_region = paste(program, region, sep = " ")
-  ) |>
-  select(-fo_id) |>
-  group_by(program, region, program_region) |>
-  summarise(
-    program_region = unique(program_region),
-    sampling_frequency = "biennial",
-    year_range = paste(min(year), max(year), sep = "-"),
-    n_years = n_distinct(year),
-    n_years_in_mpa = n_distinct(year[in_mpa == 1]),
-    n_transects = n(),
-    n_transects_in_mpa = sum(in_mpa),
-    prop_in_mpa = round(100 * n_transects_in_mpa / n_transects, 1),
-    n_mpas = n_distinct(uid, na.rm = TRUE),
-    .groups = "drop"
-  ) |>
-  mutate(across(-c(program, region, program_region), as.character)) |>
-  pivot_longer(cols = -program_region, names_to = "metric", values_to = "value") |>
-  pivot_wider(
-    names_from = program_region,
-    values_from = value,
-    names_vary = "slowest"
-  ) |>
-  select(metric, `Hard Bottom Longline Outside North`, `Hard Bottom Longline Outside South`, `Hard Bottom Longline Inside North`) |>
-  mutate(metric = metric_labels[metric]) |>
-  drop_na(metric) |>
-  flextable() |>
-  add_header_row(
-    values = c("Monitoring program name", "Hard Bottom Longline Outside", "Hard Bottom Longline Inside"),
-    colwidths = c(1, 2, 1),
-    top = TRUE
-  ) |>
-  set_header_labels(
-    metric = "Survey region",
-    `Hard Bottom Longline Outside North` = "North",
-    `Hard Bottom Longline Outside South` = "South",
-    `Hard Bottom Longline Inside North` = "North"
-  ) |>
-  align(align = "right", part = "all") |>
-  autofit()
-
-hbll_flextable
-saveRDS(hbll_flextable, file.path(table_dir, "hbll-summary-flextable.rds"))
-
-# HBLL aggregate (all surveys combined) ----------------------------------------
-hbll_aggregate_flextable <- hbll_mpa_df |>
-  select(-fo_id) |>
-  summarise(
-    monitoring_program = "Hard Bottom Longline",
-    sampling_frequency = "annual",
-    year_range = paste(min(year), max(year), sep = "-"),
-    n_years = n_distinct(year),
-    n_years_in_mpa = n_distinct(year[in_mpa == 1]),
-    n_transects = n(),
-    n_transects_in_mpa = sum(in_mpa),
-    prop_in_mpa = round(100 * n_transects_in_mpa / n_transects, 1),
-    n_mpas = n_distinct(uid, na.rm = TRUE)
-  ) |>
-  mutate(across(everything(), as.character)) |>
-  pivot_longer(everything(), names_to = "metric", values_to = "value") |>
-  mutate(metric = metric_labels[metric]) |>
-  drop_na(metric) |>
-  flextable(col_keys = c("metric", "value")) |>
-  set_header_labels(metric = "Metric", value = "Hard Bottom Longline (all surveys)") |>
-  align(align = "right", part = "all") |>
-  autofit()
-
-saveRDS(hbll_aggregate_flextable, file.path(table_dir, "hbll-summary-aggregate-flextable.rds"))
-
-hbll_mpa_df |>
-  filter(in_mpa == 1) |>
-  distinct(site) |>
-  pull(site) |>
-  length()
-
-hbll_mpa_df |>
-  filter(in_mpa == 1) |>
-  group_by(site) |>
-  summarise(n_years = n_distinct(year)) |>
-  arrange(desc(n_years))
-
-hbll_mpa_df |>
-  filter(in_mpa == 1) |>
-  group_by(site, uid) |>
-  summarise(
-    n_transects = length(unique(fe)),
-    first_year = min(year),
-    last_year = max(year),
-    n_years = n_distinct(year)
-  ) |>
-  arrange(desc(n_transects)) |>
-  left_join(gf_ecp_site_summary |> filter(survey_group == "HBLL")) |>
-  left_join(subregion_uid_lu, by = "uid") |>
-  select(-survey_group) |>
-flextable() |>
-  set_header_labels(
-    uid = "Site UID",site = "Site Name",
-    subregion = "Subregion",
-    n_transects = "Total fishing events",
-    first_year = "First year",
-    last_year = "Last year",
-    n_years = "Number of years within-MPA events",
-    n_species = "E-CP species count") |>
-  colformat_int(j = c("first_year", "last_year", "n_transects", "n_years", "n_species"), big.mark = "") |>
-  align(align = "right", part = "all") |>
-  autofit() |>
-saveRDS(file.path(table_dir, "hbll-site-summary.rds"))
-
-
-
-
 # syn summary table ------------------------------------------------------------
+# metric_labels <- c(
+#   "monitoring_program" = "Monitoring program name",
+#   "sampling_frequency" = "Sampling frequency",
+#   "year_range" = "Year range",
+#   "n_years" = "Number of years",
+#   "n_years_in_mpa" = "Number of years in MPA",
+#   "n_transects" = "Number of transects",
+#   "n_transects_in_mpa" = "Number of transects in MPA",
+#   "n_transects_outside_mpa" = "Number of transects outside MPA",
+#   "prop_in_mpa" = "Proportion of transects in MPA (%)",
+#   "n_mpas" = "Number of MPAs"
+# )
+
 # syn_flextable <- syn_mpa_df |>
 #   mutate(survey_name = case_when(
 #     survey_abbrev == "SYN HS" ~ "Hecate Strait",
@@ -1329,31 +1202,31 @@ saveRDS(file.path(table_dir, "hbll-site-summary.rds"))
 
 
 # ROV summary table ------------------------------------------------------------
-rov_flextable <- rov_mpa_df |>
-  mutate(survey_name = "ROV") |>
-  reframe(
-    survey_name = "ROV",
-    sampling_frequency = "annual",
-    year_range = paste(min(year), max(year), sep = "-"),
-    n_years = n_distinct(year),
-    n_years_in_mpa = n_distinct(year[in_mpa == 1]),
-    n_transects = n(),
-    n_transects_in_mpa = sum(in_mpa),
-    prop_in_mpa = round(100 * n_transects_in_mpa / n_transects, 1),
-    n_mpas = n_distinct(uid, na.rm = TRUE),
-  ) |>
-  mutate(across(everything(), as.character)) |>
-  pivot_longer(cols = -c(survey_name), names_to = "metric", values_to = "value") |>
-  pivot_wider(
-    names_from = survey_name,
-    values_from = value,
-    names_vary = "slowest"
-  ) |>
-  select(metric, ROV) |>
-  mutate(metric = metric_labels[metric]) |>
-  flextable() |>
-  set_header_labels(metric = "") |>
-  align(align = "right", part = "all") |>
-  autofit()
+# rov_flextable <- rov_mpa_df |>
+#   mutate(survey_name = "ROV") |>
+#   reframe(
+#     survey_name = "ROV",
+#     sampling_frequency = "annual",
+#     year_range = paste(min(year), max(year), sep = "-"),
+#     n_years = n_distinct(year),
+#     n_years_in_mpa = n_distinct(year[in_mpa == 1]),
+#     n_transects = n(),
+#     n_transects_in_mpa = sum(in_mpa),
+#     prop_in_mpa = round(100 * n_transects_in_mpa / n_transects, 1),
+#     n_mpas = n_distinct(uid, na.rm = TRUE),
+#   ) |>
+#   mutate(across(everything(), as.character)) |>
+#   pivot_longer(cols = -c(survey_name), names_to = "metric", values_to = "value") |>
+#   pivot_wider(
+#     names_from = survey_name,
+#     values_from = value,
+#     names_vary = "slowest"
+#   ) |>
+#   select(metric, ROV) |>
+#   mutate(metric = metric_labels[metric]) |>
+#   flextable() |>
+#   set_header_labels(metric = "") |>
+#   align(align = "right", part = "all") |>
+#   autofit()
 
-saveRDS(rov_flextable, file.path(table_dir, "rov-summary-flextable.rds"))
+# saveRDS(rov_flextable, file.path(table_dir, "rov-summary-flextable.rds"))

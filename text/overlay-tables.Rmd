@@ -15,7 +15,7 @@ Together, these surveys provide coast-wide biennial coverage of hard-bottom near
 
 
 ```{r hbll-program-description-table}
-hbll_spp_encounter_rate <- readRDS(here::here("data-generated", "hbll-spp-encounter-rate.rds"))
+hbll_spp_encounter_rate <- readRDS(here::here("data-generated", "overlays", "hbll-spp-encounter-rate.rds"))
 
 top_10_hbll_spp <- hbll_spp_encounter_rate |>
   head(10) |>
@@ -92,7 +92,7 @@ hbll_screening |>
 **General Survey Information**
 
 ```{r hbll-general-info-table}
-hbll_general <- readRDS(here::here("data-generated", "hbll-summary-table.rds"))
+hbll_general <- readRDS(here::here("data-generated", "overlays", "hbll-summary-table.rds"))
 
 hbll_general |>
   filter(metric != "years_not_in_mpa") |>
@@ -107,7 +107,7 @@ hbll_general |>
 
 ```{r hbll-stage4-text-vars, include=FALSE}
 hbll_summary_wide <-
-  readRDS(here::here("data-generated", "hbll-summary-table.rds")) |>
+  readRDS(here::here("data-generated", "overlays", "hbll-summary-table.rds")) |>
   tidyr::pivot_wider(names_from = metric, values_from = value)
 
 hbll_n_events_total    <- as.integer(hbll_summary_wide$`Total transects`)
@@ -115,7 +115,7 @@ hbll_n_events_inside   <- as.integer(hbll_summary_wide$`Transects inside MPA bou
 hbll_pct_inside        <- as.numeric(hbll_summary_wide$`% of effort inside MPA boundaries`)
 hbll_years_conducted   <- hbll_summary_wide$`Years conducted`
 
-hbll_sites_all         <- readRDS(here::here("data-generated", "hbll-site-summary-table.rds"))
+hbll_sites_all         <- readRDS(here::here("data-generated", "overlays", "hbll-site-summary-table.rds"))
 hbll_n_site_rows       <- nrow(hbll_sites_all)
 hbll_n_sites_unique    <- length(unique(hbll_sites_all$`Common Site Name`))
 hbll_first_year        <- min(hbll_sites_all$`First survey`)
@@ -153,7 +153,7 @@ Monitoring has been conducted within `r hbll_n_sites_unique` individual MPAN sit
 
 ```{r}
 
-hbll_mpa_df <- readRDS(file.path(here::here("data-generated", "spatial", "overlays", "hbll-mpa-sf.rds"))) |>
+hbll_mpa_df <- readRDS(file.path(here::here("data-generated", "overlays", "hbll-mpa-sf.rds"))) |>
   sf::st_drop_geometry()
 
 hbll_mpa_df |>
@@ -178,7 +178,7 @@ hbll_mpa_df |>
 <br><br>
 
 ```{r}
-hbll_sites <- readRDS(here::here("data-generated", "hbll-site-summary-table.rds"))
+hbll_sites <- readRDS(here::here("data-generated", "overlays", "hbll-site-summary-table.rds"))
 
 hbll_sites |> 
   select(`Site ID`, `Common Site Name`, `Total transects`, `First survey`, `Last survey`, `No. years`, `E-CP species count`) |>
@@ -193,7 +193,7 @@ hbll_sites |>
 <br><br>
 
 ```{r hbll-ecp-text-vars, include=FALSE}
-hbll_ecp_encounter_cpue <- readRDS(here::here("data-generated", "hbll-ecp-encounter-cpue.rds"))
+hbll_ecp_encounter_cpue <- readRDS(here::here("data-generated", "overlays", "hbll-ecp-encounter-cpue.rds"))
 
 hbll_ecp_top_inside <-
   hbll_ecp_encounter_cpue |>
@@ -238,7 +238,7 @@ Yelloweye rockfish is a particularly high-priority conservation target: it is lo
 
 ```{r, fig.cap="Catch-per-unit-effort (CPUE; counts per set) for Ecologically (E‑CP) and Culturally Important (C-CP) species in the HBLL surveys that are encountered in at least 5% of survey sets, comparing inside (blue) and outside (orange) MPAs. Species are ordered from top to bottom by their maximum CPUE across zones.", fig.width=7.5, fig.height=8}
 
-hbll_ecp_encounter_cpue <- readRDS(file.path(here::here("data-generated", "hbll-ecp-encounter-cpue.rds")))
+hbll_ecp_encounter_cpue <- readRDS(file.path(here::here("data-generated", "overlays", "hbll-ecp-encounter-cpue.rds")))
 
 hbll_ecp_encounter_long <-
   hbll_ecp_encounter_cpue |>
@@ -603,5 +603,6 @@ Survey Considerations and Limitations
 * Survey timing: Surveys are conducted in September. Inter-annual variability in survey timing relative to species phenology (e.g., sea urchin spawning, algae seasonal cycles) should be considered when interpreting year-to-year trends.
 
 * Rotating spatiotemporal sampling: To get broad spatial coverage, the survey uses a rotating schedule of sites, resulting in most sites being sampled only 1-3 times over the 9 years of survey. This limits the ability to distinguish MPA recovery trends from natural mortality patterns and detect episodic recruitment pulses. ADDED
+
 
 
