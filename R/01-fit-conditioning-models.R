@@ -71,6 +71,26 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
   d_OS <- filter(sp_dat, survey_abbrev == "HBLL OUT S")
   d_IN <- filter(sp_dat, survey_abbrev == "HBLL INS N")
 
+  # Validate each dataset
+  val_ON <- validate_hbll_data(d_ON, sp_name, "HBLL OUT N")
+  val_OS <- validate_hbll_data(d_OS, sp_name, "HBLL OUT S")
+  val_IN <- validate_hbll_data(d_IN, sp_name, "HBLL INS N")
+
+  # Report validation results
+  for (val in list(val_ON, val_OS, val_IN)) {
+    if (!val$passed) {
+      warning(sprintf("%s - %s: Data validation failed: %s",
+                     val$species, val$survey,
+                     paste(val$issues, collapse = "; ")),
+              call. = FALSE)
+    } else {
+      years_with_pos <- val$n_years - val$years_with_all_zeroes
+      message(sprintf("  %s: %d / %d (%.1f%%) pos sets; %d years with pos sets",
+                     val$survey, val$n_positive, val$n_obs,
+                     val$prop_pos * 100, years_with_pos))
+    }
+  }
+
   mesh_ON <- local(make_mesh(d_ON, xy_cols = c("X", "Y"), cutoff = 10))
   mesh_OS <- local(make_mesh(d_OS, xy_cols = c("X", "Y"), cutoff = 10))
   mesh_IN <- local(make_mesh(d_IN, xy_cols = c("X", "Y"), cutoff = 10))
@@ -86,62 +106,81 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
   # Beta binomial ----------------------------------------------------------------
   sprf <- "on"
   strf <- "iid"
-  fit_ON <- fit_cached_sdmTMB(
-    model_tag = paste0(sp, "-HBLL-OUT-N-betabinomial-", sprf, "-", strf),
-    fit_dir = fit_dir,
-    data = d_ON,
-    formula = catch_prop ~ 0 + fyear,
-    mesh = mesh_ON,
-    family = betabinomial(link = "cloglog"),
-    spatial = sprf,
-    spatiotemporal = strf,
-    time = "year",
-    anisotropy = FALSE,
-    weights = d_ON$adjusted_hook_count,
-    control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
-    check_cache = check_cache,
-    silent = silent
-  )
+  fit_ON <- if (val_ON$passed) {
+    fit_cached_sdmTMB(
+      model_tag = paste0(sp, "-HBLL-OUT-N-betabinomial-", sprf, "-", strf),
+      fit_dir = fit_dir,
+      data = d_ON,
+      formula = catch_prop ~ 0 + fyear,
+      mesh = mesh_ON,
+      family = betabinomial(link = "cloglog"),
+      spatial = sprf,
+      spatiotemporal = strf,
+      time = "year",
+      anisotropy = FALSE,
+      weights = d_ON$adjusted_hook_count,
+      control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
+      check_cache = check_cache,
+      silent = silent
+    )
+  } else {
+    message("  Skipping HBLL OUT N fit due to data quality issues")
+    NULL
+  }
 
-  fit_OS <- fit_cached_sdmTMB(
-    model_tag = paste0(sp, "-HBLL-OUT-S-betabinomial-", sprf, "-", strf),
-    fit_dir = fit_dir,
-    data = d_OS,
-    formula = catch_prop ~ 0 + fyear,
-    mesh = mesh_OS,
-    family = betabinomial(link = "cloglog"),
-    spatial = sprf,
-    spatiotemporal = strf,
-    time = "year",
-    anisotropy = FALSE,
-    weights = d_OS$adjusted_hook_count,
-    control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
-    check_cache = check_cache,
-    silent = silent
-  )
+  fit_OS <- if (val_OS$passed) {
+    fit_cached_sdmTMB(
+      model_tag = paste0(sp, "-HBLL-OUT-S-betabinomial-", sprf, "-", strf),
+      fit_dir = fit_dir,
+      data = d_OS,
+      formula = catch_prop ~ 0 + fyear,
+      mesh = mesh_OS,
+      family = betabinomial(link = "cloglog"),
+      spatial = sprf,
+      spatiotemporal = strf,
+      time = "year",
+      anisotropy = FALSE,
+      weights = d_OS$adjusted_hook_count,
+      control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
+      check_cache = check_cache,
+      silent = silent
+    )
+  } else {
+    message("  Skipping HBLL OUT S fit due to data quality issues")
+    NULL
+  }
 
-  fit_IN <- fit_cached_sdmTMB(
-    model_tag = paste0(sp, "-HBLL-INS-N-betabinomial-", sprf, "-", strf),
-    fit_dir = fit_dir,
-    data = d_IN,
-    formula = catch_prop ~ 0 + fyear,
-    mesh = mesh_IN,
-    family = betabinomial(link = "cloglog"),
-    spatial = sprf,
-    spatiotemporal = strf,
-    time = "year",
-    anisotropy = FALSE,
-    weights = d_IN$adjusted_hook_count,
-    control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
-    check_cache = check_cache,
-    silent = silent
-  )
+  fit_IN <- if (val_IN$passed) {
+    fit_cached_sdmTMB(
+      model_tag = paste0(sp, "-HBLL-INS-N-betabinomial-", sprf, "-", strf),
+      fit_dir = fit_dir,
+      data = d_IN,
+      formula = catch_prop ~ 0 + fyear,
+      mesh = mesh_IN,
+      family = betabinomial(link = "cloglog"),
+      spatial = sprf,
+      spatiotemporal = strf,
+      time = "year",
+      anisotropy = FALSE,
+      weights = d_IN$adjusted_hook_count,
+      control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
+      check_cache = check_cache,
+      silent = silent
+    )
+  } else {
+    message("  Skipping HBLL INS N fit due to data quality issues")
+    NULL
+  }
 
   message(paste0("Completed: ", sp_name))
   return(invisible(list(
     fit_ON = fit_ON,
     fit_OS = fit_OS,
-    fit_IN = fit_IN)))
+    fit_IN = fit_IN,
+    validation_ON = val_ON,
+    validation_OS = val_OS,
+    validation_IN = val_IN
+  )))
 }
 
 # -----------------------------------------------------------------------------
@@ -153,10 +192,34 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
 
 # look at new species fits:
 # test0 <- fit_species("yelloweye rockfish", save_cleaned_data = F)
-# test <- fit_species("pacific cod", save_cleaned_data = F)
+# test <- fit_species("silvergray rockfish", save_cleaned_data = F)
 # test[[1]] |> sanity()
 # test[[2]] |> sanity()
 # test[[3]] |> sanity()
+
+# hbll_grid <- gfdata::load_survey_blocks(type = "XY")
+# hbll_grid_sf <- gfdata::load_survey_blocks(type = "polygon") |>
+#   select(survey_abbrev, block_id, geometry) |>
+#   filter(survey_abbrev %in% c("HBLL OUT N", "HBLL OUT S", "HBLL INS N"))
+# pON <- predict_hbll(test[[1]], grid = hbll_grid)
+# pOS <- predict_hbll(test[[2]], grid = hbll_grid)
+
+# dat <- left_join(
+#   hbll_grid_sf,
+#   bind_rows(
+#     pON |> filter(year == 2023) |> select(survey_abbrev, block_id, year, est),
+#     pOS |> filter(year == 2024) |> select(survey_abbrev, block_id, year, est)
+#     )
+# )
+
+# display_mpa <- readRDS(file.path("data-generated", "spatial", "simple-mpa-500m.rds"))
+# ggplot(data = dat |> rotate_sf()) +
+#   geom_sf(aes(fill = exp(est) * 100, colour = exp(est) * 100)) +
+#   geom_sf(data = display_mpa |> rotate_sf(),
+#     fill = "grey50", colour = "grey50", alpha = 0.5) +
+#   viridis::scale_fill_viridis(trans = ggsidekick::fourth_root_power_trans()) +
+#   viridis::scale_colour_viridis(trans = ggsidekick::fourth_root_power_trans()) +
+#   gfplot::coord_sf_auto(display_mpa |> rotate_sf(), buffer = 0)
 
 # Species list
 sp_list <- c(
@@ -196,6 +259,7 @@ future::plan(future::sequential)
 # Get process error parameters from conditioning models
 ar1_estimates <- all_fits |>
   purrr::flatten() |>
+  purrr::keep(~!is.null(.x) && inherits(.x, "sdmTMB")) |>
   purrr::map_dfr(function(fit) {
     species <- unique(fit$data$species_common_name)
     survey_abbrev <- unique(fit$data$survey_abbrev)
@@ -215,3 +279,29 @@ ar1_estimates <- all_fits |>
 
 saveRDS(ar1_estimates, here::here("data-generated", "ar1-parameters.rds"))
 message("Saved AR1 parameters for ", nrow(ar1_estimates), " species × survey combinations")
+
+# Summary of fitting outcomes
+all_fits_flat <- all_fits |> purrr::flatten()
+n_fits_attempted <- length(sp_list) * 3  # 3 surveys per species
+n_fits_succeeded <- sum(purrr::map_lgl(all_fits_flat, ~!is.null(.x) && inherits(.x, "sdmTMB")))
+n_fits_failed <- n_fits_attempted - n_fits_succeeded
+
+message("\n=== Fitting Summary ===")
+message(sprintf("Attempted: %d species × survey combinations", n_fits_attempted))
+message(sprintf("Succeeded: %d", n_fits_succeeded))
+message(sprintf("Failed: %d", n_fits_failed))
+
+if (n_fits_failed > 0) {
+  message("\nFailed combinations:")
+  for (i in seq_along(all_fits)) {
+    sp <- sp_list[i]
+    fits <- all_fits[[i]]
+    for (survey in c("fit_ON", "fit_OS", "fit_IN")) {
+      if (is.null(fits[[survey]])) {
+        val_name <- gsub(survey, pattern = "fit", replacement = "validation")
+        survey_name <- fits[[val_name]]$survey
+        message(sprintf("  - %s: %s", sp, survey_name))
+      }
+    }
+  }
+}

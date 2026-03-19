@@ -57,6 +57,66 @@ prep_hbll_data <- function(dat, bait_counts, restricted_df) {
     left_join(restricted_df, by = c("X", "Y"))
 }
 
+#' Validate HBLL survey data quality before model fitting
+#'
+#' @param data Data frame of HBLL survey data
+#' @param species_name Species name
+#' @param survey_abbrev Survey abbreviation
+#' @param min_obs Minimum number of observations required
+#' @param min_positive Minimum number of positive catches required
+#' @param min_prop_pos Minimum mean proportion of positive sets (default 0.05 = 5%)
+#'
+#' @return List with validation results
+validate_hbll_data <- function(data, species_name, survey_abbrev,
+                                min_obs = 50, min_positive = 5,
+                                min_prop_pos = 0.05) {
+
+  n_obs <- nrow(data)
+  n_positive <- sum(data$catch_count > 0)
+  prop_pos <- n_positive / n_obs
+  n_years <- length(unique(data$year))
+
+  # Calculate years with all zeroes
+  years_with_zeroes <- data |>
+    group_by(year) |>
+    summarise(all_zero = all(catch_count == 0), .groups = "drop") |>
+    filter(all_zero) |>
+    nrow()
+
+  issues <- character(0)
+
+  if (n_obs < min_obs) {
+    issues <- c(issues, sprintf("Only %d observations (minimum: %d)", n_obs, min_obs))
+  }
+
+  if (n_positive < min_positive) {
+    issues <- c(issues, sprintf("Only %d positive catches (minimum: %d)", n_positive, min_positive))
+  }
+
+  if (prop_pos < min_prop_pos) {
+    issues <- c(issues, sprintf("Mean proportion positive sets %.1f%% (minimum: %.1f%%)",
+                               prop_pos * 100, min_prop_pos * 100))
+  }
+
+  if (n_years < 3) {
+    issues <- c(issues, sprintf("Only %d years of data", n_years))
+  }
+
+  validation_result <- list(
+    passed = length(issues) == 0,
+    issues = issues,
+    n_obs = n_obs,
+    n_positive = n_positive,
+    prop_pos = prop_pos,
+    years_with_all_zeroes = years_with_zeroes,
+    n_years = n_years,
+    species = species_name,
+    survey = survey_abbrev
+  )
+
+  return(validation_result)
+}
+
 #' Fit sdmTMB model to HBLL survey data
 # TODO: document
 fit_cached_sdmTMB <- function(fit_dir, check_cache = TRUE, update_from = NULL,
@@ -109,7 +169,21 @@ fit_cached_sdmTMB <- function(fit_dir, check_cache = TRUE, update_from = NULL,
   # Fit initial model
   message("Cache missing. Fitting model for: ", model_name)
 
-  fit <- fit_function()
+  fit <- tryCatch(
+    {
+      fit_function()
+    },
+    error = function(e) {
+      warning("Model fitting failed for ", model_name, ": ", conditionMessage(e),
+              call. = FALSE)
+      return(NULL)
+    }
+  )
+
+  # Return NULL if fitting failed
+  if (is.null(fit)) {
+    return(NULL)
+  }
 
   # Store sanity check results on final model
   sanity_result <- sdmTMB::sanity(fit, silent = TRUE)

@@ -566,16 +566,19 @@ run_survey_simulation <- function(sp_name,
 
 sp <- sp_to_hyphens("yelloweye rockfish")
 fit_files <- list.files(here::here("data-generated", "fits"),
-                        pattern = paste0("^", sp, "-HBLL-OUT-N-betabinomial-on-iid-"),
+                        pattern = paste0("^", sp, "-HBLL-INS-N-betabinomial-on-iid-"),
                         full.names = TRUE)
 if (length(fit_files) > 0) {
+  fit <- readRDS(fit_files[1])
+  fit$sanity_check$passed
+
   test_sim <- simulate_hbll(
     fit = readRDS(fit_files[1]), restricted_df = restricted_df, sim_dir = sim_dir,
     check_cache = FALSE, save_sim = FALSE, formula = ~ 1 + restricted * year_covariate,
     seed = 999, year_covariate = 1:5, mpa_trend = log(1.01), use_fixed_spatial_field = TRUE
   )
 
-  catch_prop <- test_sim$catch_count / test_sim$hook_count
+  catch_prop <- test_sim$observed / test_sim$hook_count
 
   checks <- c(
     `NaN` = sum(is.nan(test_sim$observed)),
@@ -656,7 +659,7 @@ formula_scenarios <- tribble(
 )
 
 nreps <- 120
-nreps <- 50
+nreps <- 5
 
 # Note: Parameter grids are now created per-species using recovery rates
 # See task grid creation below for species-specific implementation
