@@ -322,15 +322,25 @@ $t$ = Time
 ```{r}
 # Load data from assessment projections
 a_dir <- here::here("data-raw", "assessment-projections")
-ling_projections <- readr::read_csv(here::here("data-raw", "assessment-projections", "lingcod-projections.csv"))
-qb_projections <- readr::read_csv(here::here("data-raw", "assessment-projections", "quillback-projections.csv"))
-ye_inside_projections <- readr::read_csv(here::here("data-raw", "assessment-projections", "yelloweye-inside-projections.csv"))
-halibut_projections <- readr::read_csv(here::here("data-raw", "assessment-projections", "halibut-projections.csv"))
-dogfish_projections <- readRDS(here::here("assessments", "dogfish-projections.rds"))
+ling_projections <- readr::read_csv(here::here("data-raw", "assessment-projections", "lingcod-projections.csv")) |>
+  mutate(status_year = 2025) |>
+  filter(year <= (status_year + 25))
+qb_projections <- readr::read_csv(here::here("data-raw", "assessment-projections", "quillback-projections.csv")) |>
+  mutate(status_year = 2021) |>
+  filter(year <= (status_year + 25))
+ye_inside_projections <- readr::read_csv(here::here("data-raw", "assessment-projections", "yelloweye-inside-projections.csv")) |>
+  mutate(status_year = 2024) |>
+  filter(year <= (status_year + 25))
+halibut_projections <- readr::read_csv(here::here("data-raw", "assessment-projections", "halibut-projections.csv")) #|>
+  # mutate(status_year = 2023) |>
+  # filter(year <= (status_year + 25))
+dogfish_projections <- readRDS(here::here("assessments", "dogfish-projections.rds")) |>
+  mutate(status_year = 2024) |>
+  filter(year <= (status_year + 25))
 
 status_year <- tribble(
   ~species, ~year,
-  # "lingcod", 2025,
+  "lingcod", 2025,
   "quillback rockfish", 2021,
   "yelloweye rockfish", 2024,
   "pacific halibut", 2023,
@@ -447,15 +457,13 @@ qb_rates <- qb_projections |>
          linear_mpa_rate = 1 + (B_BMSY - first(B_BMSY)) / time
   ) |>
   filter(time != 0) |>
-  filter(lambda %in% range(lambda, na.rm = TRUE) |
-    near(lambda, mean(lambda, na.rm = TRUE), tol = 0.0001)) |>
+  mutate(dist = abs(lambda - mean(lambda, na.rm = TRUE))) |>
+  filter(lambda %in% range(lambda, na.rm = TRUE) | dist == min(dist, na.rm = TRUE))  |>
   arrange(lambda) |>
   mutate(species = "quillback rockfish", source = "Figure 6",
     case = c("min rate", "mean rate", "max rate"),
     time = round(time)) |>
   select(species, source, case, time, lambda, citekey, reference, notes)
-
-qb_rates
 
 ```
 
@@ -553,47 +561,63 @@ url: https://waves-vagues.dfo-mpo.gc.ca/library-bibliotheque/41058136.pdf
 ```{r}
 # Yelloweye Rockfish - B/BMSY projections under F=0; Extracted from NFref Figure 30.
 
-ye_rates_by_quantile <- ye_inside_projections |>
-  group_by(quantile) |>
+ye_rates <- ye_inside_projections |>
   mutate(time = year - first(year),
          lambda = (B_BMSY / first(B_BMSY))^(1 / time),
          linear_mpa_rate = 1 + (B_BMSY - first(B_BMSY)) / time
-  ) |> filter(time != 0)
+  ) |> 
+  filter(time != 0) |>
+  mutate(dist = abs(lambda - mean(lambda, na.rm = TRUE))) |>
+  filter(lambda %in% range(lambda, na.rm = TRUE) | dist == min(dist, na.rm = TRUE))  |>
+  arrange(lambda) |>
+  mutate(species = "yelloweye rockfish", source = "Figure 30",
+    case = c("min rate", "mean rate", "max rate"),
+    time = round(time)) |>
+  select(species, source, case, time, lambda, citekey, reference, notes)
 
-ye_rates_summary_lambda <- ye_rates_by_quantile |>
-  summarise(
-    min_rate = min(lambda, na.rm = TRUE),
-    min_time = time[which.min(lambda)],
-    mean_rate = mean(lambda, na.rm = TRUE),
-    mean_time = time[which.min(abs(lambda - mean(lambda, na.rm = TRUE)))],
-    max_rate = max(lambda, na.rm = TRUE),
-    max_time = time[which.max(lambda)]
-  ) |>
-  pivot_longer(
-    cols = c(min_rate, mean_rate, max_rate),
-    names_to = "case",
-    values_to = "lambda"
-  ) |>
-  mutate(
-    time = case_when(
-      case == "min_rate" ~ min_time,
-      case == "max_rate" ~ max_time,
-      case == "mean_rate" ~ mean_time,
-      TRUE ~ NA_real_
-    )
-  ) |>
-  select(-min_time, -mean_time, -max_time)
+# ye_rates_by_quantile <- ye_inside_projections |>
+#   group_by(quantile) |>
+#   mutate(time = year - first(year),
+#          lambda = (B_BMSY / first(B_BMSY))^(1 / time),
+#          linear_mpa_rate = 1 + (B_BMSY - first(B_BMSY)) / time
+#   ) |> filter(time != 0)
 
-ye_rates <- ye_rates_summary_lambda |>
-  mutate(
-    species = "yelloweye rockfish",
-    source = ye_inside_projections$source[1],
-    # case = paste(case, round(time), "years"),
-    citekey = ye_inside_projections$citekey[1],
-    reference = ye_inside_projections$reference[1]
-  ) |>
-  select(species, source, case, time, lambda, citekey, reference) |>
-  mutate(case = gsub("_", " ", case))
+# ye_rates_summary_lambda <- ye_rates_by_quantile |>
+#   summarise(
+#     min_rate = min(lambda, na.rm = TRUE),
+#     min_time = time[which.min(lambda)],
+#     mean_rate = mean(lambda, na.rm = TRUE),
+#     mean_time = time[which.min(abs(lambda - mean(lambda, na.rm = TRUE)))],
+#     max_rate = max(lambda, na.rm = TRUE),
+#     max_time = time[which.max(lambda)]
+#   ) |>
+#   pivot_longer(
+#     cols = c(min_rate, mean_rate, max_rate),
+#     names_to = "case",
+#     values_to = "lambda"
+#   ) |>
+#   mutate(
+#     time = case_when(
+#       case == "min_rate" ~ min_time,
+#       case == "max_rate" ~ max_time,
+#       case == "mean_rate" ~ mean_time,
+#       TRUE ~ NA_real_
+#     )
+#   ) |>
+#   select(-min_time, -mean_time, -max_time)
+
+# ye_rates <- ye_rates_summary_lambda |>
+#   mutate(
+#     species = "yelloweye rockfish",
+#     source = ye_inside_projections$source[1],
+#     # case = paste(case, round(time), "years"),
+#     citekey = ye_inside_projections$citekey[1],
+#     reference = ye_inside_projections$reference[1]
+#   ) |>
+#   select(species, source, case, time, lambda, citekey, reference) |>
+#   mutate(case = gsub("_", " ", case))
+
+
 
 ```
 
@@ -676,7 +700,7 @@ rates_table <- rates |>
   select(species, case, time, `annual percent change` = percent_rate, citekey, source) |>
   arrange(species, `annual percent change`)
 
-# Simple LaTeX table using knitr::kable (most portable)
+# Simple LaTeX table
 library(xtable)
  rates_table_xt <- rates |>
     mutate(
@@ -694,12 +718,12 @@ library(xtable)
   )
 
 # Word table output
-library(flextable)
-rates_table |>
-  select(-time) |>
-  flextable() |>
-  fontsize(size = 11, part = "all") |>
-  set_caption("Recovery rates (lambda) for BC groundfish species under no fishing scenarios.") 
+# library(flextable)
+# rates_table |>
+#   select(-time) |>
+#   flextable() |>
+#   fontsize(size = 11, part = "all") |>
+#   set_caption("Recovery rates (lambda) for BC groundfish species under no fishing scenarios.") 
   
   # |>
   # theme_booktabs() |>
