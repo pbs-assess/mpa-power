@@ -1,4 +1,11 @@
 \newpage
+
+```{r}
+hbll_sites_all         <- readRDS(here::here("data-generated", "overlays", "hbll-site-summary-table.rds"))
+hbll_n_site_rows       <- nrow(hbll_sites_all)
+hbll_n_sites_unique    <- length(unique(hbll_sites_all$`Common Site Name`))
+```
+
 # POWER ANAYLSIS --- RECOMMENDATIONS FOR MONITORING PROGRAM DESIGN/SAMPLING FREQUENCY
 
 We chose a case study of the Hard Bottom Longline (HBLL) survey to evaluate sampling design requirements using power analysis to assess how monitoring programs could be adapted or expanded to detect meaningful changes in conservation priority species.
@@ -7,8 +14,8 @@ Statistical power depends on the magnitude of the effect being tested, the degre
 In impact monitoring frameworks such as Before--After--Control--Impact (BACI) designs, balanced designs with comparable numbers of observations in pre- and post-impact periods generally provide greater statistical power than unbalanced designs with the same total sampling effort [@underwoodBACISampling1994; @smokorowskiCautionsUsing2017].
 
 The HBLL survey was selected as an illustrative example for several reasons.
-The HBLL was one of the programs that scored highest in our program assessment based on temporal suitability, domain relevance, and spatial coverage criteria. 
-It has a 19-year time series providing sufficient historical data to characterize baseline variability, monitors multiple MPAN Ecological Conservation Priority rockfish species (yelloweye, quillback), samples 54 individual protected areas with coverage both inside and outside MPAN boundaries, and collects detailed biological data (length, weight, archived otoliths) enabling analysis of multiple response metrics.
+The HBLL scored high in our program assessment based on temporal suitability, domain relevance, and spatial coverage criteria. 
+It has a 19-year time series providing sufficient historical data to characterize baseline variability, monitors multiple MPAN E-CP rockfish species (yelloweye, quillback), samples `r hbll_n_sites_unique` protected area sites with coverage both inside and outside MPAN boundaries, and collects detailed biological data (length, weight, archived otoliths) enabling analysis of multiple response metrics.
 
 The power analyses conducted on the HBLL were used to inform recommendations on sampling frequency, spatial replication, and temporal coverage needed to support robust evaluation of MPA performance.
 Importantly, this case study serves as one methodological example---not a prescription. 
@@ -43,7 +50,8 @@ Balanced designs with equal numbers of before and after years provide greater st
 O\'Neal et al. (2016) recommends collecting a minimum of two years of before-project data, matched with two years of after-project data. 
 While acquiring pre-project data can be challenging, the statistical benefits of balanced design make a compelling case for investing in before-project data collection when feasible (Braun et al. 2019).
 
-Within the NSB context, MPA sites experiencing greater pre-implementation fishing intensity and other pressures may demonstrate higher power to detect management-related changes compared to sites with historically lower human activity levels.
+Within the NSB context, MPA sites experiencing greater pre-implementation fishing intensity and other pressures may demonstrate higher power to detect management-related changes compared to sites with historically lower human activity levels. 
+This is because there is an expected ecological response when fishing is removed through protection (i.e., recovery), whereas in areas with low preimplementation fishing pressure there will be no associated reocvery (litte change in fishing pressure pre- and post- implementation).
 
 **Before-After-Control-Impact (BACI) design**
 
