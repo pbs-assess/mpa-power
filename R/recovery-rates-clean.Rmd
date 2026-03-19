@@ -782,8 +782,57 @@ canary_rates <- data.frame(
 )
 ```
 
+# Silvergray
+
 ```{r}
-rates <- bind_rows(ling_rates, qb_rates, dog_rates, ye_rates, halibut_rates, pcod_rates, canary_rates) |>
+n <- 10000
+set.seed(42)
+h_sd <- (logit(0.9309) - logit(0.5076)) / 3.29
+h_s  <- inv_logit(rnorm(n, mean = logit(0.7499), sd = h_sd))
+while (any(h_s <= 0.2)) {
+  bad      <- h_s <= 0.2
+  h_s[bad] <- inv_logit(rnorm(sum(bad), mean = logit(0.7499), sd = h_sd))
+}
+
+M_s <- rlnorm(n,
+  meanlog = log(0.06324),
+  sdlog   = (log(0.06925) - log(0.05607)) / 3.29
+)
+
+dep_s <- inv_logit(rnorm(n,
+  mean = logit(0.559),
+  sd   = (logit(0.698) - logit(0.405)) / 3.29
+))
+
+rates <- mapply(recovery_rate, h = h_s, M = M_s, depletion = dep_s)
+
+# cat("Recovery rate beta (yr-1), 25-year no-fishing projection:\n")
+print(round(quantile(rates, c(0.05, 0.5, 0.95)), 4))
+
+hist(rates, breaks = 60,
+  main = "Recovery rate posterior — Silvergray Rockfish", xlab = "beta (yr-1)")
+abline(v = quantile(rates, c(0.05, 0.5, 0.95)), lty = c(2, 1, 2), col = "red")
+
+x <- quantile(rates, probs = c(0.05, 0.5, 0.95))
+x
+exp(x)
+# hist(exp(rates))
+
+silvergray_rates <- data.frame(
+  species = "silvergray rockfish",
+  source = "Table 2 and 3 + calculations",
+  case = c("5% rate", "50% rate", "95% rate"),
+  time = 25,
+  lambda = exp(x),
+  citekey = NA_character_,
+  reference = NA_character_,
+  notes = "Logistic growth calculations based on parameter posteriors; female M used",
+  stringsAsFactors = FALSE
+)
+```
+
+```{r}
+rates <- bind_rows(ling_rates, qb_rates, dog_rates, ye_rates, halibut_rates, pcod_rates, canary_rates, silvergray_rates) |>
   arrange(species, lambda) |>
   mutate(lambda = round(lambda, 4))
 
