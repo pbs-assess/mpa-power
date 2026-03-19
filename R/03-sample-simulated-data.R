@@ -312,7 +312,7 @@ run_sampling <- function(sim_dat, replicates = NULL) {
 # Defensive check: test sampling on yelloweye before main execution
 # =============================================================================
 ye_sim <- purrr::map_dfr(c("HBLL OUT N", "HBLL OUT S", "HBLL INS N"), ~{
-  load_sim_data("yelloweye rockfish", .x, 1.011, "fitted_AR1", "twenty-five_years", sim_summary, sim_dir) |> filter(replicate == 1)
+  load_sim_data("yelloweye rockfish", .x, 1.021, "fitted_AR1", "twenty-five_years", sim_summary, sim_dir) |> filter(replicate == 1)
 }) |> filter(replicate == 1)
 
 unique(ye_sim$survey_abbrev)
@@ -371,7 +371,7 @@ if (USE_PARALLEL) {
 # Get unique species
 species_list <- unique(sim_summary$species)
 message("\nProcessing ", length(species_list), " species")
-
+species_list <- "yelloweye rockfish"
 # Process each species
 sampling_summary <- purrr::map_dfr(species_list, function(sp) {
 

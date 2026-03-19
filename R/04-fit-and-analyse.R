@@ -143,7 +143,7 @@ hist_cache <- new.env(parent = emptyenv())
 ye_hist <- purrr::map_dfr(c("HBLL OUT N", "HBLL OUT S", "HBLL INS N"),
   ~get_hist_data("yelloweye rockfish", .x, hist_path, hist_cache))
 
-ye_files <- list.files(file.path(sample_dir, "yelloweye-rockfish"), pattern = "mpa1.011.*status-quo", full.names = TRUE)
+ye_files <- list.files(file.path(sample_dir, "yelloweye-rockfish"), pattern = "mpa1.021.*status-quo", full.names = TRUE)
 ye_samp <- purrr::map_dfr(ye_files, readRDS) |> filter(replicate == 1)
 hbll_last_sampled_year
 ye_combined <- combine_hist_sim_data(ye_samp, ye_hist, 2034) |> mutate(survey_abbrev = "HBLL")
