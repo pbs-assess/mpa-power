@@ -787,3 +787,88 @@ plot_sampling_plan <- function(sampled_data, plan_name, groups = c("year", "rest
     ) +
     ggtitle(plan_name)
 }
+
+#' Load sampled data files for selected parameter combinations
+#'
+#' Helper function to load individual replicate sample files based on filters.
+#' Works with the flattened file structure from 03-sample-simulated.R where
+#' each file contains a single replicate.
+#'
+#' @param species Species name(s) - character vector
+#' @param survey_abbrev Survey abbreviation(s) - character vector
+#' @param mpa_trend MPA trend value(s) - numeric vector
+#' @param ar1_scenario AR1 scenario name(s) - character vector
+#' @param time_scenario Time scenario name(s) - character vector
+#' @param plan Optional sampling plan name(s) - character vector
+#' @param replicates Optional integer vector of replicates to load
+#' @param sampling_summary Sampling summary tibble (from sampling-summary.rds)
+#' @param sample_dir Directory containing sampled data files
+#'
+#' @return Combined sampled data tibble with all matching files
+#'
+#' @examples
+#' # Load single replicate
+#' data <- load_sampled_data(
+#'   species = "yelloweye rockfish",
+#'   survey_abbrev = "HBLL OUT N",
+#'   mpa_trend = 1.021,
+#'   ar1_scenario = "fitted_AR1",
+#'   time_scenario = "twenty-five_years",
+#'   plan = "status quo",
+#'   replicates = 1,
+#'   sampling_summary = sampling_summary,
+#'   sample_dir = sample_dir
+#' )
+#'
+#' # Load multiple replicates and surveys
+#' data <- load_sampled_data(
+#'   species = "yelloweye rockfish",
+#'   survey_abbrev = c("HBLL OUT N", "HBLL OUT S"),
+#'   mpa_trend = 1.021,
+#'   ar1_scenario = "fitted_AR1",
+#'   time_scenario = "twenty-five_years",
+#'   plan = "status quo",
+#'   replicates = 1:5,
+#'   sampling_summary = sampling_summary,
+#'   sample_dir = sample_dir
+#' )
+load_sampled_data <- function(species, survey_abbrev, mpa_trend, ar1_scenario,
+                              time_scenario, plan = NULL, replicates = NULL,
+                              sampling_summary, sample_dir) {
+
+  selected_files <- sampling_summary |>
+    filter(
+      species %in% .env$species,
+      survey_abbrev %in% .env$survey_abbrev,
+      mpa_trend %in% .env$mpa_trend,
+      ar1_scenario %in% .env$ar1_scenario,
+      time_scenario %in% .env$time_scenario
+    )
+
+  if (!is.null(plan)) {
+    selected_files <- selected_files |>
+      filter(plan %in% .env$plan)
+  }
+
+  if (!is.null(replicates)) {
+    selected_files <- selected_files |>
+      filter(replicate %in% .env$replicates)
+  }
+
+  if (nrow(selected_files) == 0) {
+    stop(
+      "No sampled files found for species=", paste(species, collapse = ","),
+      ", survey_abbrev=", paste(survey_abbrev, collapse = ","),
+      ", mpa_trend=", paste(mpa_trend, collapse = ","),
+      ", ar1_scenario=", ar1_scenario,
+      ", time_scenario=", time_scenario
+    )
+  }
+
+  message("Loading ", nrow(selected_files), " sampled file(s)")
+
+  selected_files |>
+    mutate(file_path = file.path(sample_dir, file)) |>
+    pull(file_path) |>
+    purrr::map_dfr(readRDS)
+}
