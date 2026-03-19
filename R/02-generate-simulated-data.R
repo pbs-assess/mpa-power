@@ -659,7 +659,7 @@ formula_scenarios <- tribble(
 )
 
 nreps <- 120
-nreps <- 5
+nreps <- 50
 
 # Note: Parameter grids are now created per-species using recovery rates
 # See task grid creation below for species-specific implementation
