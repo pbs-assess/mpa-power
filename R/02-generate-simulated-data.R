@@ -607,25 +607,25 @@ sp_list <- c(
 )
 
 # Filter to species with recovery rates
-missing_rates <- setdiff(species_list, unique(recovery_rates$species))
+missing_rates <- setdiff(sp_list, unique(recovery_rates$species))
 if (length(missing_rates) > 0) {
   warning("Skipping species without recovery rates: ", paste(missing_rates, collapse = ", "))
-  species_list <- setdiff(species_list, missing_rates)
+  sp_list <- setdiff(sp_list, missing_rates)
 }
 
-if (length(species_list) == 0) {
+if (length(sp_list) == 0) {
   stop("No species with recovery rates available. Cannot proceed.")
 }
 
-extra_rates <- setdiff(unique(recovery_rates$species), species_list)
+extra_rates <- setdiff(unique(recovery_rates$species), sp_list)
 if (length(extra_rates) > 0) {
   message("Note: Recovery rates available but not used for: ",
           paste(extra_rates, collapse = ", "))
 }
 
-message("Running simulations for ", length(species_list), " species")
+message("Running simulations for ", length(sp_list), " species")
 
-# species_list <- "yelloweye rockfish"
+# sp <- "yelloweye rockfish"
 
 # =============================================================================
 # Define simulation parameter scenarios
