@@ -151,14 +151,27 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
 # Single species (for testing)
 # test <- fit_species("yelloweye rockfish", save_cleaned_data = FALSE)
 
+# look at new species fits:
+# test0 <- fit_species("yelloweye rockfish", save_cleaned_data = F)
+# test <- fit_species("pacific cod", save_cleaned_data = F)
+# test[[1]] |> sanity()
+# test[[2]] |> sanity()
+# test[[3]] |> sanity()
+
 # Species list
 sp_list <- c(
   "yelloweye rockfish",
   "north pacific spiny dogfish",
   "lingcod",
   "quillback rockfish",
-  "pacific halibut"
+  "pacific halibut",
+  "canary rockfish",
+  "silvergray rockfish"
 )
+
+# readRDS(file.path(overlay_dir, "hbll-spp-encounter-rate.rds")) |>
+#   select(species_common_name, pos_sets) |>
+#   slice(1:20)
 
 # # Setup parallel processing
 
@@ -181,7 +194,6 @@ if (USE_PARALLEL) {
 future::plan(future::sequential)
 
 # Get process error parameters from conditioning models
-
 ar1_estimates <- all_fits |>
   purrr::flatten() |>
   purrr::map_dfr(function(fit) {

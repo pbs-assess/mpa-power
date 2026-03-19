@@ -593,12 +593,14 @@ if (length(fit_files) > 0) {
 # =============================================================================
 
 # Define species list
-species_list <- c(
+sp_list <- c(
   "yelloweye rockfish",
   "north pacific spiny dogfish",
   "lingcod",
   "quillback rockfish",
-  "pacific halibut"
+  "pacific halibut",
+  "canary rockfish",
+  "silvergray rockfish"
 )
 
 # Filter to species with recovery rates
