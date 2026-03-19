@@ -50,7 +50,7 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
                         save_cleaned_data = TRUE,
                         .options = furrr::furrr_options(seed = TRUE)) {
 
-  restricted_df <- readRDS(file.path("data-generated", "hbll-restricted-sf.rds")) |>
+  historical_locations <- readRDS(file.path("data-generated", "historical-locations.rds")) |>
     st_drop_geometry() |>
     select(X, Y, uid, restricted)
 
@@ -60,11 +60,14 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
 
   sp_dat <- filter(sp_dat0, stringr::str_detect(survey_abbrev, "HBLL")) |>
     filter(survey_abbrev != "HBLL INS S") |> # may as well remove this up here
-    prep_hbll_data(bait_counts = bait_counts, restricted_df = restricted_df) |>
+    prep_hbll_data(bait_counts = bait_counts, restricted_df = historical_locations) |>
     mutate(
       obs_id = factor(row_number()),
       catch_prop = catch_count / hook_count,
-      log_depth = log(depth_m)
+      log_depth = log(depth_m),
+      last_sampled_year = max(year),
+      year_covariate = 0,
+      historical = TRUE
     )
 
   d_ON <- filter(sp_dat, survey_abbrev == "HBLL OUT N")

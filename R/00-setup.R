@@ -55,7 +55,7 @@ if (!file.exists(file.path("data-generated", "hbll-last-sampled-year.rds")) |
     # select(ssid = survey_series_id.x, survey_abbrev, year, fishing_event_id,
     #   latitude, longitude, X, Y,block_id,
     #   fe_grouping_code = grouping_code.x, grouping_code = grouping_code.y, restricted)
-    distinct(survey_abbrev, block_id, latitude, longitude, X, Y, restricted)
+    distinct(survey_abbrev, block_id, uid, latitude, longitude, X, Y, restricted)
   saveRDS(historical_locations, file.path("data-generated", "historical-locations.rds"))
 }
 
