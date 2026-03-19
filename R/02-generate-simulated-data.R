@@ -670,8 +670,8 @@ nreps <- 50
 
 message("\n=== Loading Species Fits ===")
 # Load fits for all species
-all_species_fits <- purrr::map(species_list, prepare_species_fits)
-names(all_species_fits) <- species_list
+all_species_fits <- purrr::map(sp_list, prepare_species_fits)
+names(all_species_fits) <- sp_list
 
 # Remove species with no valid fits
 all_species_fits <- purrr::compact(all_species_fits)
