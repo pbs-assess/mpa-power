@@ -722,7 +722,7 @@ dep_s <- inv_logit(rnorm(n,
   sd   = (logit(0.92) - logit(0.45)) / 3.92
 ))
 rates <- mapply(recovery_rate, h = h_s, M = M_s, depletion = dep_s)
-x <- quantile(rates, c(0.025, 0.5, 0.975))
+x <- quantile(rates, c(0.05, 0.5, 0.95))
 print(x)
 
 # hist(rates, breaks = 60,
@@ -731,7 +731,7 @@ print(x)
 pcod_rates <- data.frame(
   species = "pacific cod",
   source = "Table 8 and 9 + calculations",
-  case = c("2.5% rate", "50% rate", "97.5% rate"),
+  case = c("5% rate", "50% rate", "95% rate"),
   time = 25,
   lambda = exp(as.numeric(x)),
   citekey = "forrest2020",
@@ -741,9 +741,49 @@ pcod_rates <- data.frame(
 )
 ```
 
+# Canary Rockfish
 
 ```{r}
-rates <- bind_rows(ling_rates, qb_rates, dog_rates, ye_rates, halibut_rates, pcod_rates) |>
+n <- 10000
+set.seed(42)
+# h must be > 0.2; replace any invalid draws
+h_sd <- (logit(0.9508) - logit(0.5659)) / 3.29
+h_s  <- inv_logit(rnorm(n, mean = logit(0.7958), sd = h_sd))
+while (any(h_s <= 0.2)) {
+  bad      <- h_s <= 0.2
+  h_s[bad] <- inv_logit(rnorm(sum(bad), mean = logit(0.7958), sd = h_sd))
+}
+M_s <- rlnorm(n,
+  meanlog = log(0.09329),
+  sdlog   = (log(0.1063) - log(0.08094)) / 3.29
+)
+dep_s <- rlnorm(n,
+  meanlog = log(0.7780),
+  sdlog   = (log(1.0450) - log(0.5703)) / 3.29
+)
+rates <- mapply(recovery_rate, h = h_s, M = M_s, depletion = dep_s)
+print(round(quantile(rates, c(0.05, 0.5, 0.95)), 4))
+# hist(rates, breaks = 60,
+#   main = "Recovery rate posterior — Canary Rockfish", xlab = "beta (yr-1)")
+# abline(v = quantile(rates, c(0.05, 0.5, 0.95)), lty = c(2, 1, 2), col = "red")
+x <- quantile(rates, probs = c(0.05, 0.5, 0.95))
+exp(x)
+# hist(exp(rates))
+canary_rates <- data.frame(
+  species = "canary rockfish",
+  source = "Table 1 and 2 + calculations",
+  case = c("5% rate", "50% rate", "95% rate"),
+  time = 25,
+  lambda = exp(x),
+  citekey = "starrhaigh2023",
+  reference = NA_character_,
+  notes = "Logistic growth calculations based on parameter posteriors; female M used",
+  stringsAsFactors = FALSE
+)
+```
+
+```{r}
+rates <- bind_rows(ling_rates, qb_rates, dog_rates, ye_rates, halibut_rates, pcod_rates, canary_rates) |>
   arrange(species, lambda) |>
   mutate(lambda = round(lambda, 4))
 
