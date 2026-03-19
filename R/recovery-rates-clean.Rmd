@@ -671,9 +671,79 @@ halibut_rates
 
 ```
 
+# Pacific Cod
 
 ```{r}
-rates <- bind_rows(ling_rates, qb_rates, dog_rates, ye_rates, halibut_rates) |>
+# Recovery rate estimation from posterior CIs
+# Uses a surplus production model using h and M to estimate r,
+# then propagates uncertainty via Monte Carlo sampling from posterior CIs.
+logit <- function(x) log(x / (1 - x))
+inv_logit <- function(x) 1 / (1 + exp(-x))
+
+# Instantaneous recovery rate (beta, yr-1) over `years` under no fishing.
+# Uses BH approximation of r = 4hM/(5h-1) and logistic
+# BH approximation assume a single age class with lifetime reproductive output = 1/M
+# B0 cancels — only h, M, and depletion determine the rate.
+recovery_rate <- function(h, M, B0 = 1, depletion, years = 25) {
+  r <- 4 * h * M / (5 * h - 1)
+  Binit <- depletion * B0
+  B_end <- B0 / (1 + (B0 / Binit - 1) * exp(-r * years))
+  log(B_end / Binit) / years
+}
+
+# Monte Carlo sampling from posterior CIs
+# Parameters from Tables 8 & 9 (2.5%, median, 97.5%):
+#   h:          0.432, 0.727, 0.931   (Table 8)
+#   M:          0.280, 0.312, 0.347   (Table 8)
+#   B2019/B0:   0.45,  0.58,  0.92   (Table 9) — use ratio directly to
+#                                      capture correlation between B0 and Bcurrent
+#
+# h, depletion: logit-normal (bounded 0-1)
+# M:            lognormal    (positive, right-skewed)
+# SD estimated as (hi - lo) / 3.92  [= (97.5th - 2.5th) / (2 * 1.96)]
+
+n <- 10000
+set.seed(42)
+# h must be > 0.2 (BH biological minimum); replace any invalid draws
+h_sd <- (logit(0.931) - logit(0.432)) / 3.92
+h_s <- inv_logit(rnorm(n, mean = logit(0.727), sd = h_sd))
+while (any(h_s <= 0.2)) {
+  bad <- h_s <= 0.2
+  h_s[bad] <- inv_logit(rnorm(sum(bad), mean = logit(0.727), sd = h_sd))
+}
+# h_s <- rep(mean(h_s), length(h_s))
+M_s <- rlnorm(n,
+  meanlog = log(0.312),
+  sdlog   = (log(0.347) - log(0.280)) / 3.92
+)
+# M_s <- rep(mean(M_s), length(M_s))
+dep_s <- inv_logit(rnorm(n,
+  mean = logit(0.58),
+  sd   = (logit(0.92) - logit(0.45)) / 3.92
+))
+rates <- mapply(recovery_rate, h = h_s, M = M_s, depletion = dep_s)
+x <- quantile(rates, c(0.025, 0.5, 0.975))
+print(x)
+
+# hist(rates, breaks = 60,
+#   main = "Recovery rate posterior", xlab = "beta (yr-1)")
+# abline(v = quantile(rates, c(0.025, 0.5, 0.975)), lty = c(2, 1, 2), col = "red")
+pcod_rates <- data.frame(
+  species = "pacific cod",
+  source = "Table 8 and 9 + calculations",
+  case = c("2.5% rate", "50% rate", "97.5% rate"),
+  time = 25,
+  lambda = exp(as.numeric(x)),
+  citekey = "forrest2020",
+  reference = NA_character_,
+  notes = "Logistic growth calculations based on parameter posteriors",
+  stringsAsFactors = FALSE
+)
+```
+
+
+```{r}
+rates <- bind_rows(ling_rates, qb_rates, dog_rates, ye_rates, halibut_rates, pcod_rates) |>
   arrange(species, lambda) |>
   mutate(lambda = round(lambda, 4))
 
@@ -729,3 +799,4 @@ library(xtable)
   # theme_booktabs() |>
   # save_as_docx(path = here::here("tables", "recovery-rates-lambda.docx"))
 ```
+
