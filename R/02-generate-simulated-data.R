@@ -8,6 +8,11 @@ source(here::here("R", "00-setup.R"))
 # source(here::here("R", "01-fit-conditioning-models.R"))
 source(here::here("R", "00-fit-sim-functions.R"))
 
+# Make sure we are using latest recovery rates
+knitr::purl(here::here("R", "recovery-rates-clean.Rmd"), output = here::here("R", "recovery-rates-clean.R"))
+# Source the newly created R script to run all code in the console
+source(here::here("R", "recovery-rates-clean.R"))
+
 # =============================================================================
 # Configuration
 # =============================================================================
