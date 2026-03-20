@@ -86,20 +86,18 @@ readr::read_csv(here::here("text/data/power-definitions.csv")) |>
 
 ## POWER ANALYSIS METHODOLOGY
 
-Since 2003, Fisheries and Oceans Canada has conducted Hard Bottom Longline (HBLL) surveys to monitor groundfish abundance and distribution off the coast of BC. 
-The survey targets inshore rockfish habitat, specifically that of Yelloweye and Quillback rockfish [@doherty2019]. 
 The HBLL survey consists of two survey series: inside (HBLL INS, referring to waters between Vancouver Island and the mainland) and the outside (HBLL OUT, all other BC waters). 
 North and south areas within each series are surveyed biennially. 
 Three of the four regions (HBLL OUT N, HBLL OUT S, and HBLL INS N) overlap with the GBS MPA Network (Figure \@ref(fig:hbll-mpa-historical-overlay)).
+The surveys use a depth-stratified random sampling design, with a target allocation of 189 sets (HBLL OUT N), 252 (HBLL OUT S), and 70 (HBLL INS N).
 
 ```{r hbll-mpa-historical-overlay, fig.cap="HBLL-MPA historical overlay.", fig.asp=get_asp(here::here("figures/hbll-mpa-historical-overlay.png")), out.width="90%"}
 knitr::include_graphics(here::here("figures/hbll-mpa-historical-overlay.png"))
 ```
 
-The surveys use a depth-stratified random sampling design, with a target allocation of 189 sets (HBLL OUT N), 252 (HBLL OUT S), and 70 (HBLL INS N).
+We used a simulation-based power analysis to assess the ability of the HBLL survey to detect changes in population indices of groundfish across the MPA Network. 
+Our approach consisted of four steps: (1) fit conditioning models to historical data to parameterise the operating model, (2) used the operating model to simulate population recovery trends inside the MPAs under the assumption of fishing cessation (3) apply different sampling strategies to the simulated population, and (4) fit monitoring models to the combined historical and simulated data to evaluate the power of these sampling strategies to detect trends across the MPA Network.
 
-We used a simulation-based power analysis to assess the ability of existing monitoring programs to detect changes in population indices of groundfish across the MPA Network. 
-Our approach consisted of four steps: (1) fit conditioning models to empirical data, (2) simulate population recovery trends inside and outside of the MPAs under the assumption of fishing cessation within MPAs, (3) apply two different sampling strategies to the simulated population, and (4) test the power of these sampling strategies to detect trends across the MPA Network by fitting another spatiotemporal model to the combined historical and simulated data.
 
 Using a spatiotemporal modelling approach, we applied this power analysis to five conservation priority species that are well sampled by the HBLL survey: Yelloweye Rockfish, Quillback Rockfish, Lingcod, Pacific Halibut, and Pacific Spiny Dogfish. 
 This approach allows us to test different scenarios, such as varying recovery rates within MPAs or evaluation time frames, while incorporating some ecological complexity and variability (Table \@ref(tab:scenario-summary)). 
@@ -136,7 +134,20 @@ The function $g^{-1}$ represents the (inverse) complementary log-log ("cloglog")
 The beta-binomial distribution was the most parsimonious probability distribution when compared using AIC against Poisson and negative binomial models fitted with fish counts as the response and log hook count as an offset.
 Importantly, the beta-binomial constrained the number of fish observed to be within the number of hooks set and therefore produced simulated data that more closely resembled the observed data.
 See supplementary materials for model comparison of hook and line count data simulation diagnostics.
-    
+We accounted for hook competition by scaling catch rates to account for the number of hooks that are removed (by fish) from fishing during the set time. 
+We used this adjusted hook count as the weighting in our beta-binomial model [@anderson2019synopsis]: 
+
+\[
+\text{proportion of baited hooks} = \frac{\text{count bait only}}{\text{hook count}}
+\]
+\[
+\text{hook adjustment factor} = \frac{-\ln(\text{proportion of baited hooks})}{1 - \text{proportion of baited hooks}}
+\]
+\[
+\text{adjusted hook count} = \frac{\text{hook count}}{\text{hook adjustment factor}}
+\]
+
+
 Our linear predictor included an annual mean fixed effect ($\beta_t$) and 
 spatial ($\omega_\mathbf{s}$) and spatiotemporal ($\epsilon_{\mathbf{s},t}$) random effects. 
 These random effects were structured as Gaussian Markov random fields (GMRFs) that were mean zero with precision matrices ($\mathbf{Q}_\omega$ and $\mathbf{Q}_\epsilon$; inverse covariance matrices) based on a Matérn spatial correlation function.
@@ -144,27 +155,25 @@ The spatial random fields account for constant spatial patterning or correlation
 If models failed to converge or if spatial and/or spatiotemporal variance estimates collapsed to near zero ($<$ 0.01), the models were refit with the collapsed random fields set to zero.
 Models were considered to have converged if the Hessian matrix was positive definite and the absolute gradient of the marginal log-likelihood with respect to each fixed effect was $<$ 0.001.
 
-TO FILL IN:
+From the conditioning models we extracted the following parameters: the spatial random field, range, and dispersion. 
+We also fit an autoregressive (AR1) model to the independent year effects estimated for each conditioning model (species-region combination), to estimate the temporal autocorrelation coefficient, $\rho_v$, and the marginal standard deviation, $\sigma_v$.
 
-We did not account for hook competition.
 
-Fit conditioning models for each of the three HBLL survey regions to maximize the ability for the simulated data to resemble the observed data.
+### Step 2: Simulate data using an operating model
 
-Figure \@ref(fig:spp-distribution) shows the average spatial distribution from the fitted models for each species.
+We used the following operating model to simulate data for each species inside and outside of the MPAs for each of the three survey regions:
 
-```{r spp-distribution, fig.cap="Spatial distributions of five groundfish species across the British Columbia coast. Predicted relative abundance (mean catch per 100 hooks) from the most recent survey year for each region, as estimated from the spatiotemporal models used to inform the simulation.", fig.asp=get_asp(here::here("figures/predicted-distributions.png")), out.width="100%"}
-knitr::include_graphics(here::here("figures/predicted-distributions.png"))
-```
+$\beta_{0} + \beta_{mpa_effect} \cdot year$
 
-### Step 2: Simulate data from conditioning models
 
-Dimensions included here: species, mpa effect (recovery rates from No Fishing scenarios Table \@ref(tab:recovery-rates), addition of spatiotemporal noise to increase realism.
+Dimensions included here: species, mpa effect (recovery rates from No Fishing scenarios Table \@ref(tab:recovery-rates) recovery-rates, addition of spatiotemporal noise to increase realism.
 
 Output: known truth, example of simulated time series shown in Figure \@ref(fig:historical-simulated-index-example).
 Full grid for each species of values (possible additional figure -- or in supplement)
 
 ```{r recovery-rates}
-rates <- readRDS(here::here("data-generated", "recovery-rates-lambda.rds"))
+rates <- readRDS(here::here("data-generated", "recovery-rates-lambda.rds")) |>
+  filter(species != "pacific cod")
 spp_levels <- rates |> arrange(lambda) |> pull(species) |> unique()
 
 rates_table <- rates |>
@@ -208,6 +217,15 @@ How well can we recover the trend --- example: Figure \@ref(fig:historical-simul
 
 ## POWER ANALYSIS RESULTS
 
+The species distributions estimated using the conditioning models showed substantial variation (Figure \@ref(fig:spp-distribution)) in the spatial patterns of the X species considered in the power analysis. 
+
+```{r spp-distribution, fig.cap="Spatial distributions of five groundfish species across the British Columbia coast. Predicted relative abundance (mean catch per 100 hooks) from the most recent survey year for each region, as estimated from the spatiotemporal models used to inform the simulation.", fig.asp=get_asp(here::here("figures/predicted-distributions.png")), out.width="100%"}
+knitr::include_graphics(here::here("figures/predicted-distributions.png"))
+```
+
+This spatial variation was incorporated into the simulated populations using the spatial random field (Figure \@ref(fig:spp-distribution) spatial-field)
+
+
 Statistical power to detect MPA recovery trends varied across species and effect sizes.
 For species with faster recovery rates, ≥80% power could be reached within the first 10--15 years of MPA implementation using status quo sampling, while for species with slower recovery it may take 20--25 years of monitoring.
 Reducing MPA sampling frequency generally delayed when ≥80% power was reached.
@@ -228,11 +246,20 @@ Detection of significant effects before 10 years is likely to lead to over estim
 
 Stock assessment "no fishing" scenarios and life histories can help to inform expectations of recovery rates
 
-```{r power-plot, fig.cap="PLACEHOLDER for updated results -- overly optimistic. Probability of detecting a significant MPA effect increases with larger effect sizes. Rates of change for each species.", fig.asp=get_asp(here::here("figures/power.png")), out.width="100%"}
+```{r power-plot, fig.cap="Probability of detecting a significant MPA effect increases with larger effect sizes. Rates of change for each species.", fig.asp=get_asp(here::here("figures/power.png")), out.width="100%"}
 knitr::include_graphics(here::here("figures/power.png"))
 ```
 
 
-```{r type-M-plot, fig.cap="PLACEHOLDER for updated results -- overly optimistic. Early detection is associated with overestimates of MPA effects. Within first 10 years post implementation these effects are likely exaggerated by 2--8 times true rates.", fig.asp=get_asp(here::here("figures/type-m-error-rate.png")), out.width="100%"}
+```{r type-M-plot, fig.cap="Early detection is associated with overestimates of MPA effects. Within the first 10 years post implementation these effects are likely exaggerated by 2--8 times true rates.", fig.asp=get_asp(here::here("figures/type-m-error-rate.png")), out.width="100%"}
 knitr::include_graphics(here::here("figures/type-m-error-rate.png"))
 ```
+
+#### Caveats/Limitations
+
+* This analysis assumed no species movement.
+Any potential spillover effects or capturing of fishes that move outside of the MPA boundaries would reduce recovery rates and our ability to detect MPA effects. 
+
+* We assumed a constant linear rate of increase over the 25 years. Although the recovery rates calculated from the stock assessments reflect current levels of depletion and density dependent effects. 
+
+* Recent analyses have shown that body size rather than abundance is more sensitive to detection. [wilson][perkins]
