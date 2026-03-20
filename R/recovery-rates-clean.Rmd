@@ -331,71 +331,70 @@ qb_projections <- readr::read_csv(here::here("data-raw", "assessment-projections
 ye_inside_projections <- readr::read_csv(here::here("data-raw", "assessment-projections", "yelloweye-inside-projections.csv")) |>
   mutate(status_year = 2024) |>
   filter(year <= (status_year + 25))
-halibut_projections <- readr::read_csv(here::here("data-raw", "assessment-projections", "halibut-projections.csv")) #|>
-  # mutate(status_year = 2023) |>
-  # filter(year <= (status_year + 25))
+halibut_projections <- readr::read_csv(here::here("data-raw", "assessment-projections", "halibut-projections.csv")) |>
+  mutate(status_year = 2023)# |>
 dogfish_projections <- readRDS(here::here("data-raw", "assessment-projections", "dogfish-projections.rds")) |>
   mutate(status_year = 2024) |>
   filter(year <= (status_year + 25))
 
-status_year <- tribble(
-  ~species, ~year,
-  "lingcod", 2025,
-  "quillback rockfish", 2021,
-  "yelloweye rockfish", 2024,
-  "pacific halibut", 2023,
-  "pacific spiny dogfish", 2024
-)
+# status_year <- tribble(
+#   ~species, ~year,
+#   "lingcod", 2025,
+#   "quillback rockfish", 2021,
+#   "yelloweye rockfish", 2024,
+#   "pacific halibut", 2023,
+#   "pacific spiny dogfish", 2024
+# )
 
-# Lingcod projection plot
-p1 <- ggplot(ling_projections) +
-  aes(x = year, y = SSB_SSBMSY) +
-  geom_line() +
-  scale_x_continuous(breaks = scales::pretty_breaks(n = 5)) +
-  geom_vline(xintercept = status_year$year[status_year$species == "lingcod"], linetype = "dashed", colour = "grey50") +
-  ggtitle("Lingcod")
+# # Lingcod projection plot
+# p1 <- ggplot(ling_projections) +
+#   aes(x = year, y = SSB_SSBMSY) +
+#   geom_line() +
+#   scale_x_continuous(breaks = scales::pretty_breaks(n = 5)) +
+#   geom_vline(xintercept = status_year$year[status_year$species == "lingcod"], linetype = "dashed", colour = "grey50") +
+#   ggtitle("Lingcod")
 
-# Quillback projection plot
-p2 <- ggplot(qb_projections) +
-  aes(x = year, y = B_BMSY) +
-  geom_line() +
-  scale_x_continuous(breaks = scales::pretty_breaks(n = 5)) +
-  geom_vline(xintercept = status_year$year[status_year$species == "quillback rockfish"], linetype = "dashed", colour = "grey50") +
-  ggtitle("Quillback")
+# # Quillback projection plot
+# p2 <- ggplot(qb_projections) +
+#   aes(x = year, y = B_BMSY) +
+#   geom_line() +
+#   scale_x_continuous(breaks = scales::pretty_breaks(n = 5)) +
+#   geom_vline(xintercept = status_year$year[status_year$species == "quillback rockfish"], linetype = "dashed", colour = "grey50") +
+#   ggtitle("Quillback")
 
-# Yelloweye projection plot
-p3 <- ggplot(ye_inside_projections) +
-  aes(x = year, y = B_BMSY) +
-  geom_line() +
-  scale_x_continuous(breaks = scales::pretty_breaks(n = 5)) +
-  geom_vline(xintercept = status_year$year[status_year$species == "yelloweye rockfish"], linetype = "dashed", colour = "grey50") +
-  ggtitle("Yelloweye")
+# # Yelloweye projection plot
+# p3 <- ggplot(ye_inside_projections) +
+#   aes(x = year, y = B_BMSY) +
+#   geom_line() +
+#   scale_x_continuous(breaks = scales::pretty_breaks(n = 5)) +
+#   geom_vline(xintercept = status_year$year[status_year$species == "yelloweye rockfish"], linetype = "dashed", colour = "grey50") +
+#   ggtitle("Yelloweye")
 
-# Dogfish projection
-p4 <- ggplot(dogfish_projections) +
-  aes(x = year, y = est, colour = model) +
-  geom_line() +
-  geom_vline(xintercept = status_year$year[status_year$species == "pacific spiny dogfish"], linetype = "dashed", colour = "grey50") +
-  scale_x_continuous(breaks = scales::pretty_breaks(n = 5)) +
-  theme(legend.position = "inside", 
-        legend.position.inside = c(0.2, 0.8)) +
-  labs(colour = "Model") +
-  ggtitle("Dogfish")
-# Halibut projection
-p5 <- ggplot(halibut_projections) +
-  aes(x = year, y = biomass, colour = scenario) +
-  geom_line() +
-  geom_vline(xintercept = status_year$year[status_year$species == "pacific halibut"], linetype = "dashed", colour = "grey50") +
-  scale_x_continuous(breaks = scales::pretty_breaks(n = 5)) +
-  theme(legend.position = "inside", 
-        legend.position.inside = c(0.2, 0.8)) +
-  labs(colour = "Scenario") +
-  ggtitle("Halibut")
+# # Dogfish projection
+# p4 <- ggplot(dogfish_projections) +
+#   aes(x = year, y = est, colour = model) +
+#   geom_line() +
+#   geom_vline(xintercept = status_year$year[status_year$species == "pacific spiny dogfish"], linetype = "dashed", colour = "grey50") +
+#   scale_x_continuous(breaks = scales::pretty_breaks(n = 5)) +
+#   theme(legend.position = "inside", 
+#         legend.position.inside = c(0.2, 0.8)) +
+#   labs(colour = "Model") +
+#   ggtitle("Dogfish")
+# # Halibut projection
+# p5 <- ggplot(halibut_projections) +
+#   aes(x = year, y = biomass, colour = scenario) +
+#   geom_line() +
+#   geom_vline(xintercept = status_year$year[status_year$species == "pacific halibut"], linetype = "dashed", colour = "grey50") +
+#   scale_x_continuous(breaks = scales::pretty_breaks(n = 5)) +
+#   theme(legend.position = "inside", 
+#         legend.position.inside = c(0.2, 0.8)) +
+#   labs(colour = "Scenario") +
+#   ggtitle("Halibut")
 
 
-(p1 + p2 + p3) / (p4 + p5)
-ggsave(here::here("figures", "supplementary", "recovery-rates-projections.pdf"), 
-  width = 10.3, height = 6.9)
+# (p1 + p2 + p3) / (p4 + p5)
+# ggsave(here::here("figures", "supplementary", "recovery-rates-projections.pdf"), 
+#   width = 10.3, height = 6.9)
 
 ```
 
