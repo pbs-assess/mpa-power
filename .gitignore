@@ -79,3 +79,9 @@ Thumbs.db
 
 # Shiny token
 *.rds
+
+*.aux
+*.fls
+*.fdb_*
+*.log
+*.synctex*
