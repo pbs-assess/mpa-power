@@ -86,7 +86,7 @@ apply_filters_to_sampling_summary <- function(sampling_summary,
 
 #' Generate result filename matching sampling data convention
 generate_result_filename <- function(species, survey_abbrev, mpa_trend,
-                                    ar1_scenario, time_scenario, plan) {
+                                    ar1_scenario, time_scenario, plan, replicate) {
   plan_slug <- gsub("[^a-zA-Z0-9]", "-", plan) |>
     gsub("-+", "-", x = _) |>
     tolower()
@@ -96,7 +96,8 @@ generate_result_filename <- function(species, survey_abbrev, mpa_trend,
     "mpa", round(mpa_trend, digits = 3), "_",
     ar1_scenario, "_",
     time_scenario, "_",
-    plan_slug,
+    plan_slug, "_",
+    "rep", sprintf("%03d", replicate),
     "_results.rds"
   ) |>
     gsub(" ", "-", x = _)
@@ -263,6 +264,8 @@ extract_trend_estimate <- function(fit, trend_param = "restricted:year_covariate
 }
 
 #' Process one parameter combo (specified replicates)
+#'
+#' Saves results as individual replicate files for atomic writes and parallel safety.
 fit_parameter_combo <- function(combo,
                                replicates_to_fit,
                                component_surveys,
@@ -276,12 +279,6 @@ fit_parameter_combo <- function(combo,
                                sampling_summary = NULL,
                                hist_cache_env = new.env(parent = emptyenv())) {
 
-  result_file <- generate_result_filename(
-    combo$species, combo$survey_abbrev, combo$mpa_trend,
-    combo$ar1_scenario, combo$time_scenario, combo$plan
-  )
-  result_path <- file.path(results_dir, sp_to_hyphens(combo$species), result_file)
-
   # Determine which evaluation years to fit
   evaluation_years_to_use <- if (!is.null(evaluation_years_filter)) {
     intersect(evaluation_years, evaluation_years_filter)
@@ -294,91 +291,98 @@ fit_parameter_combo <- function(combo,
     return(tibble(n_new = 0, n_total = 0, n_errors = 0))
   }
 
-  if (file.exists(result_path)) {
-    existing_results <- readRDS(result_path)
-    completed_combos <- existing_results |>
-      filter(is.na(error_msg) | error_msg != "Missing replicate in sampled data") |>
-      distinct(replicate, eval_year) |>
-      mutate(combo_id = paste(replicate, eval_year, sep = "_"))
-
-    expected_combos <- expand.grid(
-      replicate = replicates_to_fit,
-      eval_year = evaluation_years_to_use,
-      stringsAsFactors = FALSE
-    ) |>
-      mutate(combo_id = paste(replicate, eval_year, sep = "_"))
-
-    combos_to_run <- expected_combos |>
-      filter(!combo_id %in% completed_combos$combo_id)
-
-    message("  Resume: ", nrow(completed_combos), " done, ",
-            nrow(combos_to_run), " remaining")
-  } else {
-    existing_results <- NULL
-    combos_to_run <- expand.grid(
-      replicate = replicates_to_fit,
-      eval_year = evaluation_years_to_use,
-      stringsAsFactors = FALSE
-    )
-    message("  Starting: ", length(replicates_to_fit), " replicates × ",
-            length(evaluation_years_to_use), " eval years = ",
-            nrow(combos_to_run), " fits")
-  }
-
-  if (nrow(combos_to_run) == 0) {
-    message("  Complete: skipping")
-    return(tibble(n_new = 0, n_total = nrow(existing_results), n_errors = 0))
-  }
-
-  # Load sampled data using helper function
+  # Load historical data once (shared across replicates)
   if (!is.null(component_surveys)) {
-    # For combined surveys (e.g., HBLL = OUT N + OUT S + INS N)
-    sampled_data_all <- load_sampled_data(
-      species = combo$species,
-      survey_abbrev = component_surveys,
-      mpa_trend = combo$mpa_trend,
-      ar1_scenario = combo$ar1_scenario,
-      time_scenario = combo$time_scenario,
-      plan = combo$plan,
-      replicates = unique(combos_to_run$replicate),
-      sampling_summary = sampling_summary,
-      sample_dir = sample_dir
-    )
     hist_data <- purrr::map_dfr(component_surveys, ~get_hist_data(combo$species, .x, hist_path, hist_cache_env))
   } else {
-    # For individual surveys
-    sampled_data_all <- load_sampled_data(
-      species = combo$species,
-      survey_abbrev = combo$survey_abbrev,
-      mpa_trend = combo$mpa_trend,
-      ar1_scenario = combo$ar1_scenario,
-      time_scenario = combo$time_scenario,
-      plan = combo$plan,
-      replicates = unique(combos_to_run$replicate),
-      sampling_summary = sampling_summary,
-      sample_dir = sample_dir
-    )
     hist_data <- get_hist_data(combo$species, combo$survey_abbrev,
                                hist_path, hist_cache_env)
   }
 
-  combos_by_rep <- combos_to_run |>
-    group_by(replicate) |>
-    summarise(eval_years = list(sort(eval_year)), .groups = "drop")
+  # Loop over replicates and save individual files
+  results_summary <- purrr::map_dfr(replicates_to_fit, function(rep) {
 
-  new_results <- purrr::map_dfr(seq_len(nrow(combos_by_rep)), function(i) {
-    rep <- combos_by_rep$replicate[i]
-    eval_years_to_fit <- combos_by_rep$eval_years[[i]]
+    # Generate replicate-specific filename
+    result_file <- generate_result_filename(
+      combo$species, combo$survey_abbrev, combo$mpa_trend,
+      combo$ar1_scenario, combo$time_scenario, combo$plan,
+      replicate = rep
+    )
+    result_path <- file.path(results_dir, sp_to_hyphens(combo$species), result_file)
 
-    sampled_data_rep <- sampled_data_all |> filter(replicate == rep)
+    # Check what eval_years are missing for this replicate
+    if (file.exists(result_path)) {
+      existing_results <- readRDS(result_path)
+      completed_eval_years <- existing_results |>
+        filter(is.na(error_msg) | error_msg != "Missing replicate in sampled data") |>
+        pull(eval_year)
 
-    if (nrow(sampled_data_rep) == 0) {
-      return(purrr::map_dfr(eval_years_to_fit, function(ey) {
-        create_error_row(combo, rep, ey, "Missing replicate in sampled data")
-      }))
+      eval_years_to_fit <- setdiff(evaluation_years_to_use, completed_eval_years)
+
+      if (length(eval_years_to_fit) == 0) {
+        message("  Rep ", rep, ": complete, skipping")
+        return(tibble(replicate = rep, n_new = 0, n_total = nrow(existing_results), n_errors = 0))
+      }
+
+      message("  Rep ", rep, ": ", length(completed_eval_years), " done, ",
+              length(eval_years_to_fit), " remaining")
+    } else {
+      existing_results <- NULL
+      eval_years_to_fit <- evaluation_years_to_use
+      message("  Rep ", rep, ": fitting ", length(eval_years_to_fit), " eval years")
     }
 
-    purrr::map_dfr(eval_years_to_fit, function(eval_year) {
+    # Load data for this replicate only
+    if (!is.null(component_surveys)) {
+      sampled_data_rep <- load_sampled_data(
+        species = combo$species,
+        survey_abbrev = component_surveys,
+        mpa_trend = combo$mpa_trend,
+        ar1_scenario = combo$ar1_scenario,
+        time_scenario = combo$time_scenario,
+        plan = combo$plan,
+        replicates = rep,
+        sampling_summary = sampling_summary,
+        sample_dir = sample_dir
+      )
+    } else {
+      sampled_data_rep <- load_sampled_data(
+        species = combo$species,
+        survey_abbrev = combo$survey_abbrev,
+        mpa_trend = combo$mpa_trend,
+        ar1_scenario = combo$ar1_scenario,
+        time_scenario = combo$time_scenario,
+        plan = combo$plan,
+        replicates = rep,
+        sampling_summary = sampling_summary,
+        sample_dir = sample_dir
+      )
+    }
+
+    if (nrow(sampled_data_rep) == 0) {
+      # Create error rows for all eval years
+      error_results <- purrr::map_dfr(eval_years_to_fit, function(ey) {
+        create_error_row(combo, rep, ey, "Missing replicate in sampled data")
+      })
+
+      # Combine with existing if present
+      combined_results <- if (!is.null(existing_results)) {
+        bind_rows(error_results, existing_results) |>
+          distinct(eval_year, .keep_all = TRUE) |>
+          arrange(eval_year)
+      } else {
+        error_results
+      }
+
+      dir.create(dirname(result_path), showWarnings = FALSE, recursive = TRUE)
+      saveRDS(combined_results, result_path)
+
+      return(tibble(replicate = rep, n_new = nrow(error_results),
+                   n_total = nrow(combined_results), n_errors = nrow(error_results)))
+    }
+
+    # Fit models for missing eval years
+    new_results <- purrr::map_dfr(eval_years_to_fit, function(eval_year) {
       tryCatch({
         combined_data <- combine_hist_sim_data(sampled_data_rep, hist_data, eval_year)
 
@@ -432,7 +436,6 @@ fit_parameter_combo <- function(combo,
           se = trend_results$se,
           ci_lower = trend_results$ci_lower,
           ci_upper = trend_results$ci_upper,
-          # converged = trend_results$sanity=="ok",
           sanity = trend_results$sanity,
           error_msg = trend_results$error_msg,
           fit_formula = if (!is.null(fit$error)) NA_character_ else deparse1(formula(fit)),
@@ -448,24 +451,33 @@ fit_parameter_combo <- function(combo,
         create_error_row(combo, rep, eval_year, paste("Worker error:", e$message))
       })
     })
+
+    # Combine with existing results
+    combined_results <- if (!is.null(existing_results)) {
+      bind_rows(new_results, existing_results) |>
+        distinct(eval_year, .keep_all = TRUE) |>
+        arrange(eval_year)
+    } else {
+      new_results |> arrange(eval_year)
+    }
+
+    # Save this replicate's results
+    dir.create(dirname(result_path), showWarnings = FALSE, recursive = TRUE)
+    saveRDS(combined_results, result_path)
+
+    tibble(
+      replicate = rep,
+      n_new = nrow(new_results),
+      n_total = nrow(combined_results),
+      n_errors = sum(!is.na(new_results$error_msg))
+    )
   })
 
-  if (!is.null(existing_results)) {
-    combined_results <- bind_rows(new_results, existing_results) |>
-      distinct(replicate, eval_year, .keep_all = TRUE) |>
-      arrange(replicate, eval_year)
-  } else {
-    combined_results <- new_results |>
-      arrange(replicate, eval_year)
-  }
-
-  dir.create(dirname(result_path), showWarnings = FALSE, recursive = TRUE)
-  saveRDS(combined_results, result_path)
-
+  # Return summary across all replicates
   tibble(
-    n_new = nrow(new_results),
-    n_total = nrow(combined_results),
-    n_errors = sum(!is.na(new_results$error_msg))
+    n_new = sum(results_summary$n_new),
+    n_total = sum(results_summary$n_total),
+    n_errors = sum(results_summary$n_errors)
   )
 }
 
@@ -637,7 +649,7 @@ execute_parallel_fitting <- function(task_grid, results_dir,
 
 #' Create summary catalog from results
 create_summary_catalog <- function(results_dir) {
-  result_files <- list.files(results_dir, pattern = "_results\\.rds$",
+  result_files <- list.files(results_dir, pattern = "_rep[0-9]{3}_results\\.rds$",
                              recursive = TRUE, full.names = TRUE)
 
   if (length(result_files) == 0) {
@@ -645,29 +657,35 @@ create_summary_catalog <- function(results_dir) {
     return(tibble())
   }
 
-  catalog <- purrr::map_dfr(result_files, function(fpath) {
-    results <- readRDS(fpath)
+  message("Reading ", length(result_files), " replicate result files...")
 
-    summary_row <- results |>
-      group_by(eval_year) |>
-      summarise(
-        n_replicates = n(),
-        # n_converged = sum(sanity=="ok", na.rm = TRUE),
-        n_errors = sum(!is.na(error_msg)),
-        mean_estimate = mean(estimate, na.rm = TRUE),
-        sd_estimate = sd(estimate, na.rm = TRUE),
-        power = mean(ci_lower > 0, na.rm = TRUE),
-        .groups = "drop"
-      )
-
-    param_row <- results |>
-      slice(1) |>
-      select(species, survey_abbrev, sim_mpa_trend,
-             sim_ar1_scenario, sim_time_scenario, sampling_plan)
-
-    tidyr::crossing(param_row, summary_row) |>
-      mutate(file = basename(fpath))
+  # Load all results and combine
+  all_results <- purrr::map_dfr(result_files, function(fpath) {
+    tryCatch({
+      readRDS(fpath)
+    }, error = function(e) {
+      warning("Failed to load: ", fpath, " - ", e$message)
+      tibble()
+    })
   })
+
+  if (nrow(all_results) == 0) {
+    message("No results to summarize")
+    return(tibble())
+  }
+
+  # Group by parameter combination and eval_year to create summary
+  catalog <- all_results |>
+    group_by(species, survey_abbrev, sim_mpa_trend,
+             sim_ar1_scenario, sim_time_scenario, sampling_plan, eval_year) |>
+    summarise(
+      n_replicates = n(),
+      n_errors = sum(!is.na(error_msg)),
+      mean_estimate = mean(estimate, na.rm = TRUE),
+      sd_estimate = sd(estimate, na.rm = TRUE),
+      power = mean(ci_lower > 0, na.rm = TRUE),
+      .groups = "drop"
+    )
 
   saveRDS(catalog, file.path(results_dir, "power-results-summary.rds"))
   message("\nSummary catalog saved: power-results-summary.rds")
@@ -677,15 +695,15 @@ create_summary_catalog <- function(results_dir) {
 
 #' Combine all individual result files into one dataset
 combine_all_results <- function(results_dir) {
-  result_files <- list.files(results_dir, pattern = "_results\\.rds$",
+  result_files <- list.files(results_dir, pattern = "_rep[0-9]{3}_results\\.rds$",
                              recursive = TRUE, full.names = TRUE)
 
   if (length(result_files) == 0) {
-    warning("No result files found to combine")
+    message("No result files found to combine")
     return(tibble())
   }
 
-  message("Combining ", length(result_files), " result files...")
+  message("Combining ", length(result_files), " replicate result files...")
 
   all_results <- purrr::map_dfr(result_files, function(fpath) {
     tryCatch({
@@ -699,9 +717,6 @@ combine_all_results <- function(results_dir) {
   message("Total rows: ", nrow(all_results))
   message("Unique species: ", length(unique(all_results$species)))
   message("Unique plans: ", length(unique(all_results$sampling_plan)))
-  if (length(result_files) > 0 && nrow(all_results) > 0) {
-    message("Replicates per combo: ", round(nrow(all_results) / length(result_files), 1))
-  }
 
   output_file <- file.path(results_dir, "all-fitted-results.rds")
   saveRDS(all_results, output_file)
