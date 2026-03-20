@@ -265,14 +265,14 @@ sampling_summary <- readRDS(file.path(sample_dir, "sampling-summary.rds"))
 # =============================================================================
 # Task grid filtering (set to NULL to use all available)
 # =============================================================================
-FILTER_SPECIES <- "silvergray rockfish"         # NULL = all species
+FILTER_SPECIES <- NULL #"silvergray rockfish"         # NULL = all species
 FILTER_SURVEY <- NULL          # NULL = all surveys
-FILTER_MPA_TREND <- 1.018       # NULL = all MPA trends
+FILTER_MPA_TREND <- NULL #1.018       # NULL = all MPA trends
 FILTER_AR1_SCENARIO <- "fitted_AR1"    # NULL = all AR1 scenarios
 FILTER_TIME_SCENARIO <- "twenty-five_years"   # NULL = all time scenarios
-FILTER_PLAN <- c("status quo", "MPAs every 4 years")  # NULL = all plans
-FILTER_REPLICATES <- 1:2      # NULL = all available replicates, e.g., 1:50
-FILTER_EVALUATION_YEARS <- c(2046)  # NULL = all evaluation years
+FILTER_PLAN <- NULL #c("status quo", "MPAs every 4 years")  # NULL = all plans
+FILTER_REPLICATES <- 1:20      # NULL = all available replicates, e.g., 1:50
+FILTER_EVALUATION_YEARS <- NULL #c(2046)  # NULL = all evaluation years
 
 results_dir <- here::here("data-generated", "power-results")
 dir.create(results_dir, showWarnings = FALSE, recursive = TRUE)
