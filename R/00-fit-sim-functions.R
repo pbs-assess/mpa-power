@@ -403,6 +403,8 @@ simulate_hbll <- function(fit,
                           range_val = NULL,
                           tag = NULL,
                           B = NULL,
+                          effect_modifer_fn = NULL,
+                          mpa_trend_gmrf_sd = 0,
                           ...) {
   # Create directory for simulated data
   # dir.create(sim_dir, showWarnings = FALSE, recursive = TRUE)
@@ -581,7 +583,42 @@ simulate_hbll <- function(fit,
     ...
   ) |>
     as_tibble()
-# browser()
+
+  if (mpa_trend_gmrf_sd > 0) {
+    # grab a GMRF
+    svc <- sdmTMB::simulate_new(
+      formula = ~ 1,
+      data = input_dat,
+      family = gaussian(),
+      phi = 0.0001,
+      range = range_val,
+      sigma_O = mpa_trend_gmrf_sd,
+      mesh = input_mesh,
+      seed = seed * 18273,
+      B = 0.01
+    )
+    # ggplot(svc, aes(X, Y, colour = mu)) + geom_point()
+    # hist(svc$mu)
+    # mean(svc$mu)
+    # sd(svc$mu)
+
+    sim_dat$svc_log_lambda <- svc$mu
+    sim_dat <- mutate(sim_dat, eta = ifelse(restricted == 1, eta + year * svc_log_lambda, eta))
+
+    set.seed(seed * 291818)
+    rbetabinom <- function(n, size, prob, phi) {
+      # phi > 0; larger phi = less overdispersion (phi -> Inf approaches binomial)
+      p <- rbeta(n, shape1 = prob * phi, shape2 = (1 - prob) * phi)
+      rbinom(n, size = size, prob = p)
+    }
+    inv_cloglog <- function(x) 1 - exp(-exp(x))
+    sim_dat$observed <- rbetabinom(
+      length(sim_dat$observed),
+      size = weights,
+      prob = inv_cloglog(sim_dat$eta),
+      phi = phi
+    )
+  }
   # to test --> try to match simulate.sdmTMB
   # - start with the sampling data locations
   # put in original fitted data as input_dat
@@ -615,6 +652,19 @@ simulate_hbll <- function(fit,
   #   sigma_V = sigma_V,
   #   seed = seed
   # )
+
+  # Apply modifier function to posthoc control year effects within-outside MPA network:
+  # if (!is.null(effect_modifer_fn)) sim_dat <- effect_modifer_fn(sim_dat)
+  # df <- data.frame(year = seq_len(25L), depletion_multiplier = seq(1, 1.3, length.out = 25L))
+  # sim_dat <- left_join(sim_dat, df)
+  # sim_dat$eta <- sim_dat$eta + log(sim_dat$B_recovery_val)
+  # rbetabinom <- function(n, size, prob, phi) {
+  #   # phi > 0; larger phi = less overdispersion (phi -> Inf approaches binomial)
+  #   p <- rbeta(n, shape1 = prob * phi, shape2 = (1 - prob) * phi)
+  #   rbinom(n, size = size, prob = p)
+  # }
+  # inv_cloglog <- function(x) 1 - exp(-exp(x))
+  # sim_dat$observed <- rbetabinom(length(sim_dat$observed), size = weights, prob = inv_cloglog(sim_dat$eta), phi = phi)
 
   # Save to cache
   if (save_sim) {

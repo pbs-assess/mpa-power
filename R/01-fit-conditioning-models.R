@@ -230,7 +230,7 @@ sp_list <- c(
   "north pacific spiny dogfish",
   "lingcod",
   "quillback rockfish",
-  "pacific halibut",
+  # "pacific halibut",
   "canary rockfish",
   "silvergray rockfish"
 )
