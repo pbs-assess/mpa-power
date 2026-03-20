@@ -878,7 +878,9 @@ ye_rates_outside <- data.frame(
 ```
 
 ```{r}
-rates <- bind_rows(ling_rates, qb_rates, dog_rates, ye_rates, halibut_rates, pcod_rates, canary_rates, silvergray_rates, ye_rates_outside) |>
+rates <- bind_rows(ling_rates, qb_rates, dog_rates, 
+  #ye_rates, 
+  halibut_rates, pcod_rates, canary_rates, silvergray_rates, ye_rates_outside) |>
   arrange(species, lambda) |>
   mutate(lambda = round(lambda, 4))
 
