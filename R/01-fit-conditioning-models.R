@@ -12,6 +12,11 @@ library(tidyr)
 library(patchwork)
 library(digest)
 
+# Make sure we are using latest recovery rates
+knitr::purl(here::here("R", "recovery-rates-clean.Rmd"), output = here::here("R", "recovery-rates-clean.R"))
+# Source the newly created R script to run all code in the console
+source(here::here("R", "recovery-rates-clean.R"))
+
 # =============================================================================
 # Configuration
 # =============================================================================
