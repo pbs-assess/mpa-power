@@ -677,6 +677,8 @@ ggsave(file.path(overlay_fig_dir, "heatmap-msd-mpa-sf.png"), width = 4.5, height
 # Survey summary tables --------------------------------------------------------
 
 # HBLL summary tables
+n_mpa_sites <- mpa_sf |> st_drop_geometry() |> distinct(site) |> nrow()
+
 hbll_sites_with_ecps <- gf_ecp_data_complete |>
   filter(in_mpa == 1) |>
   distinct(site) |>
@@ -697,18 +699,18 @@ hbll_summary_table <- hbll_mpa_df |>
     `Survey name` = "Hard Bottom Longline Survey",
     `Years conducted` = paste(min(year), max(year), sep = "-"),
     `Survey schedule` = "Biennial (North and South regions in alternating years)",
-    `Total transects` = paste0(n(), " fishing events"),
-    n_transects = n(),
+    `Total number of sets` = paste0(n()),
+    n_sets = n(),
     `years_not_in_mpa` = paste(setdiff(min(year):max(year), unique(year[in_mpa == 1])), collapse = ", "),
     `Years with surveys inside MPA boundaries` =
       paste0(
         n_distinct(year[in_mpa == 1]), " of ", max(year) - min(year) + 1,
         " (no surveys inside MPAs in ", `years_not_in_mpa`, ")"
       ),
-    `Transects inside MPA boundaries` = sum(in_mpa),
-    `Transects outside MPA boundaries` = sum(in_mpa == 0),
-    `% of effort inside MPA boundaries` = round(100 * `Transects inside MPA boundaries` / n_transects, 1),
-    `Number of MPAN sites sampled` = n_distinct(uid, na.rm = TRUE),
+    `Sets inside MPA boundaries` = sum(in_mpa),
+    `Sets outside MPA boundaries` = sum(in_mpa == 0),
+    `% of effort inside MPA boundaries` = round(100 * `Sets inside MPA boundaries` / n_sets, 1),
+    `Number of MPAN sites sampled` = paste0(n_distinct(uid, na.rm = TRUE), " / " , n_mpa_sites, " (", round(100 * n_distinct(uid, na.rm = TRUE) / n_mpa_sites, 1), "%)"),
     `Number of MPAs with E-CP sightings` = hbll_sites_with_ecps$n_sites,
     `Longest timeseries at any single site` = hbll_longest_timeseries[1, ]$text
   ) |>
@@ -950,7 +952,7 @@ msd_mpa_df |>
     `Transects inside MPA boundaries` = dplyr::n_distinct(transect_site[in_mpa == 1]),
     `Transects outside MPA boundaries` = dplyr::n_distinct(transect_site[in_mpa == 0]),
     `% of effort inside MPA boundaries` = round(100 * `Transects inside MPA boundaries` / `Total transects`, 1),
-    `Number of MPAN sites sampled` = n_distinct(uid, na.rm = TRUE),
+    `Number of MPAN sites sampled` = paste0(n_distinct(site, na.rm = TRUE), " / " , n_mpa_sites, " (", round(100 * n_distinct(site, na.rm = TRUE) / n_mpa_sites, 1), "%)"),
     `Number of MPAs with E-CP sightings` = msd_sites_with_ecps$n_sites,
     `Longest timeseries at any single site` = msd_longest_timeseries$text
   ) |>
