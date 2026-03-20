@@ -888,39 +888,39 @@ rates <- readRDS(here::here("data-generated", "recovery-rates-lambda.rds"))
 ```
 
 ```{r}
-spp_levels <- rates |> arrange(lambda) |> pull(species) |> unique()
+# spp_levels <- rates |> arrange(lambda) |> pull(species) |> unique()
 
-# Prepare table for LaTeX output
-rates_table <- rates |>
-  select(species, case, time, lambda, source, citekey) |>
-  mutate(species = factor(species, levels = spp_levels)) |>
-  mutate(
-    species = forcats::fct_recode(species, "pacific spiny dogfish" = "north pacific spiny dogfish"),
-    case = gsub("_", " ", case),
-    case = gsub("median", "base", case),
-    time = round(time),
-    lambda = round(lambda, 3),
-    percent_rate = 100 * (lambda - 1)
-  ) |>
-  select(species, case, time, `annual percent change` = percent_rate, citekey, source) |>
-  arrange(species, `annual percent change`)
+# # Prepare table for LaTeX output
+# rates_table <- rates |>
+#   select(species, case, time, lambda, source, citekey) |>
+#   mutate(species = factor(species, levels = spp_levels)) |>
+#   mutate(
+#     species = forcats::fct_recode(species, "pacific spiny dogfish" = "north pacific spiny dogfish"),
+#     case = gsub("_", " ", case),
+#     case = gsub("median", "base", case),
+#     time = round(time),
+#     lambda = round(lambda, 3),
+#     percent_rate = 100 * (lambda - 1)
+#   ) |>
+#   select(species, case, time, `annual percent change` = percent_rate, citekey, source) |>
+#   arrange(species, `annual percent change`)
 
-# Simple LaTeX table
-library(xtable)
- rates_table_xt <- rates |>
-    mutate(
-      time = round(time, 1),
-      lambda = round(lambda, 4)
-    )
+# # Simple LaTeX table
+# library(xtable)
+#  rates_table_xt <- rates |>
+#     mutate(
+#       time = round(time, 1),
+#       lambda = round(lambda, 4)
+#     )
 
-  print(
-    xtable(rates_table_xt,
-      caption = "Recovery rates (lambda) for BC groundfish species under no fishing scenarios.",
-      label = "tab:recovery-rates"
-    ),
-    booktabs = TRUE,
-    include.rownames = FALSE
-  )
+#   print(
+#     xtable(rates_table_xt,
+#       caption = "Recovery rates (lambda) for BC groundfish species under no fishing scenarios.",
+#       label = "tab:recovery-rates"
+#     ),
+#     booktabs = TRUE,
+#     include.rownames = FALSE
+#   )
 
 # Word table output
 # library(flextable)
