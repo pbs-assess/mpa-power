@@ -777,7 +777,7 @@ canary_rates <- data.frame(
   case = c("5% rate", "50% rate", "95% rate"),
   time = 25,
   lambda = exp(x),
-  citekey = "@starr2023canary",
+  citekey = "starr2023canary",
   reference = NA_character_,
   notes = "Logistic growth calculations based on parameter posteriors; female M used",
   stringsAsFactors = FALSE
