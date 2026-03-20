@@ -881,12 +881,18 @@ rates <- bind_rows(ling_rates, qb_rates, dog_rates,
   #ye_rates, 
   halibut_rates, pcod_rates, canary_rates, silvergray_rates, ye_rates_outside) |>
   arrange(species, lambda) |>
-  mutate(lambda = round(lambda, 4))
+  rename(biomass_lambda = lambda) |>
+  mutate(biomass_lambda = round(biomass_lambda, 4)) |>
+  mutate(lambda = round(sqrt(biomass_lambda), 4))
+
+  # log(exp(log(1.01) / 2)) = sqrt(1.01)
 
 saveRDS(rates, here::here("data-generated", "recovery-rates-lambda.rds"))
 
 rates <- readRDS(here::here("data-generated", "recovery-rates-lambda.rds"))
 ```
+
+$\log(\lambda) = \frac{\log(1.01)}{2} \implies \lambda = 1.01^{1/2} = \sqrt{1.01}$
 
 ```{r}
 # spp_levels <- rates |> arrange(lambda) |> pull(species) |> unique()
