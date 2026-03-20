@@ -744,6 +744,39 @@ pcod_rates <- data.frame(
 )
 ```
 
+```{r}
+# Pacific Cod - year-by-year trajectory
+recovery_trajectory <- function(h, M, B0 = 1, depletion, years = 25, dt = 0.02) {
+  phi <- 4 * h / (1 - h)
+  x <- depletion
+  nsteps <- round(years / dt)
+  steps_per_year <- round(1 / dt)
+  out <- numeric(years + 1)
+  out[1] <- log(x / depletion)  # year 0 = log(1) = 0
+  for (i in seq_len(nsteps)) {
+    dxdt <- M * x * (phi / (1 + (phi - 1) * x) - 1)
+    x <- x + dxdt * dt
+    x <- min(x, 1)
+    if (i %% steps_per_year == 0) {
+      yr <- i / steps_per_year
+      out[yr + 1] <- log(x / depletion)
+    }
+  }
+  out
+}
+
+traj_mat <- do.call(rbind, mapply(recovery_trajectory,
+  h = h_s, M = M_s, depletion = dep_s, SIMPLIFY = FALSE))
+
+pcod_traj <- data.frame(
+  species = "pacific cod",
+  year = 0:25,
+  q05  = apply(traj_mat, 2, quantile, probs = 0.05),
+  q50  = apply(traj_mat, 2, quantile, probs = 0.50),
+  q95  = apply(traj_mat, 2, quantile, probs = 0.95)
+)
+```
+
 # Canary Rockfish
 
 ```{r}
@@ -781,6 +814,20 @@ canary_rates <- data.frame(
   reference = NA_character_,
   notes = "Logistic growth calculations based on parameter posteriors; female M used",
   stringsAsFactors = FALSE
+)
+```
+
+```{r}
+# Canary Rockfish - year-by-year trajectory
+traj_mat <- do.call(rbind, mapply(recovery_trajectory,
+  h = h_s, M = M_s, depletion = dep_s, SIMPLIFY = FALSE))
+
+canary_traj <- data.frame(
+  species = "canary rockfish",
+  year = 0:25,
+  q05  = apply(traj_mat, 2, quantile, probs = 0.05),
+  q50  = apply(traj_mat, 2, quantile, probs = 0.50),
+  q95  = apply(traj_mat, 2, quantile, probs = 0.95)
 )
 ```
 
@@ -832,6 +879,20 @@ silvergray_rates <- data.frame(
 )
 ```
 
+```{r}
+# Silvergray - year-by-year trajectory
+traj_mat <- do.call(rbind, mapply(recovery_trajectory,
+  h = h_s, M = M_s, depletion = dep_s, SIMPLIFY = FALSE))
+
+silvergray_traj <- data.frame(
+  species = "silvergray rockfish",
+  year = 0:25,
+  q05  = apply(traj_mat, 2, quantile, probs = 0.05),
+  q50  = apply(traj_mat, 2, quantile, probs = 0.50),
+  q95  = apply(traj_mat, 2, quantile, probs = 0.95)
+)
+```
+
 # Outside yelloweye rockfish
 
 ```{r}
@@ -874,6 +935,20 @@ ye_rates_outside <- data.frame(
   reference = NA_character_,
   notes     = "Newer assessment; weighted OM; logistic growth from posterior 95% CIs",
   stringsAsFactors = FALSE
+)
+```
+
+```{r}
+# Outside yelloweye - year-by-year trajectory
+traj_mat <- do.call(rbind, mapply(recovery_trajectory,
+  h = h_s, M = M_s, depletion = dep_s, SIMPLIFY = FALSE))
+
+ye_outside_traj <- data.frame(
+  species = "yelloweye rockfish",
+  year = 0:25,
+  q05  = apply(traj_mat, 2, quantile, probs = 0.05),
+  q50  = apply(traj_mat, 2, quantile, probs = 0.50),
+  q95  = apply(traj_mat, 2, quantile, probs = 0.95)
 )
 ```
 
