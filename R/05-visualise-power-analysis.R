@@ -68,12 +68,15 @@ summarise_power <- function(power_df,
 
 # Load results
 # ------------------------------------------------------------------------------
+# results_dir <- here::here("data-generated", "no-hc-power-results")
 results_dir <- here::here("data-generated", "power-results")
-results_dir <- here::here("data-generated", "power-results-sigmaE0")
-# combined_results <- combine_all_results(results_dir)
+combined_results <- combine_all_results(results_dir)
 
 all_fitted_results0 <- readRDS(file.path(results_dir, "all-fitted-results.rds")) #|>
   # select(-converged)
+
+rr <- readRDS(here::here('data-generated', 'recovery-rates-lambda.rds'))
+out_ye_rates <- filter(rr, species == "yelloweye rockfish") |> pull(lambda) |> round(3)
 
 all_fitted_results0 |>
   filter(survey_abbrev == "HBLL") |>
@@ -81,12 +84,14 @@ all_fitted_results0 |>
   max()
 
 all_fitted_results <- all_fitted_results0 |>
+  filter(species != "yelloweye rockfish" |
+   (species == "yelloweye rockfish" & sim_mpa_trend %in% out_ye_rates)) |>
   mutate(species = replace(species, species == "north pacific spiny dogfish", "pacific spiny dogfish")) |>
   filter(is.na(error_msg) | error_msg != "Missing replicate in sampled data") |>
   # filter(species == "lingcod") |>
   mutate(mpa_trend = round(sim_mpa_trend, 3),
          converged = ifelse(sanity == "ok", TRUE, FALSE)) |>
-  mutate(sampling_plan = factor(sampling_plan, levels = c("status quo", "MPAs at 5 year intervals")),
+  mutate(sampling_plan = factor(sampling_plan, levels = c("status quo", "MPAs every 4 years")),
          sim_ar1_scenario = factor(sim_ar1_scenario, levels = c("no_AR1", "moderate_AR1", "high_AR1"))) |>
   group_by(species) |>
   mutate(
@@ -148,10 +153,10 @@ power_df <- power_df0 |>
 # ------------------------------------------------------------------------------
 # Supplementary figure to support choice of replicate number (stability of power analysis results)
 # ------------------------------------------------------------------------------
-filter_species <- "lingcod"
-# filter_species <- "yelloweye rockfish"
+# filter_species <- "lingcod"
+filter_species <- "yelloweye rockfish"
 filter_survey <- "HBLL"
-filter_ar1 <- "no_AR1"
+filter_ar1 <- "fitted_AR1"
 
 # Caterpillar plot
 combo <- c("species", "survey_abbrev",
@@ -163,8 +168,8 @@ combo <- c("species", "survey_abbrev",
 power_df0 |>
   filter(
     species == filter_species &
-    survey_abbrev == filter_survey &
-    sim_ar1_scenario == filter_ar1
+    survey_abbrev == filter_survey #&
+    # sim_ar1_scenario == filter_ar1
   ) |>
   group_by(!!!syms(combo)) |>
   mutate(id = row_number()) |>
@@ -196,9 +201,9 @@ samples <- map_dfr(1:max(power_df$n_reps), \(x) {
 samples |>
   filter(
     survey_abbrev == filter_survey &
-    sampling_plan == "status quo" &
+    sampling_plan == "status quo" #&
     # species == filter_species &
-    sim_ar1_scenario == filter_ar1
+    # sim_ar1_scenario == filter_ar1
   ) |>
   mutate(species = factor(species, levels = spp_levels)) |>
 ggplot(data = _) +
@@ -246,8 +251,9 @@ dat <- power_df |>
     # species %in% filter_species,
     survey_abbrev == filter_survey
     ) |>
-  mutate(sampling_plan = factor(sampling_plan, levels = c("status quo", "MPAs at 5 year intervals")),
-        sim_ar1_scenario = factor(sim_ar1_scenario, levels = c("no_AR1", "moderate_AR1", "high_AR1")),
+  mutate(sim_ar1_scenario = "fitted_AR1") |> # FIXME - should not need after next run
+  mutate(sampling_plan = factor(sampling_plan, levels = c("status quo", "MPAs every 4 years")),
+        sim_ar1_scenario = factor(sim_ar1_scenario, levels = c("no_AR1", "fitted_AR1")),
         species = factor(species, levels = spp_levels),
         mpa_effect_label = factor(mpa_effect_label, levels = c("low", "moderate", "high")))
 
@@ -259,14 +265,14 @@ dat |>
 
 
 year_threshold <- dat |>
-  filter(sampling_plan == "status quo", sim_ar1_scenario == "no_AR1", power >= 0.8) |>
+  filter(sampling_plan == "status quo", sim_ar1_scenario == "fitted_AR1", power >= 0.8) |>
   group_by(species, mpa_effect_label) |>
   slice_min(eval_year, n = 1) |>
   select(species, mpa_effect_label, year_80pct_power = eval_year) |>
   ungroup()
 
 power_summary <- dat |>
-  filter(sampling_plan == "status quo", sim_ar1_scenario == "no_AR1") |>
+  filter(sampling_plan == "status quo") |> #, sim_ar1_scenario == "fitted_AR1") |>
   select(species, mpa_effect_label, eval_year, power, n_converged, n_reps) |>
   pivot_wider(
     names_from = eval_year,
@@ -279,7 +285,7 @@ power_summary <- dat |>
 
 sampling_comparison <- dat |>
   filter(
-    sim_ar1_scenario == "no_AR1",
+    sim_ar1_scenario == "fitted_AR1",
     eval_year %in% c(2038, 2046)  # Key evaluation years
   ) |>
   select(species, mpa_effect_label, eval_year, sampling_plan, power) |>
@@ -289,7 +295,7 @@ sampling_comparison <- dat |>
     names_prefix = "power_"
   ) |>
   mutate(
-    power_difference = `power_status quo` - `power_MPAs at 5 year intervals`
+    power_difference = `power_status quo` - `power_MPAs every 4 years`
   ) |>
   arrange(species, mpa_effect_label, eval_year)
 
@@ -367,7 +373,7 @@ ggplot() +
 
 power_df |>
   filter(species == filter_species, survey_abbrev == filter_survey) |>
-  mutate(sampling_plan = factor(sampling_plan, levels = c("status quo", "MPAs at 5 year intervals")),
+  mutate(sampling_plan = factor(sampling_plan, levels = c("status quo", "MPAs every 4 years")),
         sim_ar1_scenario = factor(sim_ar1_scenario, levels = c("no_AR1", "moderate_AR1", "high_AR1"))) |>
   ggplot() +
   aes(x = eval_year, y = power, colour = mpa_effect_pct,
