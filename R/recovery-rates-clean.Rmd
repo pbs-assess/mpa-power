@@ -334,7 +334,7 @@ ye_inside_projections <- readr::read_csv(here::here("data-raw", "assessment-proj
 halibut_projections <- readr::read_csv(here::here("data-raw", "assessment-projections", "halibut-projections.csv")) #|>
   # mutate(status_year = 2023) |>
   # filter(year <= (status_year + 25))
-dogfish_projections <- readRDS(here::here("assessments", "dogfish-projections.rds")) |>
+dogfish_projections <- readRDS(here::here("data-raw", "assessment-projections", "dogfish-projections.rds")) |>
   mutate(status_year = 2024) |>
   filter(year <= (status_year + 25))
 
