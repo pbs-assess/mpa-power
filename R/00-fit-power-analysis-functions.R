@@ -204,6 +204,23 @@ fit_simulation <- function(dat,
       list(error = TRUE, message = e$message)
     })
   })
+
+  # fit2 <- sdmTMB(
+  #   formula = catch_prop ~ 1 + restricted:year_covariate,
+  #   data = dat,
+  #   family = family,
+  #   mesh = mesh,
+  #   time_varying = ~ 1,
+  #   time_varying_type = "ar1",
+  #   spatial = spatial,
+  #   spatiotemporal = spatiotemporal,
+  #   time = "year",
+  #   weights = weights,
+  #   offset = offset,
+  #   silent = FALSE,
+  #   control = control
+  # )
+  # fit2$sdreport
 }
 
 # TODO: move this into extract_trend estimate?
