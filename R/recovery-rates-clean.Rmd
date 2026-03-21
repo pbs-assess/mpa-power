@@ -950,6 +950,8 @@ ye_outside_traj <- data.frame(
   q50  = apply(traj_mat, 2, quantile, probs = 0.50),
   q95  = apply(traj_mat, 2, quantile, probs = 0.95)
 )
+ye_outside_traj |> tidyr::pivot_longer(cols = q05:q95) |> 
+  ggplot(aes(year, value, colour = name)) + geom_line()
 ```
 
 ```{r}
