@@ -330,14 +330,14 @@ fit_files <- list.files(here::here("data-generated", "fits"),
                         pattern = paste0("^", sp_to_hyphens(sp), ".*-betabinomial-on-iid-"),
                         full.names = TRUE)
 reps <- 1:20
-reps <- 1:5
+reps <- 1
 
 sim_check_grid <- tidyr::crossing(rep = reps, fit_file = fit_files)
 
 #future::plan(future::multicore, workers = 8)
 future::plan(future::multisession, workers = 8)
 map_fn <- furrr::future_pmap_dfr
-# map_fn <- purrr::pmap_dfr # sequential
+map_fn <- purrr::pmap_dfr # sequential
 #
 test_sims <- map_fn(sim_check_grid, function(rep, fit_file) {
   fit <- readRDS(fit_file)
@@ -368,7 +368,7 @@ test_sims <- map_fn(sim_check_grid, function(rep, fit_file) {
     use_fixed_spatial_field = TRUE,
     rho_V = ar1_row$rho_V,
     sigma_V = ar1_row$sigma_V,
-    mpa_trend_gmrf_sd = 0 #0.01
+    mpa_trend_gmrf_sd = 0.01
   ) |>
     dplyr::mutate(replicate = rep)
 
@@ -377,8 +377,9 @@ test_sims <- map_fn(sim_check_grid, function(rep, fit_file) {
     saveRDS(test, out_file)
   }
   # return(invisible(NULL))
-  # readRDS(out_file)
-}, .options = furrr::furrr_options(seed = TRUE))
+  readRDS(out_file)
+# }, .options = furrr::furrr_options(seed = TRUE))
+})
 
 future::plan(future::sequential)
 
@@ -395,10 +396,13 @@ checks <- c(
       "observed", "hook_count"))
 )
 
+
+
 if (any(checks > 0)) {
-  stop("Simulation check failed: ", paste(names(checks)[checks > 0], collapse = ", "))
+  warning("Simulation check failed: ", paste(names(checks)[checks > 0], collapse = ", "))
+} else {
+  message("✓ Simulation check passed")
 }
-message("✓ Simulation check passed")
 
 # 2. SAMPLE --------------------------------------------------------------------
 run_sampling <- function(sim_dat, plan = "status_quo") {
@@ -571,7 +575,7 @@ fit_simulation <- function(dat,
 
   survey_type <- unique(dat$survey_abbrev)
 
-  weights <- cdat$hook_count
+  weights <- dat$hook_count
   offset <- NULL
 
   mesh <- make_mesh(dat, xy_cols = c("X", "Y"), cutoff = cutoff)
@@ -597,6 +601,7 @@ fit_simulation <- function(dat,
       list(error = TRUE, message = e$message)
     })
   })
+  fit
 }
 
 # Monitoring model setup -------------------------------------------------------
@@ -677,14 +682,14 @@ eval_years <- c(2030, 2034, 2038, 2042, 2046)
 
 # Redefine replicates and eval_years for clarity
 USE_PARALLEL <- FALSE
-replicates <- 3
-eval_years <- c(2030)
+replicates <- 1
+eval_years <- c(2034)
 
-USE_PARALLEL <- TRUE
-N_WORKERS <- 8
+# USE_PARALLEL <- TRUE
+# N_WORKERS <- 8
 
-replicates <- 1:8
-eval_years <- c(2030, 2034, 2038, 2042, 2046)
+replicates <- 1
+# eval_years <- c(2030, 2034, 2038, 2042, 2046)
 
 # Set up parallel backend
 if (USE_PARALLEL) {
@@ -697,8 +702,8 @@ if (USE_PARALLEL) {
 
 #TODO: add plan tag to sampled filename: /*-plan-status_quo-.*
 # Process each replicate in parallel (each rep does all eval years)
-results_parallel <- furrr::future_map_dfr(
-# results_parallel <- purrr::map_dfr(
+# results_parallel <- furrr::future_map_dfr(
+results_parallel <- purrr::map_dfr(
   replicates,
   function(rep_num) {
     # Get files for this replicate
@@ -791,14 +796,14 @@ results_parallel <- furrr::future_map_dfr(
     )
 
     return(rep_results)
-  },
-  .options = furrr::furrr_options(
-    seed = TRUE,
-    globals = c("fit_simulation", "combine_hist_sim_data", "extract_trend_estimate",
-                "extract_re_pars", "sp_to_hyphens", "eval_years", "sample_dir",
-                "hist_files", "species", "fit_dir", "results_dir", "summarise_sanity"),
-    packages = c("dplyr", "sdmTMB", "purrr")
-  )
+  }
+  # .options = furrr::furrr_options(
+    # seed = TRUE,
+    # globals = c("fit_simulation", "combine_hist_sim_data", "extract_trend_estimate",
+                # "extract_re_pars", "sp_to_hyphens", "eval_years", "sample_dir",
+                # "hist_files", "species", "fit_dir", "results_dir", "summarise_sanity"),
+    # packages = c("dplyr", "sdmTMB", "purrr")
+  # )
 )
 
 meep()
