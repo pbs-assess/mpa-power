@@ -30,33 +30,34 @@ for (sp in sp_list) {
   }
 }
 
-# check_data_prep <- prep_full_timeseries("yelloweye rockfish",
-#   sampling_plan = "status_quo", rep_num = 1,
-#   sample_dir = here::here("data-generated", "3-sampled-data-svc-rates-sd-0.01"))
-#
-# # Check that years are correct
-# p1 <- ggplot(data = check_data_prep) +
-#   geom_point(aes(x = year, y = catch_prop, colour = factor(historical)), shape = 21) +
-#   scale_colour_manual(values = c("orange", "dodgerblue")) +
-#   facet_wrap(~ survey_abbrev, scales = "free_y") +
-#   labs(x = "Year", y = "Catch proportion", colour = "Historical")
-#
-# # Check that fyear is correct
-# p2 <- ggplot(data = check_data_prep) +
-#   geom_point(aes(x = as.numeric(fyear), y = catch_prop, colour = factor(historical)), shape = 21) +
-#   scale_colour_manual(values = c("orange", "dodgerblue")) +
-#   facet_wrap(~ survey_abbrev, scales = "free_y") +
-#   labs(x = "fyear", y = "Catch proportion", colour = "Historical")
+check_data_prep <- prep_full_timeseries("yelloweye rockfish",
+  sampling_plan = "status_quo", rep_num = 1,
+  sample_dir = here::here("data-generated", "2-sampled-data-svc-rates-sd-0.01"),
+  hist_dir = here::here("data-generated", "cleaned-species-data"))
+
+# Check that years are correct
+p1 <- ggplot(data = check_data_prep) +
+  geom_point(aes(x = year, y = catch_prop, colour = factor(historical)), shape = 21) +
+  scale_colour_manual(values = c("orange", "dodgerblue")) +
+  facet_wrap(~ survey_abbrev, scales = "free_y") +
+  labs(x = "Year", y = "Catch proportion", colour = "Historical")
+
+# Check that fyear is correct
+p2 <- ggplot(data = check_data_prep) +
+  geom_point(aes(x = as.numeric(fyear), y = catch_prop, colour = factor(historical)), shape = 21) +
+  scale_colour_manual(values = c("orange", "dodgerblue")) +
+  facet_wrap(~ survey_abbrev, scales = "free_y") +
+  labs(x = "fyear", y = "Catch proportion", colour = "Historical")
 #
 # # Check that year_post_imp is correct
-# p3 <- ggplot(data = check_data_prep) +
-#   geom_point(aes(x = year_post_imp, y = catch_prop, colour = factor(historical)), shape = 21) +
-#   scale_colour_manual(values = c("orange", "dodgerblue")) +
-#   facet_wrap(~ survey_abbrev, scales = "free_y") +
-#   labs(x = "Post-implementation year", y = "Catch proportion", colour = "Historical")
-# (p1 / p2 / p3) + plot_annotation(title = "Data alignment / simulation + historical comparison") +
-#   plot_layout(guides = "collect") &
-#   theme(legend.position = "top")
+p3 <- ggplot(data = check_data_prep) +
+  geom_point(aes(x = year_post_imp, y = catch_prop, colour = factor(historical)), shape = 21) +
+  scale_colour_manual(values = c("orange", "dodgerblue")) +
+  facet_wrap(~ survey_abbrev, scales = "free_y") +
+  labs(x = "Post-implementation year", y = "Catch proportion", colour = "Historical")
+(p1 / p2 / p3) + plot_annotation(title = "Data alignment / simulation + historical comparison") +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "top")
 # # ---
 #
 # meep()
