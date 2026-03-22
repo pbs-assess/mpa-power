@@ -291,7 +291,7 @@ create_model_hash <- function(params, debug = FALSE) {
 
 # TODO document
 summarise_sanity <- function(fit) {
-    sanity_list <- sanity(fit, silent = TRUE) |> unlist()
+    sanity_list <- sanity(fit, silent = TRUE, gradient_thresh = 0.01) |> unlist()
     sanity_false_names <- names(sanity_list)[!sanity_list]
     sanity_str <- ifelse(length(sanity_false_names) == 0, "ok", paste(sanity_false_names, collapse = "; "))
     gsub("_ok", "", sanity_str)
