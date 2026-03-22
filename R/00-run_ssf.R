@@ -8,6 +8,13 @@ prep_full_timeseries <- function(species, sampling_plan, rep_num, sample_dir,
   )
   n_files <- length(samp_files)
 
+  if (n_files == 0) {
+    stop("No sampled files found for species=", species,
+      ", sampling_plan=", sampling_plan,
+      ", rep_num=", rep_num,
+      " in sample_dir=", sample_dir)
+  }
+
   if (length(samp_files) > 3) {
     warning("Found ", n_files, " files, using first 3 only")
     samp_files <- samp_files[1:3]
