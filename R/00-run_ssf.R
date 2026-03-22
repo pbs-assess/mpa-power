@@ -962,8 +962,9 @@ run_ssf <- function(species, mpa_rate, tag, reps = 1:25, parallel = TRUE) {
 
         fit_path <- file.path(fit_dir, out_fname)
 
-        if (!file.exists(fit_path) || SAVE_FITS) {
-          # Fit model
+        if (file.exists(fit_path)) {
+          fit <- readRDS(fit_path)
+        } else {
           message('Fitting model for eval year ', eval_yr, '; replicate ', rep_num)
           fit <- fit_simulation(
             dat = cdat,
@@ -976,9 +977,9 @@ run_ssf <- function(species, mpa_rate, tag, reps = 1:25, parallel = TRUE) {
             silent = FALSE
           )
 
-          saveRDS(fit, fit_path)
-        } else {
-          fit <- readRDS(fit_path)
+          if (SAVE_FITS) {
+            saveRDS(fit, fit_path)
+          }
         }
 
         message('Extracting estimates')
