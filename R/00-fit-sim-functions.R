@@ -582,7 +582,8 @@ simulate_hbll <- function(fit,
     seed = seed,
     ...
   ) |>
-    as_tibble()
+    as_tibble() |>
+    left_join(input_dat |> distinct(X, Y, restricted))
 
   if (mpa_trend_gmrf_sd > 0) {
     # grab a GMRF
@@ -595,30 +596,32 @@ simulate_hbll <- function(fit,
       sigma_O = mpa_trend_gmrf_sd,
       mesh = input_mesh,
       seed = seed * 18273,
-      B = 0.01
+      B = mpa_trend
     )
     # ggplot(svc, aes(X, Y, colour = mu)) + geom_point()
-    # hist(svc$mu)
+    # hist(svc$mu); abline(v = mpa_trend, col = "red"); abline(v = mpa_trend * 2, col = "blue")
     # mean(svc$mu)
     # sd(svc$mu)
-
-    sim_dat$svc_log_lambda <- svc$mu
-    sim_dat <- mutate(sim_dat, eta = ifelse(restricted == 1, eta + year * svc_log_lambda, eta))
-
-    set.seed(seed * 291818)
-    rbetabinom <- function(n, size, prob, phi) {
-      # phi > 0; larger phi = less overdispersion (phi -> Inf approaches binomial)
-      p <- rbeta(n, shape1 = prob * phi, shape2 = (1 - prob) * phi)
-      rbinom(n, size = size, prob = p)
-    }
-    inv_cloglog <- function(x) 1 - exp(-exp(x))
-    sim_dat$observed <- rbetabinom(
-      length(sim_dat$observed),
-      size = weights,
-      prob = inv_cloglog(sim_dat$eta),
-      phi = phi
-    )
+    sim_dat$svc_log_lambda <- rep(svc$mu, length.out = length(sim_dat$year))
+  } else {
+    sim_dat$svc_log_lambda <- mpa_trend # constant; not SVC
   }
+
+  sim_dat <- mutate(sim_dat, eta = ifelse(restricted == 1, eta + year * svc_log_lambda, eta))
+
+  set.seed(seed * 291818)
+  rbetabinom <- function(n, size, prob, phi) {
+    # phi > 0; larger phi = less overdispersion (phi -> Inf approaches binomial)
+    p <- rbeta(n, shape1 = prob * phi, shape2 = (1 - prob) * phi)
+    rbinom(n, size = size, prob = p)
+  }
+  inv_cloglog <- function(x) 1 - exp(-exp(x))
+  sim_dat$observed <- rbetabinom(
+    length(sim_dat$observed),
+    size = weights,
+    prob = inv_cloglog(sim_dat$eta),
+    phi = phi
+  )
   # to test --> try to match simulate.sdmTMB
   # - start with the sampling data locations
   # put in original fitted data as input_dat
