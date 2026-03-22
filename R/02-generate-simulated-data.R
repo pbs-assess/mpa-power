@@ -8,10 +8,10 @@ source(here::here("R", "00-setup.R"))
 # source(here::here("R", "01-fit-conditioning-models.R"))
 source(here::here("R", "00-fit-sim-functions.R"))
 
-# Make sure we are using latest recovery rates
-knitr::purl(here::here("R", "recovery-rates-clean.Rmd"), output = here::here("R", "recovery-rates-clean.R"))
-# Source the newly created R script to run all code in the console
-source(here::here("R", "recovery-rates-clean.R"))
+# # Make sure we are using latest recovery rates
+# knitr::purl(here::here("R", "recovery-rates-clean.Rmd"), output = here::here("R", "recovery-rates-clean.R"))
+# # Source the newly created R script to run all code in the console
+# source(here::here("R", "recovery-rates-clean.R"))
 
 # =============================================================================
 # Configuration
@@ -26,7 +26,7 @@ if (Sys.info()['user'] %in% c("dunic", "anderson")) {
 
 if (Sys.info()['user'] %in% c("jillian", "jilliandunic")) {
   USE_PARALLEL <- TRUE
-  N_WORKERS <- ifelse(Sys.info()['user'] == "jillian", 10, 5)
+  N_WORKERS <- ifelse(Sys.info()['user'] == "jillian", 10, 10)
 }
 
 # Output directory
@@ -105,7 +105,7 @@ generate_sim_filename <- function(species, survey_abbrev, param_row, sim_hash) {
   sp <- sp_to_hyphens(species)
 
   # Create descriptive name parts
-  mpa_str <- paste0("mpa", round(param_row$mpa_trend, digits = 3))
+  mpa_str <- paste0("mpa", param_row$mpa_trend)
   ar1_str <- param_row$ar1_scenario
   time_str <- param_row$time_scenario
   formula_str <- if (param_row$formula_scenario != "standard") {
@@ -232,7 +232,7 @@ check_cache_and_prepare_tasks <- function(task_grid, sim_dir) {
 
     # Generate base filename pattern (without rep number)
     sp <- sp_to_hyphens(species)
-    mpa_str <- paste0("mpa", round(param_combo$mpa_trend, digits = 3))
+    mpa_str <- paste0("mpa", param_combo$mpa_trend)
     ar1_str <- param_combo$ar1_scenario
     time_str <- param_combo$time_scenario
     formula_str <- if (param_combo$formula_scenario != "standard") {
@@ -398,7 +398,7 @@ create_summary_from_replicate_files <- function(sim_dir) {
     tibble(
       species = params$species,
       survey_abbrev = params$survey_abbrev,
-      mpa_trend = round(params$mpa_trend, 3),
+      mpa_trend = params$mpa_trend,
       ar1_scenario = params$ar1_scenario,
       time_scenario = params$time_scenario,
       replicate = params$replicate,
@@ -569,32 +569,65 @@ run_survey_simulation <- function(sp_name,
 # Defensive check: Test simulation validity
 # =============================================================================
 
-sp <- sp_to_hyphens("yelloweye rockfish")
+sp <- "yelloweye rockfish"
 fit_files <- list.files(here::here("data-generated", "fits"),
-                        pattern = paste0("^", sp, "-HBLL-INS-N-betabinomial-on-iid-"),
+                        pattern = paste0("^", sp_to_hyphens(sp), ".*-betabinomial-on-iid-"),
                         full.names = TRUE)
-if (length(fit_files) > 0) {
-  fit <- readRDS(fit_files[1])
-  fit$sanity_check$passed
+reps <- 1:20
 
-  test_sim <- simulate_hbll(
-    fit = readRDS(fit_files[1]), restricted_df = restricted_df, sim_dir = sim_dir,
-    check_cache = FALSE, save_sim = FALSE, formula = ~ 1 + restricted * year_covariate,
-    seed = 999, year_covariate = 1:5, mpa_trend = log(1.01), use_fixed_spatial_field = TRUE
-  )
+# Defensive check (optional): pmap / pmap_dfr `.l` must be a list or data frame — not a
+# bare vector (e.g. `pmap_dfr(reps, ...)` errors). Use `list(rep = reps)` or a crossing grid.
+#
+# if (length(fit_files) > 0) {
+#   sim_check_grid <- tidyr::crossing(rep = reps, fit_file = fit_files)
+#
+#   test_sims <- purrr::pmap_dfr(sim_check_grid, function(rep, fit_file) {
+#     fit <- readRDS(fit_file)
+#     survey_abbrev <- unique(fit$data$survey_abbrev)[[1]]
+#
+#     ar1_row <- readRDS(file.path("data-generated", "ar1-parameters.rds")) |>
+#       dplyr::filter(species == sp, survey_abbrev == !!survey_abbrev) |>
+#       dplyr::slice(1)
+#
+#     lambda_val <- readRDS(file.path("data-generated", "recovery-rates-lambda.rds")) |>
+#       dplyr::filter(species == sp, case == "50% rate") |>
+#       dplyr::slice(1) |>
+#       dplyr::pull(lambda)
+#
+#     simulate_hbll(
+#       fit = fit,
+#       restricted_df = restricted_df,
+#       sim_dir = sim_dir,
+#       check_cache = FALSE,
+#       save_sim = TRUE,
+#       formula = ~ 1,
+#       seed = 999L + rep,
+#       year_covariate = 1:25,
+#       mpa_trend = log(lambda_val),
+#       use_fixed_spatial_field = TRUE,
+#       rho_V = ar1_row$rho_V,
+#       sigma_V = ar1_row$sigma_V,
+#       mpa_trend_gmrf_sd = 0.01
+#     ) |>
+#       dplyr::mutate(replicate = rep)
+#   })
+#
+#   catch_prop <- test_sims$observed / test_sims$hook_count
+#
+#   checks <- c(
+#     `NaN` = sum(is.nan(test_sims$observed)),
+#     `Inf` = sum(is.infinite(test_sims$observed)),
+#     all_zero = all(test_sims$observed == 0, na.rm = TRUE),
+#     bad_range = any(catch_prop < 0 | catch_prop > 1, na.rm = TRUE)
+#   )
+#
+#   if (any(checks > 0)) {
+#     stop("Simulation check failed: ", paste(names(checks)[checks > 0], collapse = ", "))
+#   }
+#   message("✓ Simulation check passed")
+# }
 
-  catch_prop <- test_sim$observed / test_sim$hook_count
 
-  checks <- c(
-    `NaN` = sum(is.nan(test_sim$observed)),
-    `Inf` = sum(is.infinite(test_sim$observed)),
-    all_zero = all(test_sim$observed == 0, na.rm = TRUE),
-    bad_range = any(catch_prop < 0 | catch_prop > 1, na.rm = TRUE)
-  )
-
-  if (any(checks > 0)) stop("Simulation check failed: ", paste(names(checks)[checks > 0], collapse = ", "))
-  message("✓ Simulation check passed")
-}
 
 # =============================================================================
 # Main execution
@@ -602,13 +635,17 @@ if (length(fit_files) > 0) {
 
 # Define species list
 sp_list <- c(
-  "yelloweye rockfish",
-  "north pacific spiny dogfish",
-  "lingcod",
-  "quillback rockfish",
-  "canary rockfish",
-  "silvergray rockfish"
+  "yelloweye rockfish"#,
+  # "north pacific spiny dogfish",
+  # "lingcod",
+  # "quillback rockfish",
+  # "canary rockfish",
+  # "silvergray rockfish"
 )
+rr <- readRDS(file.path("data-generated", "recovery-rates-lambda.rds")) |>
+  filter(species == "yelloweye rockfish") |>
+  filter(case == "50% rate") |>
+  pull(lambda)
 
 # Filter to species with recovery rates
 missing_rates <- setdiff(sp_list, unique(recovery_rates$species))
@@ -659,11 +696,12 @@ time_scenarios <- tribble(
 # - Example with depth: tribble(~formula_scenario, ~formula, "with_depth", list(~ 1 + restricted * year_covariate + poly(log_depth, 2)))
 formula_scenarios <- tribble(
   ~formula_scenario, ~formula,
-  "standard", list(~ 1 + restricted * year_covariate)  # MPA × time interaction
+  # "standard", list(~ 1 + restricted * year_covariate)  # MPA × time interaction
+  "spatial-variation", list(~ 1)
 )
 
 nreps <- 120
-nreps <- 5
+nreps <- 20
 
 # Note: Parameter grids are now created per-species using recovery rates
 # See task grid creation below for species-specific implementation
@@ -692,8 +730,9 @@ task_grid <- purrr::map_dfr(names(all_species_fits), function(sp_name) {
   sp_rates <- recovery_rates |>
     filter(species == sp_name) |>
     pull(lambda)
+  sp_rates <- 1.0096
 
-  message("Species: ", sp_name, " - Rates: ", paste(round(sp_rates, 4), collapse = ", "))
+  message("Species: ", sp_name, " - Rates: ", sp_rates, collapse = ", "))
 
   # Get survey fits for this species
   survey_fits <- all_species_fits[[sp_name]]
@@ -748,6 +787,7 @@ task_grid <- purrr::map_dfr(names(all_species_fits), function(sp_name) {
     })
   })
 })
+# filter(lambda == 1.0096)
 
 message("\n=== Task Grid Summary ===")
 message("Total tasks: ", nrow(task_grid))
