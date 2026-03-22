@@ -61,7 +61,10 @@ prep_full_timeseries <- function(species, sampling_plan, rep_num, sample_dir,
 }
 
 fit_simulation <- function(dat,
-  formula = catch_prop ~ 0 + fyear + restricted:year_covariate,
+  # formula = catch_prop ~ 0 + fyear + restricted:year_covariate,
+  formula = catch_prop ~ 1 + restricted:year_covariate,
+  time_varying = ~ 1,
+  time_varying_type = "ar1",
   spatial = "on",
   spatiotemporal = "iid",
   family = betabinomial(link = "cloglog"),
