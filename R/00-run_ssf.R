@@ -1,3 +1,97 @@
+prep_full_timeseries <- function(species, sampling_plan, rep_num, sample_dir,
+  hist_dir, survey_domain_name = NULL) {
+
+  samp_files <- list.files(
+    sample_dir,
+    pattern = paste0(sp_to_hyphens(species), ".*", sampling_plan, ".*", "rep", sprintf("%03d", rep_num), ".*rds"),
+    full.names = TRUE
+  )
+  n_files <- length(samp_files)
+
+  if (length(samp_files) > 3) {
+    warning("Found ", n_files, " files, using first 3 only")
+    samp_files <- samp_files[1:3]
+  } else {
+    message("Found ", length(samp_files), " files")
+  }
+
+  hbll_last_sampled_year <- readRDS(file.path("data-generated", "hbll-last-sampled-year.rds"))
+
+  sim_dat <- purrr::map_dfr(samp_files, function(f) {
+    readRDS(f) |>
+      mutate(
+        catch_count = observed,
+        catch_prop = catch_count / hook_count,
+        historical = FALSE
+      ) |>
+      left_join(hbll_last_sampled_year, by = "survey_abbrev")
+  })
+
+  hist_survey_abbrevs <- unique(sim_dat$survey_abbrev)
+  hist_dat <- purrr::map_dfr(hist_survey_abbrevs, function(survey_abbrev) {
+    readRDS(file.path(hist_dir, paste0(sp_to_hyphens(species), "-", sp_to_hyphens(survey_abbrev), ".rds"))) |>
+      mutate(
+        historical = TRUE,
+        replicate = rep_num
+      ) |>
+      select(ssid, survey_abbrev, year, X, Y, fishing_event_id, restricted, historical,
+        catch_count, catch_prop, hook_count, adjusted_hook_count, replicate, last_sampled_year)
+  })
+
+  combined <- bind_rows(sim_dat, hist_dat) |>
+    mutate(
+      year_post_imp = ifelse(historical, 0, year),
+      year = ifelse(historical, year, last_sampled_year + year),
+      fyear = factor(ifelse(historical, year, last_sampled_year))
+    )
+
+  if (is.null(survey_domain_name)) {
+    survey_domain_name <- gsub("HBLL ", "", paste(unique(combined$survey_abbrev), collapse = "/"))
+  }
+
+  combined |>
+    mutate(survey_domain = survey_domain_name)
+}
+
+fit_simulation <- function(dat,
+  formula = catch_prop ~ 0 + fyear + restricted:year_covariate,
+  spatial = "on",
+  spatiotemporal = "iid",
+  family = betabinomial(link = "cloglog"),
+  cutoff = 10,
+  control = sdmTMBcontrol(collapse_spatial_variance = TRUE, multiphase = FALSE, profile = TRUE, newton_loops = 0L),
+  silent = TRUE) {
+
+  survey_type <- unique(dat$survey_abbrev)
+
+  weights <- dat$hook_count
+  offset <- NULL
+
+  mesh <- make_mesh(dat, xy_cols = c("X", "Y"), cutoff = cutoff)
+
+  params <- list(
+    formula = formula,
+    data = dat,
+    mesh = mesh,
+    family = family,
+    spatial = spatial,
+    spatiotemporal = spatiotemporal,
+    time = "year",
+    weights = weights,
+    offset = offset,
+    silent = silent,
+    control = control
+  )
+
+  fit <- local({
+    tryCatch({
+      do.call(sdmTMB, params)
+    }, error = function(e) {
+      list(error = TRUE, message = e$message)
+    })
+  })
+  fit
+}
 
 run_ssf <- function(species, mpa_rate, tag, reps = 1:25, parallel = TRUE) {
   hbll_allocations <- readRDS(here::here("data-generated", "hbll-allocations.rds")) |>
@@ -717,68 +811,9 @@ run_ssf <- function(species, mpa_rate, tag, reps = 1:25, parallel = TRUE) {
   # }) |>
   #   mutate(survey_domain = gsub("HBLL ", "", paste(unique(survey_abbrev), collapse = "/")))
 
-  #TODO: add mpa_trend, ar1_scenario, tag
-  prep_full_timeseries <- function(species, sampling_plan, rep_num, sample_dir,
-    survey_domain_name = NULL) {
-
-    # Find files matching criteria
-    samp_files <- list.files(
-      sample_dir,
-      pattern = paste0(sp_to_hyphens(species), ".*", sampling_plan, ".*", "rep", sprintf("%03d", rep_num), ".*rds"),
-      full.names = TRUE
-    )
-    n_files <- length(samp_files)
-
-    if (length(samp_files) > 3) {
-      warning("Found ", n_files, " files, using first 3 only")
-      samp_files <- samp_files[1:3]
-    } else {
-      message("Found ", length(samp_files), " files")
-    }
-
-    # Load lookup table once
-    hbll_last_sampled_year <- readRDS(file.path("data-generated", "hbll-last-sampled-year.rds"))
-
-    # Process files
-    sim_dat <- purrr::map_dfr(samp_files, function(f) {
-      readRDS(f) |>
-        mutate(
-          catch_count = observed,
-          catch_prop = catch_count / hook_count,
-          historical = FALSE
-        ) |>
-        left_join(hbll_last_sampled_year, by = "survey_abbrev")
-    })
-
-    hist_survey_abbrevs <- unique(sim_dat$survey_abbrev)
-    hist_dat <- purrr::map_dfr(hist_survey_abbrevs, function(survey_abbrev) {
-      readRDS(file.path(hist_dir, paste0(sp_to_hyphens(species), "-", sp_to_hyphens(survey_abbrev), ".rds"))) |>
-        mutate(
-          historical = TRUE,
-          replicate = rep_num
-        ) |>
-        select(ssid, survey_abbrev, year, X, Y, fishing_event_id, restricted, historical,
-          catch_count, catch_prop, hook_count, adjusted_hook_count, replicate, last_sampled_year)
-    })
-
-    combined <- bind_rows(sim_dat, hist_dat) |>
-      mutate(
-        year_post_imp = ifelse(historical, 0, year), # post implementation year
-        year = ifelse(historical, year, last_sampled_year + year), # calendar year
-        fyear = factor(ifelse(historical, year, last_sampled_year)) # match with end of historical data
-      )
-    # Create survey domain label
-    if (is.null(survey_domain_name)) {
-      survey_domain_name <- gsub("HBLL ", "", paste(unique(combined$survey_abbrev), collapse = "/"))
-    }
-
-    combined |>
-      mutate(survey_domain = survey_domain_name)
-  }
-
   # DATA STRUCTURE CHECKING ------------------------------------------------------
   # This is what goes into the model fitting
-  check_data_prep <- prep_full_timeseries(sp, sampling_plan, rep_num = 1, sample_dir)
+  check_data_prep <- prep_full_timeseries(sp, sampling_plan, rep_num = 1, sample_dir, hist_dir)
 
   # Check that years are correct
   p1 <- ggplot(data = check_data_prep) +
@@ -804,50 +839,6 @@ run_ssf <- function(species, mpa_rate, tag, reps = 1:25, parallel = TRUE) {
     plot_layout(guides = "collect") &
     theme(legend.position = "top")
   # ---
-
-
-  # MONITORING MODEL SETUP -------------------------------------------------------
-  #' Fit sdmTMB model to sampled data
-  fit_simulation <- function(dat,
-    formula = catch_prop ~ 0 + fyear + restricted:year_covariate,
-    spatial = "on",
-    spatiotemporal = "iid",
-    family = betabinomial(link = "cloglog"),
-    cutoff = 10,
-    control = sdmTMBcontrol(collapse_spatial_variance = TRUE, multiphase = FALSE, profile = TRUE, newton_loops = 0L),
-    silent = TRUE) {
-
-    survey_type <- unique(dat$survey_abbrev)
-
-    weights <- dat$hook_count
-    offset <- NULL
-
-    mesh <- make_mesh(dat, xy_cols = c("X", "Y"), cutoff = cutoff)
-
-    params <- list(
-      formula = formula,
-      data = dat,
-      mesh = mesh,
-      family = family,
-      spatial = spatial,
-      spatiotemporal = spatiotemporal,
-      time = "year",
-      weights = weights,
-      offset = offset,
-      silent = silent,
-      control = control
-    )
-
-    fit <- local({
-      tryCatch({
-        do.call(sdmTMB, params)
-      }, error = function(e) {
-        list(error = TRUE, message = e$message)
-      })
-    })
-    fit
-  }
-
   # FIXME: move this into extract_trend estimate?
   #' Extract random effect parameters from fitted model
   extract_re_pars <- function(fit) {
@@ -946,7 +937,7 @@ run_ssf <- function(species, mpa_rate, tag, reps = 1:25, parallel = TRUE) {
           "_", "eval", eval_yr, ".rds")
 
         # Prepare full timeseries
-        cdat <- prep_full_timeseries(sp, sampling_plan, rep_num, sample_dir) |>
+        cdat <- prep_full_timeseries(sp, sampling_plan, rep_num, sample_dir, hist_dir) |>
           filter(year <= eval_yr)
 
         fit_path <- file.path(fit_dir, out_fname)
