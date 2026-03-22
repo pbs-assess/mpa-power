@@ -2,6 +2,10 @@ source('R/00-utils.R')
 
 library(sdmTMB)
 library(dplyr)
+library(ggplot2)
+library(patchwork)
+
+theme_set(gfplot::theme_pbs())
 
 # TODO PUT THIS SOMEWHERE BETTER
 hbll_allocations <- readRDS(here::here("data-generated", "hbll-allocations.rds")) |>
@@ -12,7 +16,6 @@ hbll_grid <- gfdata::load_survey_blocks(type = "XY") |>
 allocation_lu <- left_join(hbll_grid, hbll_allocations) |>
   select(-depth_m, -active_block, -area)
 saveRDS(allocation_lu, file.path("data-generated", "allocation-lu.rds"))
-
 
 # 1. SIMULATE ----------------------------------------------------------------
 simulate_hbll <- function(fit,
@@ -147,7 +150,7 @@ simulate_hbll <- function(fit,
 
   message("Simulating data for ", species, " ", survey_type)
   message("- Formula: ", formula)
-  message("- MPA trend: ", round(mpa_trend, 2) * 100, "%")
+  message("- MPA trend: ", round(mpa_trend, 4) * 100, "%")
   message("- Coef names: ", paste(coef_names, collapse = ", "))
   message("- B: ", paste(round(B, 2), collapse = ", "))
   message("- Fitted family: ", family$family)
@@ -189,7 +192,7 @@ simulate_hbll <- function(fit,
     return(readRDS(rds_file))
   }
 
-  message("Cache missing. Running simulation for: ", fname)
+  # message("Cache missing. Running simulation for: ", fname)
 
   tvc_intercept <- if (!is.null(rho_V)) ~ 1 else NULL
 
@@ -310,93 +313,152 @@ one_sample_posterior <- function(object, use_names = TRUE) {
   p
 }
 
+################################################################################
+# FULL RUN SETUP CONFIG --------------------------------------------------------
+lambda_values <- exp(log(c(1.05, 1.10, 1.25, 1.50)) / 25)
+lambda_lu <- data.frame(
+  percent_increase = c("5%", "10%", "25%", "50%"),
+  lambda = lambda_values
+)
 
-# Simulate data for yelloweye --------------------------------------------------
-# Make dir with tag
-sim_dir <- here::here("data-generated", "test-sim-dat-svc-rates")
-sim_dir <- here::here("data-generated", "test-sim-dat-no-svc-rates")
+sp <- "yelloweye rockfish"
+mpa_rate <- "10%"
+lambda_val <- lambda_lu |>
+  filter(percent_increase == mpa_rate) |>
+  pull(lambda)
+
+# Type of simulation model
+tag <- "no-svc-rates"
+mpa_trend_gmrf_sd <- 0
+
+# tag <- "svc-rates-sd-0.01"
+# mpa_trend_gmrf_sd <- 0.01
+
+
+sampling_plan <- "status_quo" # "plan" is reserved word...
+eval_years <- c(2030, 2034, 2038, 2042, 2046)
+reps <- 1:20
+
+
+
+hist_dir <- here::here("data-generated", "cleaned-species-data")
+
+# 1. SIMULATE
+sim_dir <- here::here("data-generated", paste0("1-sim-dat-", tag))
 dir.create(sim_dir, showWarnings = FALSE, recursive = TRUE)
 
+# 2. SAMPLE
+sample_dir <- here::here("data-generated", paste0("2-sampled-data-", tag))
+dir.create(sample_dir, showWarnings = FALSE, recursive = TRUE)
+
+# 3. FIT
+fit_dir <- here::here("data-generated", paste0("3-fits-", tag))
+dir.create(fit_dir, showWarnings = FALSE, recursive = TRUE)
+
+# 4. RESULTS
+results_dir <- here::here("data-generated", paste0("4-results-", tag))
+dir.create(results_dir, showWarnings = FALSE, recursive = TRUE)
+################################################################################
+
+
+# Simulate data for yelloweye --------------------------------------------------
 # Load objects for sim
 ar1_parameters <- readRDS(file.path("data-generated", "ar1-parameters.rds"))
-recovery_rates <- readRDS(file.path("data-generated", "recovery-rates-lambda.rds"))
 restricted_df <- readRDS(file.path("data-generated", "hbll-restricted-sf.rds")) |>
   sf::st_drop_geometry() |>
   select(survey_abbrev, block_id, X, Y, restricted)
 
-sp <- "yelloweye rockfish"
+message("Simulating data for ", sp)
+message("  - Recovery rate: ", round(lambda_val, 4))
+message("  - Repetitions: ", length(reps))
+
 # Load conditioning models
 fit_files <- list.files(here::here("data-generated", "fits"),
                         pattern = paste0("^", sp_to_hyphens(sp), ".*-betabinomial-on-iid-"),
                         full.names = TRUE)
-reps <- 1:20
-reps <- 1
 
-sim_check_grid <- tidyr::crossing(rep = reps, fit_file = fit_files)
+sim_task_grid <- tidyr::crossing(rep = reps, fit_file = fit_files, lambda_val = lambda_val)
 
-#future::plan(future::multicore, workers = 8)
 future::plan(future::multisession, workers = 8)
-map_fn <- furrr::future_pmap_dfr
-map_fn <- purrr::pmap_dfr # sequential
+map_fn <- furrr::future_pmap
+# future::plan(future::sequential)
+# map_fn <- purrr::pmap # sequential
 #
-test_sims <- map_fn(sim_check_grid, function(rep, fit_file) {
+reps <- 1:20
+sims <- map_fn(sim_task_grid, function(rep, fit_file, lambda_val) {
   fit <- readRDS(fit_file)
   survey_abbrev <- unique(fit$data$survey_abbrev)[[1]]
+  message("Simulating data for ", sp, "\n  - Survey: ", survey_abbrev,
+    "\n  - Rep: ", rep, "\n  - Lambda: ", round(lambda_val, 4))
 
   ar1_row <- readRDS(file.path("data-generated", "ar1-parameters.rds")) |>
-    dplyr::filter(species == sp, survey_abbrev == !!survey_abbrev) |>
-    dplyr::slice(1)
+    dplyr::filter(species == sp, survey_abbrev == !!survey_abbrev)
 
-  lambda_val <- readRDS(file.path("data-generated", "recovery-rates-lambda.rds")) |>
-    dplyr::filter(species == sp, case == "50% rate") |>
-    dplyr::slice(1) |>
-    dplyr::pull(lambda)
-
-  out_file <- file.path(sim_dir, paste0(sp_to_hyphens(sp), "-", survey_abbrev, "-rep", sprintf("%03d", rep), ".rds"))
+  out_file <- file.path(sim_dir, paste0(sp_to_hyphens(sp), "-", survey_abbrev, "-", round(lambda_val, 4), "-rep", sprintf("%03d", rep), ".rds"))
 
   if (!file.exists(out_file)) {
-  test <- simulate_hbll(
-    fit = fit,
-    restricted_df = restricted_df,
-    sim_dir = sim_dir,
-    check_cache = FALSE,
-    save_sim = FALSE,
-    formula = ~ 1,
-    seed = 999L + rep,
-    year_covariate = 1:25,
-    mpa_trend = log(lambda_val),
-    use_fixed_spatial_field = TRUE,
-    rho_V = ar1_row$rho_V,
-    sigma_V = ar1_row$sigma_V,
-    mpa_trend_gmrf_sd = 0.01
-  ) |>
-    dplyr::mutate(replicate = rep)
+    message("Cache missing. Running simulation for: ", basename(out_file))
+      year_covariate <- 1:25
+    sim_dat <- simulate_hbll(
+      fit = fit,
+      restricted_df = restricted_df,
+      sim_dir = sim_dir,
+      check_cache = FALSE,
+      save_sim = FALSE,
+      formula = ~ 1,
+      seed = 999L + rep,
+      year_covariate = year_covariate,
+      mpa_trend = log(lambda_val),
+      use_fixed_spatial_field = TRUE,
+      rho_V = ar1_row$rho_V,
+      sigma_V = ar1_row$sigma_V,
+      mpa_trend_gmrf_sd = mpa_trend_gmrf_sd
+    ) |>
+      dplyr::mutate(replicate = rep)
 
-  attr(test, "simulation_params")$replicate <- rep
+    attr(sim_dat, "simulation_params")$replicate <- rep
 
-    saveRDS(test, out_file)
+    saveRDS(sim_dat, out_file)
+  } else {
+    message("Cache hit. Loading simulation from: ", basename(out_file))
+    # return(invisible(NULL))
+    readRDS(out_file)
   }
-  # return(invisible(NULL))
-  readRDS(out_file)
-# }, .options = furrr::furrr_options(seed = TRUE))
-})
+}, .options = furrr::furrr_options(seed = TRUE))
+# })
+meep()
 
 future::plan(future::sequential)
 
-catch_prop <- test_sims$observed / test_sims$hook_count
+# SIMULATION CHECKS --------
+test_sim <- purrr::map_dfr(c("HBLL INS N", "HBLL OUT N", "HBLL OUT S"), function(survey) {
+  readRDS(file.path(
+    sim_dir, paste0(sp_to_hyphens(sp),
+      "-", survey,
+      "-", round(lambda_val, 4),
+      "-rep", sprintf("%03d", 1), ".rds")
+    )
+  )
+})
+
+ggplot(test_sim) +
+  aes(X, Y, colour = observed, shape = factor(restricted)) +
+  geom_point() +
+  scale_colour_viridis_c(trans = ggsidekick::fourth_root_power_trans()) +
+  facet_wrap(~ year)
+
+catch_prop <- test_sim$observed / test_sim$hook_count
 checks <- c(
-  `NaN` = sum(is.nan(test_sims$observed)),
-  `Inf` = sum(is.infinite(test_sims$observed)),
-  all_zero = all(test_sims$observed == 0, na.rm = TRUE),
-  all_NAs = all(is.na(test_sims$observed)),
+  `NaN` = sum(is.nan(test_sim$observed)),
+  `Inf` = sum(is.infinite(test_sim$observed)),
+  all_zero = all(test_sim$observed == 0, na.rm = TRUE),
+  all_NAs = all(is.na(test_sim$observed)),
   bad_range = any(catch_prop < 0 | catch_prop > 1, na.rm = TRUE),
-  missing_columns = any(!colnames(test_sims) %in%
+  missing_columns = any(!colnames(test_sim) %in%
     c("survey_abbrev", "replicate",
       "year_covariate", "mpa_trend", "restricted",
       "observed", "hook_count"))
 )
-
-
 
 if (any(checks > 0)) {
   warning("Simulation check failed: ", paste(names(checks)[checks > 0], collapse = ", "))
@@ -484,11 +546,20 @@ run_sampling <- function(sim_dat, plan = "status_quo") {
     mutate(plan = plan_label, replicate = rep)
 }
 
+# Sample data ----
+message("Using sim data from: ", basename(sim_dir))
+message("Out dir: ", basename(sample_dir))
+message("Sampling data for ", sp)
+message("  - Plan: ", sampling_plan)
+message("  - Lambda: ", round(lambda_val, 4))
+message("  - Repetitions: ", length(reps))
 
-sample_dir <- here::here("data-generated", "test-sampled-data-no-svc-rates")
-dir.create(sample_dir, showWarnings = FALSE, recursive = TRUE)
-
-sim_files <- list.files(sim_dir, pattern = ".*rds", full.names = TRUE)
+# TODO: DON'T LOAD EVERYTHING INTO MEMORY
+sim_files <- list.files(sim_dir,
+  pattern = paste0(sp_to_hyphens(sp),
+  "-(HBLL INS N|HBLL OUT N|HBLL OUT S)-",
+  round(lambda_val, 4), "-rep\\d{3}.*rds"),
+  full.names = TRUE)
 
 sim_data <- purrr::map(sim_files, function(f) {
   allocation_lu <- readRDS(file.path("data-generated", "allocation-lu.rds"))
@@ -504,65 +575,200 @@ sim_data <- purrr::map(sim_files, function(f) {
     mutate(historical_location = ifelse(block_id %in% historical_locations$block_id, 1, 0))
 })
 
-samp_data <- purrr::map_dfr(sim_data, function(d) {
+samp_data <- purrr::walk(sim_data, function(d) {
   species <- attr(d, "simulation_params")$species |> sp_to_hyphens()
   survey_abbrev <- attr(d, "simulation_params")$survey_abbrev
   replicate <- attr(d, "simulation_params")$replicate
-  plan <- "status_quo"
+  sampling_plan <- "status_quo" # FIXME - hard coded sampling plan
 
-  out_file <- file.path(sample_dir, paste0(species, "-", survey_abbrev, "-", plan, "-rep", sprintf("%03d", replicate), ".rds"))
+  out_file <- file.path(sample_dir, paste0(species,
+    "-", survey_abbrev,
+    "-", round(lambda_val, 4),
+    "-", sampling_plan,
+    "-rep", sprintf("%03d", replicate),
+    ".rds")
+  )
+
   if (!file.exists(out_file)) {
-    samps <- run_sampling(d, plan = plan) |>
+    samps <- run_sampling(d, plan = sampling_plan) |>
       select(-pfma, -strata_depth, -grouping_code, -allocation)
-
     attr(samps, "simulation_params") <- attr(d, "simulation_params")
-    attr(samps, "simulation_params")$plan <- plan
+    attr(samps, "simulation_params")$sampling_plan <- sampling_plan
     str(attr(samps, "simulation_params"))
     saveRDS(samps, out_file)
+  } else {
+    samps <- readRDS(out_file)
   }
-  return(invisible(NULL))
+})
+# attr(samp_data[[2]], "simulation_params")
+
+# SAMPLING CHECKS --------
+samp_data <- purrr::map_dfr(c("HBLL INS N", "HBLL OUT N", "HBLL OUT S"), function(survey) {
+  readRDS(file.path(sample_dir, paste0(sp_to_hyphens(sp),
+    "-", survey,
+    "-", round(lambda_val, 4),
+    "-", sampling_plan,
+    "-rep", sprintf("%03d", 1), ".rds")))
 })
 
+ggplot(samp_data) +
+  aes(X, Y, colour = observed, shape = factor(restricted)) +
+  geom_point() +
+  scale_colour_viridis_c(trans = ggsidekick::fourth_root_power_trans()) +
+  scale_shape_manual(values = c(21, 19)) +
+  facet_wrap(~ year)
 
 
 # 3. FIT MONITORING MODEL ------------------------------------------------------
 
-combine_hist_sim_data <- function(sim_data, hist_data, eval_year) {
-  hbll_last_sampled_year <- readRDS(file.path("data-generated", "hbll-last-sampled-year.rds"))
-  sim_data_prep <- sim_data |>
-    left_join(hbll_last_sampled_year, by = "survey_abbrev") |>
-    mutate(
-      catch_count = observed,
-      historical = FALSE
-    )
+# combine_hist_sim_data <- function(sim_data, hist_data, eval_year) {
+#   hbll_last_sampled_year <- readRDS(file.path("data-generated", "hbll-last-sampled-year.rds"))
+#   sim_data_prep <- sim_data |>
+#     left_join(hbll_last_sampled_year, by = "survey_abbrev") |>
+#     mutate(
+#       catch_count = observed,
+#       historical = FALSE
+#     )
 
-  # Get unique surveys present in simulated data
-  sim_surveys <- unique(sim_data_prep$survey_abbrev)
+#   # Get unique surveys present in simulated data
+#   sim_surveys <- unique(sim_data_prep$survey_abbrev)
 
-  # Filter historical data to only include those surveys
-  hist_data_filtered <- hist_data |>
-    filter(survey_abbrev %in% sim_surveys)
+#   # Filter historical data to only include those surveys
+#   hist_data_filtered <- hist_data |>
+#     filter(survey_abbrev %in% sim_surveys)
 
-  combined_data <- bind_rows(hist_data_filtered, sim_data_prep) |>
-    select(replicate, survey_abbrev, X, Y, block_id, restricted, historical,
-           year, year_covariate, last_sampled_year,
-           catch_count, hook_count, offset,
-           plan) |># sim_mpa_trend, sim_ar1_scenario, sim_time_scenario) |>
-    mutate(
-      replicate = ifelse(historical, 0, replicate),
-      catch_prop = catch_count / hook_count,
-      fyear_value = ifelse(historical, year, last_sampled_year),
-      fyear = as.factor(fyear_value)
-    ) |>
-    filter(year <= eval_year)
+#   combined_data <- bind_rows(hist_data_filtered, sim_data_prep) |>
+#     select(replicate, survey_abbrev, X, Y, block_id, restricted, historical,
+#            year, year_covariate, last_sampled_year,
+#            catch_count, hook_count, offset,
+#            plan) |># sim_mpa_trend, sim_ar1_scenario, sim_time_scenario) |>
+#     mutate(
+#       replicate = ifelse(historical, 0, replicate),
+#       catch_prop = catch_count / hook_count,
+#       fyear_value = ifelse(historical, year, last_sampled_year),
+#       fyear = as.factor(fyear_value)
+#     ) |>
+#     filter(year <= eval_year)
 
-  if (nrow(combined_data) == 0) {
-    stop("No data remaining after filtering to eval_year = ", eval_year)
+#   if (nrow(combined_data) == 0) {
+#     stop("No data remaining after filtering to eval_year = ", eval_year)
+#   }
+
+#   return(combined_data)
+# }
+
+
+# ---
+# species <- "yelloweye rockfish"
+# plan <- "status_quo"
+# sample_dir <- here::here("data-generated", "test-sampled-data-no-svc-rates")
+# rep_num <- 1
+# samp_files <- list.files(sample_dir, pattern = paste0(sp_to_hyphens(species), ".*", plan, ".*", "rep", sprintf("%03d", rep_num), ".*rds"), full.names = TRUE)
+# test <- purrr::map_dfr(samp_files, function(f) {
+#   hbll_last_sampled_year <- readRDS(file.path("data-generated", "hbll-last-sampled-year.rds"))
+#   readRDS(f) |>
+#     mutate(
+#       catch_count = observed,
+#       historical = FALSE
+#     ) |>
+#     left_join(hbll_last_sampled_year, by = "survey_abbrev") |>
+#     mutate(
+#       year_post_imp = year, # post implementation year
+#       year = last_sampled_year + year, # this is calendar year
+#       fyear = as.factor(last_sampled_year), # this connects with historical data
+#     )
+# }) |>
+#   mutate(survey_domain = gsub("HBLL ", "", paste(unique(survey_abbrev), collapse = "/")))
+
+#TODO: add mpa_trend, ar1_scenario, tag
+prep_full_timeseries <- function(species, plan, rep_num, sample_dir,
+  survey_domain_name = NULL) {
+
+  # Find files matching criteria
+  samp_files <- list.files(
+    sample_dir,
+    pattern = paste0(sp_to_hyphens(species), ".*", plan, ".*", "rep", sprintf("%03d", rep_num), ".*rds"),
+    full.names = TRUE
+  )
+
+  if (length(samp_files) > 3) {
+    warning("Found ", n_files, " files, using first 3 only")
+    samp_files <- samp_files[1:3]
+  } else {
+    message("Found ", length(samp_files), " files")
   }
 
-  return(combined_data)
+  # Load lookup table once
+  hbll_last_sampled_year <- readRDS(file.path("data-generated", "hbll-last-sampled-year.rds"))
+
+  # Process files
+  sim_dat <- purrr::map_dfr(samp_files, function(f) {
+    readRDS(f) |>
+      mutate(
+        catch_count = observed,
+        catch_prop = catch_count / hook_count,
+        historical = FALSE
+      ) |>
+      left_join(hbll_last_sampled_year, by = "survey_abbrev")
+  })
+
+  hist_survey_abbrevs <- unique(sim_dat$survey_abbrev)
+  hist_dat <- purrr::map_dfr(hist_survey_abbrevs, function(survey_abbrev) {
+    readRDS(file.path(hist_dir, paste0(sp_to_hyphens(species), "-", sp_to_hyphens(survey_abbrev), ".rds"))) |>
+      mutate(
+        historical = TRUE,
+        replicate = rep_num
+      ) |>
+      select(ssid, survey_abbrev, year, X, Y, fishing_event_id, restricted, historical,
+        catch_count, catch_prop, hook_count, adjusted_hook_count, replicate, last_sampled_year)
+  })
+
+  combined <- bind_rows(sim_dat, hist_dat) |>
+    mutate(
+        year_post_imp = ifelse(historical, 0, year), # post implementation year
+        year = ifelse(historical, year, last_sampled_year + year), # calendar year
+        fyear = factor(ifelse(historical, year, last_sampled_year)) # match with end of historical data
+    )
+  # Create survey domain label
+  if (is.null(survey_domain_name)) {
+    survey_domain_name <- gsub("HBLL ", "", paste(unique(combined$survey_abbrev), collapse = "/"))
+  }
+
+  combined |>
+    mutate(survey_domain = survey_domain_name)
 }
 
+# DATA STRUCTURE CHECKING ------------------------------------------------------
+# This is what goes into the model fitting
+check_data_prep <- prep_full_timeseries(sp, sampling_plan, rep_num = 1, sample_dir)
+
+# Check that years are correct
+p1 <- ggplot(data = check_data_prep) +
+  geom_point(aes(x = year, y = catch_prop, colour = factor(historical)), shape = 21) +
+  scale_colour_manual(values = c("orange", "dodgerblue")) +
+  facet_wrap(~ survey_abbrev, scales = "free_y") +
+  labs(x = "Year", y = "Catch proportion", colour = "Historical")
+
+# Check that fyear is correct
+p2 <- ggplot(data = check_data_prep) +
+  geom_point(aes(x = as.numeric(fyear), y = catch_prop, colour = factor(historical)), shape = 21) +
+  scale_colour_manual(values = c("orange", "dodgerblue")) +
+  facet_wrap(~ survey_abbrev, scales = "free_y") +
+  labs(x = "fyear", y = "Catch proportion", colour = "Historical")
+
+# Check that year_post_imp is correct
+p3 <- ggplot(data = check_data_prep) +
+  geom_point(aes(x = year_post_imp, y = catch_prop, colour = factor(historical)), shape = 21) +
+  scale_colour_manual(values = c("orange", "dodgerblue")) +
+  facet_wrap(~ survey_abbrev, scales = "free_y") +
+  labs(x = "Post-implementation year", y = "Catch proportion", colour = "Historical")
+(p1 / p2 / p3) + plot_annotation(title = "Data alignment / simulation + historical comparison") +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "top")
+# ---
+
+
+# MONITORING MODEL SETUP -------------------------------------------------------
 #' Fit sdmTMB model to sampled data
 fit_simulation <- function(dat,
                            formula = catch_prop ~ 0 + fyear + restricted:year_covariate,
@@ -604,7 +810,6 @@ fit_simulation <- function(dat,
   fit
 }
 
-# Monitoring model setup -------------------------------------------------------
 # FIXME: move this into extract_trend estimate?
 #' Extract random effect parameters from fitted model
 extract_re_pars <- function(fit) {
@@ -662,33 +867,23 @@ extract_trend_estimate <- function(fit, trend_param = "restricted:year_covariate
   ))
 }
 
-species <- "yelloweye rockfish"
-sample_dir <- here::here("data-generated", "test-sampled-data-no-svc-rates")
-hist_dir <- here::here("data-generated", "cleaned-species-data")
-fit_dir <- here::here("data-generated", "test-fits-no-svc-rates")
-results_dir <- here::here("data-generated", "test-results-no-svc-rates")
-dir.create(fit_dir, showWarnings = FALSE, recursive = TRUE)
-dir.create(results_dir, showWarnings = FALSE, recursive = TRUE)
-samp_files <- list.files(file.path(sample_dir), full.names = TRUE)
-hist_files <- list.files(hist_dir, pattern = paste0(sp_to_hyphens(species), ".*"), full.names = TRUE)
 
-eval_years <- c(2030, 2034, 2038, 2042, 2046)
-
-# FIXME: year_covariate went missing in simulated data?????
-
-# FIXME: sampling overwrites sampling plans?
-
-
+# samp_files <- list.files(file.path(sample_dir), full.names = TRUE)
+# hist_files <- list.files(hist_dir, pattern = paste0(sp_to_hyphens(species), ".*"), full.names = TRUE)
 
 # Redefine replicates and eval_years for clarity
-USE_PARALLEL <- FALSE
-replicates <- 1
-eval_years <- c(2034)
+# USE_PARALLEL <- FALSE
+# replicates <- 1
+# eval_years <- c(2034)
 
-# USE_PARALLEL <- TRUE
-# N_WORKERS <- 8
+USE_PARALLEL <- TRUE
+N_WORKERS <- 10
+replicates <- 1:20
+eval_years <- c(2030, 2034, 2038, 2042, 2046)
 
-replicates <- 1
+SAVE_FITS <- TRUE
+SAVE_FITS <- FALSE
+
 # eval_years <- c(2030, 2034, 2038, 2042, 2046)
 
 # Set up parallel backend
@@ -700,80 +895,58 @@ if (USE_PARALLEL) {
   message("Using sequential processing")
 }
 
-#TODO: add plan tag to sampled filename: /*-plan-status_quo-.*
+
 # Process each replicate in parallel (each rep does all eval years)
-# results_parallel <- furrr::future_map_dfr(
-results_parallel <- purrr::map_dfr(
+results_parallel <- furrr::future_walk(
+# results_parallel <- purrr::walk(
   replicates,
   function(rep_num) {
-    # Get files for this replicate
-    pattern <- paste0("-HBLL.*rep", sprintf("%03d", rep_num), ".*")
-    files <- list.files(file.path(sample_dir), full.names = TRUE, pattern = pattern)
     # Fit all eval years for this replicate
     rep_results <- purrr::map_dfr(eval_years, function(eval_yr) {
+      message("Fitting model for ", sp,
+        "\n - lambda ", round(lambda_val, 4),
+        "\n - sampling plan ", sampling_plan,
+        "\n - replicate ", rep_num,
+        "\n - eval year ", eval_yr)
       message("Rep ", rep_num, ", eval year ", eval_yr)
-      # Combine data
-      cdat <- purrr::map_dfr(files, function(file) {
-        sim_data <- readRDS(file)
-        sim_survey <- unique(sim_data$survey_abbrev)
-        hist_data <- readRDS(hist_files[grepl(sp_to_hyphens(sim_survey), hist_files)])
 
-        comb_dat <-combine_hist_sim_data(
-          sim_data = sim_data,
-          hist_data = hist_data,
-          eval_year = eval_yr
-        )
-        # FIXME: attributes for tracking
-        # sim_params <- attr(sim_data, "simulation_params")
-        # att_name <- paste0("simulation_params.", sim_survey)
-        # attr(comb_dat, att_name) <- sim_params
-        comb_dat
-      }) |>
-      mutate(survey_combination = "HBLL combined") |>
-      mutate(year_covariate = ifelse(is.na(year_covariate), year, year_covariate))
+      # Create output filename
+      out_fname <- paste0(
+        sp_to_hyphens(sp),
+        "-", round(lambda_val, 4),
+        "-", sampling_plan,
+        "-rep", sprintf("%03d", rep_num),
+        "_", "eval", eval_yr, ".rds")
 
-#       filter(cdat, is.na(year_covariate)) |>
-#         distinct(survey_abbrev, year, year_covariate, last_sampled_year, .keep_all = TRUE) |>
-#         glimpse()
-# # FIXME - why are there some empty year_covariate rows????
+      # Prepare full timeseries
+      cdat <- prep_full_timeseries(sp, sampling_plan, rep_num, sample_dir) |>
+        filter(year <= eval_yr)
 
-#       filter(cdat, !is.na(year_covariate)) |>
-#       filter(year != year_covariate) |>
-#       distinct(survey_abbrev, year, year_covariate) |>
-#       print(n = Inf)
+      fit_path <- file.path(fit_dir, out_fname)
 
-      # sample_plan <- attr(cdat, "simulation_params")$plan # FIXME
-      sample_plan <- "status_quo" # FIXME need to be able to pull outside of loop
-      fit_path <- file.path(fit_dir, paste0(species, "-", sample_plan, "-rep", sprintf("%03d", rep_num), "_", "eval", eval_yr, "_fit.rds"))
-      if (!file.exists(fit_path)) {
+      if (!file.exists(fit_path) || SAVE_FITS) {
         # Fit model
-        message('Fit model')
+        message('Fitting model for eval year ', eval_yr, '; replicate ', rep_num)
         fit <- fit_simulation(
           dat = cdat,
-          formula = catch_prop ~ 0 + fyear + restricted:year_covariate,
+          formula = catch_prop ~ 0 + fyear + restricted:year_post_imp,
           spatial = "on",
           spatiotemporal = "iid",
-          # spatial = "on",
-          # spatiotemporal = "iid",
           family = betabinomial(link = "cloglog"),
           cutoff = 10,
           control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
           silent = FALSE
         )
-      #
-        attr(fit, "simulation_params") <- attr(cdat, "simulation_params")
 
-       saveRDS(fit, file.path(fit_dir, paste0(species, "-", sample_plan, "-rep", sprintf("%03d", rep_num), "_", "eval", eval_yr, "_fit.rds")))
+        saveRDS(fit, fit_path)
       } else {
         fit <- readRDS(fit_path)
       }
-     # Extract estimates
-      # sink();browser();
-     trend_est <- extract_trend_estimate(fit, trend_param = "restricted:year_covariate")
-     re_pars <- extract_re_pars(fit)
 
-  message('Extract estimates')
-     tibble(
+      message('Extracting estimates')
+      trend_est <- extract_trend_estimate(fit, trend_param = "restricted:year_post_imp")
+      re_pars <- extract_re_pars(fit)
+      result_row <- tibble(
         replicate = rep_num,
         eval_year = eval_yr,
         estimate = trend_est$estimate,
@@ -787,26 +960,34 @@ results_parallel <- purrr::map_dfr(
         sigma_E = re_pars$sigma_E,
         range = re_pars$range
       )
-    })
-    # Save per-replicate file
-    sample_plan <- "status_quo" # FIXME want to set this once at top of run
-    saveRDS(
-      rep_results,
-      file.path(results_dir, paste0(sp_to_hyphens(species), "-", sample_plan, "-rep", sprintf("%03d", rep_num), "_results.rds"))
-    )
+      saveRDS(result_row, file.path(results_dir, out_fname))
 
-    return(rep_results)
-  }
-  # .options = furrr::furrr_options(
-    # seed = TRUE,
-    # globals = c("fit_simulation", "combine_hist_sim_data", "extract_trend_estimate",
-                # "extract_re_pars", "sp_to_hyphens", "eval_years", "sample_dir",
-                # "hist_files", "species", "fit_dir", "results_dir", "summarise_sanity"),
-    # packages = c("dplyr", "sdmTMB", "purrr")
-  # )
-)
+      return(result_row)
+    })  # End of purrr::map_dfr
+
+  },  # End of function(rep_num)
+  .options = furrr::furrr_options(
+    seed = TRUE,
+    globals = c("fit_simulation", "prep_full_timeseries", "extract_trend_estimate",
+                "extract_re_pars", "sp_to_hyphens", "eval_years", "sample_dir",
+                "hist_files", "species", "fit_dir", "results_dir", "summarise_sanity",
+                "sp", "lambda_val", "sampling_plan", "SAVE_FITS", "hist_dir"),
+    packages = c("dplyr", "sdmTMB", "purrr")
+  )
+)  # End of furrr::future_map_dfr
+# })
 
 meep()
+
+result_check <- readRDS(file.path(results_dir,
+  paste0(sp_to_hyphens(sp),
+    "-", round(lambda_val, 4),
+    "-", sampling_plan,
+    "-rep", sprintf("%03d", 2),
+    "_", "eval", 2046, ".rds"
+  )
+))
+glimpse(result_check)
 
 # 4. POWER VISUALISATION -------------------------------------------------------
 library(dplyr)
@@ -860,28 +1041,46 @@ get_cumul_power <- function(power_df, combo) {
   # samples |> mutate(species = factor(species, levels = spp_levels))
 }
 
-species <- "yelloweye rockfish"
 # fit_dir <- here::here("data-generated", "test-fits-svc-rates")
-results_dir <- here::here("data-generated", "test-results-svc-rates")
-results_dir <- here::here("data-generated", "test-results-no-svc-rates")
-eval_years <- c(2030, 2034, 2038, 2042, 2046)
+# results_dir <- here::here("data-generated", "test-results-svc-rates")
+# results_dir <- here::here("data-generated", "test-results-no-svc-rates")
+# eval_years <- c(2030, 2034, 2038, 2042, 2046)
 
-fit_files <- list.files(fit_dir)
-test_fit <- readRDS(file.path(fit_dir, fit_files[2]))
-# sdmTMB::sanity(test_fit)
-results_files <- list.files(results_dir)
-test_res <- readRDS(file.path(results_dir, results_files[2]))
+# fit_files <- list.files(fit_dir)
+# test_fit <- readRDS(file.path(fit_dir, fit_files[2]))
+# # sdmTMB::sanity(test_fit)
+# results_files <- list.files(results_dir)
+# test_res <- readRDS(file.path(results_dir, results_files[2]))
+
+# lambda_val <- readRDS(file.path("data-generated", "recovery-rates-lambda.rds")) |>
+#   filter(species == .env$species)
+#   filter(case == "50% rate") |>
+#   pull(lambda)
+
+message("Reading results from ", basename(results_dir),
+  "\n - lambda: ", round(lambda_val, 4),
+  "\n - sampling plan: ", sampling_plan,
+  "\n - replicate: ", min(replicates), " to ", max(replicates),
+  "\n - eval year: ", paste(eval_years, collapse = ", "))
+
+results_files <- list.files(results_dir,
+  pattern = paste0(sp_to_hyphens(sp),
+  "-", round(lambda_val, 4),
+  "-", sampling_plan,
+   "-rep[0-9]{3}_eval[0-9]{4}\\.rds$"),
+  full.names = TRUE)
 
 all_fitted_results <- purrr::map_dfr(results_files, function(f) {
-  readRDS(file.path(results_dir, f))
+  readRDS(f)
 }) |>
-  mutate(mpa_trend = log(lambda_val)) # FIXME UPSTREAM; then remove this
+  mutate(mpa_trend = log(lambda_val),
+         plan = sampling_plan,
+         tag = tag,
+         species = sp
+         )
 
-# FIXME: mpa_trend, sampling_plan are missing from all_fitted_results
-# combo <- c("species", "survey_abbrev",
-#            "sim_mpa_trend", "sim_ar1_scenario",
-#            "sampling_plan", "eval_year"
-# )
+# combo <- c("species", "mpa_trend", "tag", "plan", "eval_year")
+
 combo <- c("eval_year")
 
 # Replicate-level metrics
@@ -928,4 +1127,6 @@ ggplot(data = ) +
   ggtitle("Power")
 p1
 
-(p1 / b1 / c1) + plot_annotation(title = "SVC rates")
+(p1 / b1 / c1) + plot_annotation(title = tag)
+
+
