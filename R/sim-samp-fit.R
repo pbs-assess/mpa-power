@@ -15,26 +15,28 @@ source("R/00-run_ssf.R")
 # )
 # mpa_rate_list <- c("5%", "10%", "25%", "50%")
 
-sp_list <- c("yelloweye rockfish")
-mpa_rate_list <- c("10%")
+sp_list <- c("yelloweye rockfish", "lingcod")
+mpa_rate_list <- c("5%", "10%", "25%", "50%")
 # mpa_rate_list <- c("25%")
 
-replicates <- 1:2
+replicates <- 1:7
 
-tag_list <- c("svc-rates-sd-0.01", "no-svc-rates")
+# tag_list <- c("svc-rates-sd-0.01", "no-svc-rates")
+tag_list <- c("no-svc-rates")
 for (sp in sp_list) {
   for (mpa_rate in mpa_rate_list) {
     for (tag in tag_list) {
-      run_ssf(sp, mpa_rate, tag = tag, reps = replicates)
+      run_ssf(sp, mpa_rate, tag = tag, reps = replicates, parallel = T)
     }
   }
 }
 
-check_data_prep <- prep_full_timeseries("yelloweye rockfish",
-  sampling_plan = "status_quo", rep_num = 1,
-  sample_dir = here::here("data-generated", "2-sampled-data-svc-rates-sd-0.01"),
-  hist_dir = here::here("data-generated", "cleaned-species-data"))
+# check_data_prep <- prep_full_timeseries("yelloweye rockfish",
+#   sampling_plan = "status_quo", rep_num = 1,
+#   sample_dir = here::here("data-generated", "2-sampled-data-svc-rates-sd-0.01"),
+#   hist_dir = here::here("data-generated", "cleaned-species-data"))
 
+if (FALSE) {
 # Check that years are correct
 p1 <- ggplot(data = check_data_prep) +
   geom_point(aes(x = year, y = catch_prop, colour = factor(historical)), shape = 21) +
@@ -61,10 +63,11 @@ p3 <- ggplot(data = check_data_prep) +
 # # ---
 #
 # meep()
-
+}
 analysis_species <- "yelloweye rockfish"
-analysis_mpa_rate <- "10%"
-analysis_tag <- "svc-rates-sd-0.01"
+analysis_mpa_rate <- "50%"
+# analysis_tag <- "svc-rates-sd-0.01"
+analysis_tag <- "no-svc-rates"
 sampling_plan <- "status_quo"
 eval_years <- c(2030, 2034, 2038, 2042, 2046)
 
@@ -216,7 +219,7 @@ ggplot(data = ) +
 # Main power plot --------------------------------------------------------------
 p1 <- power_df |>
 ggplot(data = ) +
-  aes(x = eval_year, y = power, colour = mpa_effect_pct) +
+  aes(x = eval_year, y = power, colour = factor(mpa_effect_pct)) +
   geom_point() +
   geom_line(aes(group = mpa_effect_pct)) +
   geom_hline(yintercept = 0.8, linetype = "dashed", colour = "grey50") +
@@ -224,3 +227,4 @@ ggplot(data = ) +
 # p1
 
 (p1 / b1 / c1) + plot_annotation(title = tag)
+
