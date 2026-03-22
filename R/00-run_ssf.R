@@ -121,7 +121,7 @@ run_ssf <- function(species, mpa_rate, tag, reps = 1:25, parallel = TRUE) {
     } else if (Sys.info()['user'] %in% c("jillian", "jilliandunic")) {
       N_WORKERS <- ifelse(Sys.info()['user'] == "jillian", 10, 8)
     } else {
-      N_WORKERS <- floor(future::availableCores() / 2)
+      N_WORKERS <- floor(future::availableCores())
     }
   } else {
     N_WORKERS <- 1L
