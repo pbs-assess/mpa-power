@@ -15,11 +15,11 @@ source("R/00-run_ssf.R")
 # )
 # mpa_rate_list <- c("5%", "10%", "25%", "50%")
 
-sp_list <- c("yelloweye rockfish", "lingcod")
+sp_list <- c("yelloweye rockfish", "lingcod", "quillback rockfish")
 mpa_rate_list <- c("5%", "10%", "25%", "50%")
 # mpa_rate_list <- c("25%")
 
-replicates <- 1:7
+replicates <- 1:15
 
 # tag_list <- c("svc-rates-sd-0.01", "no-svc-rates")
 tag_list <- c("no-svc-rates")
@@ -37,194 +37,174 @@ for (sp in sp_list) {
 #   hist_dir = here::here("data-generated", "cleaned-species-data"))
 
 if (FALSE) {
-# Check that years are correct
-p1 <- ggplot(data = check_data_prep) +
-  geom_point(aes(x = year, y = catch_prop, colour = factor(historical)), shape = 21) +
-  scale_colour_manual(values = c("orange", "dodgerblue")) +
-  facet_wrap(~ survey_abbrev, scales = "free_y") +
-  labs(x = "Year", y = "Catch proportion", colour = "Historical")
+  # Check that years are correct
+  p1 <- ggplot(data = check_data_prep) +
+    geom_point(aes(x = year, y = catch_prop, colour = factor(historical)), shape = 21) +
+    scale_colour_manual(values = c("orange", "dodgerblue")) +
+    facet_wrap(~ survey_abbrev, scales = "free_y") +
+    labs(x = "Year", y = "Catch proportion", colour = "Historical")
 
-# Check that fyear is correct
-p2 <- ggplot(data = check_data_prep) +
-  geom_point(aes(x = as.numeric(fyear), y = catch_prop, colour = factor(historical)), shape = 21) +
-  scale_colour_manual(values = c("orange", "dodgerblue")) +
-  facet_wrap(~ survey_abbrev, scales = "free_y") +
-  labs(x = "fyear", y = "Catch proportion", colour = "Historical")
-#
-# # Check that year_post_imp is correct
-p3 <- ggplot(data = check_data_prep) +
-  geom_point(aes(x = year_post_imp, y = catch_prop, colour = factor(historical)), shape = 21) +
-  scale_colour_manual(values = c("orange", "dodgerblue")) +
-  facet_wrap(~ survey_abbrev, scales = "free_y") +
-  labs(x = "Post-implementation year", y = "Catch proportion", colour = "Historical")
-(p1 / p2 / p3) + plot_annotation(title = "Data alignment / simulation + historical comparison") +
-  plot_layout(guides = "collect") &
-  theme(legend.position = "top")
-# # ---
-#
-# meep()
+  # Check that fyear is correct
+  p2 <- ggplot(data = check_data_prep) +
+    geom_point(aes(x = as.numeric(fyear), y = catch_prop, colour = factor(historical)), shape = 21) +
+    scale_colour_manual(values = c("orange", "dodgerblue")) +
+    facet_wrap(~ survey_abbrev, scales = "free_y") +
+    labs(x = "fyear", y = "Catch proportion", colour = "Historical")
+  #
+  # # Check that year_post_imp is correct
+  p3 <- ggplot(data = check_data_prep) +
+    geom_point(aes(x = year_post_imp, y = catch_prop, colour = factor(historical)), shape = 21) +
+    scale_colour_manual(values = c("orange", "dodgerblue")) +
+    facet_wrap(~ survey_abbrev, scales = "free_y") +
+    labs(x = "Post-implementation year", y = "Catch proportion", colour = "Historical")
+  (p1 / p2 / p3) + plot_annotation(title = "Data alignment / simulation + historical comparison") +
+    plot_layout(guides = "collect") &
+    theme(legend.position = "top")
+  # # ---
+  #
+  # meep()
 }
-analysis_species <- "yelloweye rockfish"
-analysis_mpa_rate <- "50%"
+analysis_species <- sp_list
+analysis_mpa_rates <- mpa_rate_list
 # analysis_tag <- "svc-rates-sd-0.01"
 analysis_tag <- "no-svc-rates"
 sampling_plan <- "status_quo"
 eval_years <- c(2030, 2034, 2038, 2042, 2046)
 
-lambda_val <- c(1.05, 1.10, 1.25, 1.50)[match(analysis_mpa_rate, c("5%", "10%", "25%", "50%"))]^(1 / 25)
-sp <- analysis_species
-tag <- analysis_tag
-results_dir <- here::here("data-generated", paste0("4-results-", analysis_tag))
+rate_lookup <- tibble(
+  mpa_rate = c("5%", "10%", "25%", "50%"),
+  lambda_val = c(1.05, 1.10, 1.25, 1.50)^(1 / 25)
+)
 
-result_check <- readRDS(file.path(results_dir,
-  paste0(sp_to_hyphens(sp),
-    "-", round(lambda_val, 4),
-    "-", sampling_plan,
-    "-rep", sprintf("%03d", 2),
-    "_", "eval", 2046, ".rds"
-  )
-))
-glimpse(result_check)
-
-# 4. POWER VISUALISATION -------------------------------------------------------
-library(dplyr)
-library(ggplot2)
-library(patchwork)
-
-theme_set(gfplot::theme_pbs())
-
-trend_colours <- c(
-  "low"    = "#56B4E9",  # sky blue
-  "moderate" = "#E69F00",  # golden orange
-  "high"   = "#D55E00"   # vermillion
+rate_colours <- c(
+  "5%" = "#4C78A8",
+  "10%" = "#59A14F",
+  "25%" = "#F28E2B",
+  "50%" = "#E15759"
 )
 
 summarise_power <- function(power_df,
-  by = c("species", "survey_abbrev", "sim_mpa_trend", "sim_ar1_scenario",
-         "sampling_plan", "eval_year")) {
+  by = c("species", "mpa_rate", "sampling_plan", "eval_year")) {
   power_df |>
     group_by(!!!syms(by)) |>
     summarise(
-      # mpa_effect_label = first(mpa_effect_label),
       n_reps = n(),
       n_converged = sum(converged),
       convergence_rate = n_converged / n_reps,
       n_significant = sum(significant & converged),
-      power = n_significant / n_converged,
+      power = dplyr::if_else(n_converged > 0, n_significant / n_converged, NA_real_),
       power_allreps = n_significant / n_reps,
-      type_s_error = sum(!sign_correct & significant & converged) / n_significant,
+      type_s_error = dplyr::if_else(n_significant > 0,
+        sum(!sign_correct & significant & converged) / n_significant,
+        NA_real_),
       type_m_error = mean(ratio_to_true[significant & converged], na.rm = TRUE),
       mean_estimate = mean(estimate[converged], na.rm = TRUE),
       true_effect = first(true_effect),
       mean_bias = mean(estimate[converged] - true_effect),
       .groups = "drop"
-    ) |>
-    mutate(
-      mpa_effect_pct = round(100 * true_effect, 2)
     )
 }
 
-get_cumul_power <- function(power_df, combo) {
-  power_df0_n <- power_df0 |>
-    add_count(!!!syms("eval_year"), name = "combo_n_reps")
-  samples <- purrr::map_dfr(1:max(power_df$n_reps), \(x) {
-    power_df0_n |>
-      filter(combo_n_reps >= x) |>
-      group_by(!!!syms(combo)) |>
-      slice_sample(n = x, replace = FALSE) |>
-      summarise_power(by = combo) |>
-      mutate(n_samps = x)
+load_power_results <- function(species_vec, mpa_rate_vec, sampling_plan, results_dir, analysis_tag) {
+  combo_grid <- tidyr::crossing(
+    species = species_vec,
+    mpa_rate = mpa_rate_vec
+  ) |>
+    left_join(rate_lookup, by = "mpa_rate")
+
+  purrr::pmap_dfr(combo_grid, function(species, mpa_rate, lambda_val) {
+    result_files <- list.files(
+      results_dir,
+      pattern = paste0(
+        "^", sp_to_hyphens(species),
+        "-", round(lambda_val, 4),
+        "-", sampling_plan,
+        "-rep[0-9]{3}_eval[0-9]{4}\\.rds$"
+      ),
+      full.names = TRUE
+    )
+
+    if (length(result_files) == 0) {
+      warning("No results found for species=", species,
+        ", mpa_rate=", mpa_rate,
+        ", sampling_plan=", sampling_plan,
+        ", tag=", analysis_tag)
+      return(tibble())
+    }
+
+    purrr::map_dfr(result_files, readRDS) |>
+      mutate(
+        species = species,
+        mpa_rate = mpa_rate,
+        lambda_val = lambda_val,
+        mpa_trend = log(lambda_val),
+        sampling_plan = sampling_plan,
+        tag = analysis_tag
+      )
   })
-  # samples |> mutate(species = factor(species, levels = spp_levels))
 }
 
-# fit_dir <- here::here("data-generated", "test-fits-svc-rates")
-# results_dir <- here::here("data-generated", "test-results-svc-rates")
-# results_dir <- here::here("data-generated", "test-results-no-svc-rates")
-# eval_years <- c(2030, 2034, 2038, 2042, 2046)
-
-# fit_files <- list.files(fit_dir)
-# test_fit <- readRDS(file.path(fit_dir, fit_files[2]))
-# # sdmTMB::sanity(test_fit)
-# results_files <- list.files(results_dir)
-# test_res <- readRDS(file.path(results_dir, results_files[2]))
-
-# lambda_val <- readRDS(file.path("data-generated", "recovery-rates-lambda.rds")) |>
-#   filter(species == .env$species)
-#   filter(case == "50% rate") |>
-#   pull(lambda)
+results_dir <- here::here("data-generated", paste0("4-results-", analysis_tag))
 
 message("Reading results from ", basename(results_dir),
-  "\n - lambda: ", round(lambda_val, 4),
+  "\n - species: ", paste(analysis_species, collapse = ", "),
+  "\n - rates: ", paste(analysis_mpa_rates, collapse = ", "),
   "\n - sampling plan: ", sampling_plan,
-  "\n - replicate: ", min(replicates), " to ", max(replicates),
-  "\n - eval year: ", paste(eval_years, collapse = ", "))
+  "\n - replicates: ", min(replicates), " to ", max(replicates),
+  "\n - eval years: ", paste(eval_years, collapse = ", "))
 
-# res_tag <- "no-svc-rates"
-res_tag <- analysis_tag
-results_files <- list.files(results_dir,
-  pattern = paste0(sp_to_hyphens(sp),
-  "-", round(lambda_val, 4),
-  "-", sampling_plan,
-   "-rep[0-9]{3}_eval[0-9]{4}\\.rds$"),
-  full.names = TRUE)
+all_fitted_results <- load_power_results(
+  species_vec = analysis_species,
+  mpa_rate_vec = analysis_mpa_rates,
+  sampling_plan = sampling_plan,
+  results_dir = results_dir,
+  analysis_tag = analysis_tag
+)
 
-all_fitted_results <- purrr::map_dfr(results_files, function(f) {
-  readRDS(f)
-}) |>
-  mutate(mpa_trend = log(lambda_val),
-         plan = sampling_plan,
-         tag = res_tag,
-         species = sp
-         )
+if (nrow(all_fitted_results) == 0) {
+  stop("No fitted result files matched the requested species/rate/tag/plan settings.")
+}
 
-# combo <- c("species", "mpa_trend", "tag", "plan", "eval_year")
+result_check <- all_fitted_results |>
+  arrange(species, mpa_rate, replicate, eval_year) |>
+  slice(1)
+glimpse(result_check)
 
-combo <- c("eval_year")
-
-# Replicate-level metrics
 power_df0 <- all_fitted_results |>
+  filter(eval_year %in% eval_years, replicate %in% replicates) |>
   mutate(
     true_effect = mpa_trend,
-    significant = !(ci_lower < 0 & ci_upper > 0), # Significance: CI doesn't include 0
-    sign_correct = estimate * true_effect > 0, # more robust than assuming positive effect (e.g., lingcod)
+    significant = !(ci_lower < 0 & ci_upper > 0),
+    sign_correct = estimate * true_effect > 0,
     ratio_to_true = abs(estimate) / abs(true_effect)
   )
 
 power_df <- power_df0 |>
-  summarise_power(by = combo)
+  summarise_power(by = c("species", "mpa_rate", "sampling_plan", "eval_year")) |>
+  mutate(
+    species = factor(species, levels = analysis_species),
+    mpa_rate = factor(mpa_rate, levels = analysis_mpa_rates)
+  )
 
-
-# Bias check on estimate -------------------------------------------------------
-b1 <- power_df0 |>
-  filter(replicate <= max(replicate)) |>
-ggplot(data = _) +
-  geom_point(aes(x = replicate, y = estimate)) +
-  geom_hline(aes(yintercept = log(lambda_val)), colour = "red") +
-  facet_grid(. ~ eval_year) +
-  ggtitle("Bias check")
-# b1
-
-# Cumulative power plot --------------------------------------------------------
-cpower <- get_cumul_power(power_df, combo)
-c1 <- cpower |>
-ggplot(data = ) +
-  aes(x = n_samps, y = power, colour = mpa_effect_pct) +
-  geom_point() +
-  geom_line(aes(group = mpa_effect_pct)) +
-  geom_hline(yintercept = 0.8, linetype = "dashed", colour = "grey50") +
-  facet_grid(. ~ eval_year) +
-  ggtitle("Cumulative power")
-# c1
-# Main power plot --------------------------------------------------------------
 p1 <- power_df |>
-ggplot(data = ) +
-  aes(x = eval_year, y = power, colour = factor(mpa_effect_pct)) +
-  geom_point() +
-  geom_line(aes(group = mpa_effect_pct)) +
-  geom_hline(yintercept = 0.8, linetype = "dashed", colour = "grey50") +
-  ggtitle("Power")
-# p1
+  ggplot(aes(x = eval_year, y = power, colour = mpa_rate, group = mpa_rate)) +
+  geom_hline(yintercept = 0.8, linetype = "dashed", colour = "grey55") +
+  geom_line(linewidth = 0.8, alpha = 0.9) +
+  geom_point(size = 2.2) +
+  facet_wrap(~ species, ncol = 2) +
+  scale_colour_manual(values = rate_colours[analysis_mpa_rates], drop = FALSE) +
+  scale_x_continuous(breaks = eval_years) +
+  scale_y_continuous(limits = c(0, 1), labels = scales::label_percent(accuracy = 1)) +
+  labs(
+    title = paste("Power by species and recovery rate:", analysis_tag),
+    subtitle = paste("Sampling plan:", sampling_plan),
+    x = "Evaluation year",
+    y = "Power",
+    colour = "Recovery over 25 years"
+  ) +
+  theme(
+    legend.position = "top",
+    panel.grid.minor = element_blank()
+  )
 
-(p1 / b1 / c1) + plot_annotation(title = tag)
-
+p1
