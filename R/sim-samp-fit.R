@@ -62,6 +62,17 @@ p3 <- ggplot(data = check_data_prep) +
 #
 # meep()
 
+analysis_species <- "yelloweye rockfish"
+analysis_mpa_rate <- "10%"
+analysis_tag <- "svc-rates-sd-0.01"
+sampling_plan <- "status_quo"
+eval_years <- c(2030, 2034, 2038, 2042, 2046)
+
+lambda_val <- c(1.05, 1.10, 1.25, 1.50)[match(analysis_mpa_rate, c("5%", "10%", "25%", "50%"))]^(1 / 25)
+sp <- analysis_species
+tag <- analysis_tag
+results_dir <- here::here("data-generated", paste0("4-results-", analysis_tag))
+
 result_check <- readRDS(file.path(results_dir,
   paste0(sp_to_hyphens(sp),
     "-", round(lambda_val, 4),
@@ -147,8 +158,7 @@ message("Reading results from ", basename(results_dir),
   "\n - eval year: ", paste(eval_years, collapse = ", "))
 
 # res_tag <- "no-svc-rates"
-res_tag <- "svc-rates-sd-0.01"
-res_dir <- here::here("data-generated", paste0("4-fitted-results-", res_tag))
+res_tag <- analysis_tag
 results_files <- list.files(results_dir,
   pattern = paste0(sp_to_hyphens(sp),
   "-", round(lambda_val, 4),
