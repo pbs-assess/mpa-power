@@ -8,11 +8,13 @@ library(patchwork)
 theme_set(gfplot::theme_pbs())
 
 # TODO PUT THIS SOMEWHERE BETTER
-run_ssf <- function(species, mpa_rate, tag, mpa_trend_gmrf_sd) {
+run_ssf <- function(species, mpa_rate, tag, reps = 1:25) {
   hbll_allocations <- readRDS(here::here("data-generated", "hbll-allocations.rds")) |>
     as_tibble()
-  hbll_grid <- gfdata::load_survey_blocks(type = "XY") |>
-    filter(stringr::str_detect(survey_abbrev, "HBLL"))
+  hbll_grid <- readRDS(here::here("data-generated", "hbll-restricted-sf.rds")) |>
+    sf::st_drop_geometry() |>
+    distinct(survey_series_id, survey_abbrev, block_id, grouping_code, depth_m,
+      active_block, area, X, Y, restricted)
 
   allocation_lu <- left_join(hbll_grid, hbll_allocations) |>
     select(-depth_m, -active_block, -area)
@@ -316,19 +318,33 @@ run_ssf <- function(species, mpa_rate, tag, mpa_trend_gmrf_sd) {
 
   ################################################################################
   # FULL RUN SETUP CONFIG --------------------------------------------------------
-  lambda_values <- exp(log(c(1.05, 1.10, 1.25, 1.50)) / 25)
-  lambda_lu <- data.frame(
-    percent_increase = c("5%", "10%", "25%", "50%"),
-    lambda = lambda_values
-  )
+  fixed_rate_table <- tidyr::crossing(
+    species = c(
+      "yelloweye rockfish",
+      "north pacific spiny dogfish",
+      "lingcod",
+      "quillback rockfish",
+      "canary rockfish",
+      "silvergray rockfish"
+    ),
+    percent_increase = c("5%", "10%", "25%", "50%")
+  ) |>
+    mutate(
+      lambda = c(1.05, 1.10, 1.25, 1.50)[match(percent_increase, c("5%", "10%", "25%", "50%"))]^(1 / 25)
+    )
 
   sp <- species
   mpa_rate <- mpa_rate
   # sp <- "yelloweye rockfish"
   # mpa_rate <- "10%"
-  lambda_val <- lambda_lu |>
-    filter(percent_increase == mpa_rate) |>
+  lambda_val <- fixed_rate_table |>
+    filter(species == sp, percent_increase == mpa_rate) |>
     pull(lambda)
+
+  if (length(lambda_val) != 1) {
+    stop("Expected exactly 1 fixed recovery rate for species=", sp,
+      " and percent_increase=", mpa_rate)
+  }
 
   # Type of simulation model
   # tag <- "no-svc-rates"
@@ -343,7 +359,10 @@ run_ssf <- function(species, mpa_rate, tag, mpa_trend_gmrf_sd) {
 
   sampling_plan <- "status_quo" # eventually include as input
   eval_years <- c(2030, 2034, 2038, 2042, 2046) # eventually include as input
-  reps <- 1:25 # eventually include as input
+
+  if (length(reps) < 1) {
+    stop("`reps` must contain at least one replicate index.")
+  }
 
 message("Running ssf for ", sp, " ", mpa_rate, " ", tag)
 message("  - Recovery rate: ", round(lambda_val, 4))
@@ -396,7 +415,6 @@ message("  - eval_years: ", paste(eval_years, collapse = ", "))
   # future::plan(future::sequential)
   # map_fn <- purrr::pmap # sequential
   #
-  reps <- 1:20
   sims <- map_fn(sim_task_grid, function(rep, fit_file, lambda_val) {
     fit <- readRDS(fit_file)
     survey_abbrev <- unique(fit$data$survey_abbrev)[[1]]
@@ -466,10 +484,12 @@ message("  - eval_years: ", paste(eval_years, collapse = ", "))
     all_zero = all(test_sim$observed == 0, na.rm = TRUE),
     all_NAs = all(is.na(test_sim$observed)),
     bad_range = any(catch_prop < 0 | catch_prop > 1, na.rm = TRUE),
-    missing_columns = any(!colnames(test_sim) %in%
-      c("survey_abbrev", "replicate",
-        "year_covariate", "mpa_trend", "restricted",
-        "observed", "hook_count"))
+    missing_columns = any(!c(
+      "survey_abbrev", "replicate",
+      "year_covariate", "mpa_trend", "restricted",
+      "observed", "hook_count"
+    ) %in%
+      colnames(test_sim))
   )
 
   if (any(checks > 0)) {
@@ -576,7 +596,8 @@ message("  - eval_years: ", paste(eval_years, collapse = ", "))
   sim_data <- purrr::map(sim_files, function(f) {
     allocation_lu <- readRDS(file.path("data-generated", "allocation-lu.rds"))
     rep <- as.integer(stringr::str_extract(basename(f), "(?<=rep)\\d+"))
-    sim_dat <- readRDS(f) |> left_join(allocation_lu, by = join_by(X, Y, survey_abbrev))
+    sim_dat <- readRDS(f) |>
+      left_join(allocation_lu, by = join_by(X, Y, survey_abbrev, restricted))
 
     historical_locations <- readRDS(file.path("data-generated", "historical-locations.rds")) |>
       tidyr::drop_na(block_id) |>
@@ -893,10 +914,12 @@ message("  - eval_years: ", paste(eval_years, collapse = ", "))
   if (Sys.info()['user'] %in% c("dunic", "anderson")) {
     USE_PARALLEL <- TRUE
     N_WORKERS <- 80
-  }
-  if (Sys.info()['user'] %in% c("jillian", "jilliandunic")) {
+  } else if (Sys.info()['user'] %in% c("jillian", "jilliandunic")) {
     USE_PARALLEL <- TRUE
     N_WORKERS <- ifelse(Sys.info()['user'] == "jillian", 10, 8)
+  } else {
+    USE_PARALLEL <- TRUE
+    N_WORKERS <- 5L
   }
   # replicates <- 1:20
   eval_years <- c(2030, 2034, 2038, 2042, 2046)
@@ -1009,7 +1032,7 @@ sp_list <- c("yelloweye rockfish")
 mpa_rate_list <- c("10%")
 # mpa_rate_list <- c("25%")
 
-replicates <- 1:20 # FIXME not used in function right now
+replicates <- 1:2
 
 stop('stop here', call. = FALSE)
 
@@ -1017,7 +1040,7 @@ tag_list <- c("svc-rates-sd-0.01", "no-svc-rates")
 for (sp in sp_list) {
   for (mpa_rate in mpa_rate_list) {
     for (tag in tag_list) {
-      run_ssf(sp, mpa_rate, tag = tag)
+      run_ssf(sp, mpa_rate, tag = tag, reps = replicates)
     }
   }
 }
@@ -1204,6 +1227,4 @@ ggplot(data = ) +
   ggtitle("Power")
 # p1
 
-(p1 / b1 / c1) + plot_annotation(title = res_tag)
-
-
+(p1 / b1 / c1) + plot_annotation(title = tag)

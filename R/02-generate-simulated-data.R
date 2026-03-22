@@ -8,11 +8,6 @@ source(here::here("R", "00-setup.R"))
 # source(here::here("R", "01-fit-conditioning-models.R"))
 source(here::here("R", "00-fit-sim-functions.R"))
 
-# # Make sure we are using latest recovery rates
-# knitr::purl(here::here("R", "recovery-rates-clean.Rmd"), output = here::here("R", "recovery-rates-clean.R"))
-# # Source the newly created R script to run all code in the console
-# source(here::here("R", "recovery-rates-clean.R"))
-
 # =============================================================================
 # Configuration
 # =============================================================================
@@ -33,10 +28,27 @@ if (Sys.info()['user'] %in% c("jillian", "jilliandunic")) {
 sim_dir <- here::here("data-generated", "sim-data")
 dir.create(sim_dir, showWarnings = FALSE, recursive = TRUE)
 
-# Load and validate recovery rates
-# ---------------------------------
-recovery_rates <- readRDS(here::here("data-generated", "recovery-rates-lambda.rds"))
-message("Loaded recovery rates for ", length(unique(recovery_rates$species)), " species")
+# Define species list and fixed recovery-rate scenarios
+# -----------------------------------------------------
+sp_list <- c(
+  "yelloweye rockfish",
+  "north pacific spiny dogfish",
+  "lingcod",
+  "quillback rockfish",
+  "canary rockfish",
+  "silvergray rockfish"
+)
+
+fixed_rate_table <- tidyr::crossing(
+  species = sp_list,
+  scenario = c("5%", "10%", "25%", "50%")
+) |>
+  mutate(
+    lambda = c(1.05, 1.10, 1.25, 1.50)[match(scenario, c("5%", "10%", "25%", "50%"))]^(1 / 25)
+  )
+
+message("Using fixed recovery-rate scenarios for ", length(unique(fixed_rate_table$species)), " species")
+message("Recovery lambdas: ", paste(round(sort(unique(fixed_rate_table$lambda)), 5), collapse = ", "))
 
 ar1_parameters <- readRDS(here::here("data-generated", "ar1-parameters.rds"))
 message("Loaded AR1 parameters for ", nrow(ar1_parameters), " species × survey combinations")
@@ -633,6 +645,7 @@ reps <- 1:20
 # Main execution
 # =============================================================================
 
+<<<<<<< HEAD
 # Define species list
 sp_list <- c(
   "yelloweye rockfish"#,
@@ -649,6 +662,10 @@ rr <- readRDS(file.path("data-generated", "recovery-rates-lambda.rds")) |>
 
 # Filter to species with recovery rates
 missing_rates <- setdiff(sp_list, unique(recovery_rates$species))
+=======
+# Filter to species with fixed recovery rates
+missing_rates <- setdiff(sp_list, unique(fixed_rate_table$species))
+>>>>>>> c4455ca90d45e79949ca31649e9508f9c79b7b35
 if (length(missing_rates) > 0) {
   warning("Skipping species without recovery rates: ", paste(missing_rates, collapse = ", "))
   sp_list <- setdiff(sp_list, missing_rates)
@@ -658,7 +675,7 @@ if (length(sp_list) == 0) {
   stop("No species with recovery rates available. Cannot proceed.")
 }
 
-extra_rates <- setdiff(unique(recovery_rates$species), sp_list)
+extra_rates <- setdiff(unique(fixed_rate_table$species), sp_list)
 if (length(extra_rates) > 0) {
   message("Note: Recovery rates available but not used for: ",
           paste(extra_rates, collapse = ", "))
@@ -727,7 +744,7 @@ message("\n=== Creating Species × Survey-Specific Parameter Grids ===")
 
 task_grid <- purrr::map_dfr(names(all_species_fits), function(sp_name) {
   # Get species-specific recovery rates
-  sp_rates <- recovery_rates |>
+  sp_rates <- fixed_rate_table |>
     filter(species == sp_name) |>
     pull(lambda)
   sp_rates <- 1.0096
