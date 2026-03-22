@@ -316,6 +316,7 @@ run_ssf <- function(species, mpa_rate, tag, reps = 1:25, parallel = TRUE) {
 
     tvc_intercept <- if (!is.null(rho_V)) ~ 1 else NULL
 
+
     # Simulate data --------------------------------------------------------------
     sim_dat <- sdmTMB::simulate_new(
       formula = formula,
@@ -352,13 +353,17 @@ run_ssf <- function(species, mpa_rate, tag, reps = 1:25, parallel = TRUE) {
         sigma_O = mpa_trend_gmrf_sd,
         mesh = input_mesh,
         seed = seed * 18273,
-        B = 0.01
+        B = mpa_trend
       )
       # ggplot(svc, aes(X, Y, colour = mu)) + geom_point()
       # hist(svc$mu); abline(v = mpa_trend, col = "red"); abline(v = mpa_trend * 2, col = "blue")
       # mean(svc$mu)
       # sd(svc$mu)
       sim_dat$svc_log_lambda <- rep(svc$mu, length.out = length(sim_dat$year))
+
+    } else {
+      sim_dat$svc_log_lambda <- mpa_trend # constant; not SVC
+    }
       sim_dat <- mutate(sim_dat, eta = ifelse(restricted == 1, eta + year * svc_log_lambda, eta))
 
       set.seed(seed * 291818)
@@ -374,7 +379,7 @@ run_ssf <- function(species, mpa_rate, tag, reps = 1:25, parallel = TRUE) {
         prob = inv_cloglog(sim_dat$eta),
         phi = phi
       )
-    }
+
 
     sim_dat$hook_count <- weights
     sim_dat$survey_abbrev <- survey_type
