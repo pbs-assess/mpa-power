@@ -8,7 +8,7 @@ library(patchwork)
 theme_set(gfplot::theme_pbs())
 
 # TODO PUT THIS SOMEWHERE BETTER
-run_ssf <- function(species, mpa_rate, tag) {
+run_ssf <- function(species, mpa_rate, tag, mpa_trend_gmrf_sd) {
   hbll_allocations <- readRDS(here::here("data-generated", "hbll-allocations.rds")) |>
     as_tibble()
   hbll_grid <- gfdata::load_survey_blocks(type = "XY") |>
@@ -1006,10 +1006,10 @@ message("  - eval_years: ", paste(eval_years, collapse = ", "))
 # mpa_rate_list <- c("5%", "10%", "25%", "50%")
 
 sp_list <- c("yelloweye rockfish")
-# mpa_rate_list <- c("10%")
-mpa_rate_list <- c("25%")
+mpa_rate_list <- c("10%")
+# mpa_rate_list <- c("25%")
 
-replicates <- 1:25 # FIXME not used in function right now
+replicates <- 1:20 # FIXME not used in function right now
 
 stop('stop here', call. = FALSE)
 
@@ -1137,6 +1137,9 @@ message("Reading results from ", basename(results_dir),
   "\n - replicate: ", min(replicates), " to ", max(replicates),
   "\n - eval year: ", paste(eval_years, collapse = ", "))
 
+# res_tag <- "no-svc-rates"
+res_tag <- "svc-rates-sd-0.01"
+res_dir <- here::here("data-generated", paste0("4-fitted-results-", res_tag))
 results_files <- list.files(results_dir,
   pattern = paste0(sp_to_hyphens(sp),
   "-", round(lambda_val, 4),
@@ -1149,7 +1152,7 @@ all_fitted_results <- purrr::map_dfr(results_files, function(f) {
 }) |>
   mutate(mpa_trend = log(lambda_val),
          plan = sampling_plan,
-         tag = tag,
+         tag = res_tag,
          species = sp
          )
 
@@ -1178,7 +1181,7 @@ ggplot(data = _) +
   geom_hline(aes(yintercept = log(lambda_val)), colour = "red") +
   facet_grid(. ~ eval_year) +
   ggtitle("Bias check")
-b1
+# b1
 
 # Cumulative power plot --------------------------------------------------------
 cpower <- get_cumul_power(power_df, combo)
@@ -1190,7 +1193,7 @@ ggplot(data = ) +
   geom_hline(yintercept = 0.8, linetype = "dashed", colour = "grey50") +
   facet_grid(. ~ eval_year) +
   ggtitle("Cumulative power")
-c1
+# c1
 # Main power plot --------------------------------------------------------------
 p1 <- power_df |>
 ggplot(data = ) +
@@ -1199,8 +1202,8 @@ ggplot(data = ) +
   geom_line(aes(group = mpa_effect_pct)) +
   geom_hline(yintercept = 0.8, linetype = "dashed", colour = "grey50") +
   ggtitle("Power")
-p1
+# p1
 
-(p1 / b1 / c1) + plot_annotation(title = tag)
+(p1 / b1 / c1) + plot_annotation(title = res_tag)
 
 
