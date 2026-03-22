@@ -121,7 +121,7 @@ run_ssf <- function(species, mpa_rate, tag, reps = 1:25, parallel = TRUE) {
     } else if (Sys.info()['user'] %in% c("jillian", "jilliandunic")) {
       N_WORKERS <- ifelse(Sys.info()['user'] == "jillian", 10, 8)
     } else {
-      N_WORKERS <- floor(future::availableCores()) - 2L
+      N_WORKERS <- max(1L, floor(future::availableCores()) - 2L)
     }
   } else {
     N_WORKERS <- 1L
@@ -707,6 +707,9 @@ run_ssf <- function(species, mpa_rate, tag, reps = 1:25, parallel = TRUE) {
       "-(HBLL INS N|HBLL OUT N|HBLL OUT S)-",
       round(lambda_val, 4), "-rep\\d{3}.*rds"),
     full.names = TRUE)
+  sim_files <- sim_files[
+    as.integer(stringr::str_extract(basename(sim_files), "(?<=rep)\\d+")) %in% reps
+  ]
 
   sim_data <- purrr::map(sim_files, function(f) {
     allocation_lu <- readRDS(file.path("data-generated", "allocation-lu.rds"))
@@ -934,7 +937,7 @@ run_ssf <- function(species, mpa_rate, tag, reps = 1:25, parallel = TRUE) {
   }
   # Process each replicate; `future_walk()` runs sequentially when the plan is sequential
   results_parallel <- furrr::future_walk(
-    replicates,
+    reps,
     function(rep_num) {
       # Fit all eval years for this replicate
       rep_results <- purrr::map_dfr(eval_years, function(eval_yr) {
