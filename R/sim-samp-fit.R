@@ -484,10 +484,12 @@ message("  - eval_years: ", paste(eval_years, collapse = ", "))
     all_zero = all(test_sim$observed == 0, na.rm = TRUE),
     all_NAs = all(is.na(test_sim$observed)),
     bad_range = any(catch_prop < 0 | catch_prop > 1, na.rm = TRUE),
-    missing_columns = any(!colnames(test_sim) %in%
-      c("survey_abbrev", "replicate",
-        "year_covariate", "mpa_trend", "restricted",
-        "observed", "hook_count"))
+    missing_columns = any(!c(
+      "survey_abbrev", "replicate",
+      "year_covariate", "mpa_trend", "restricted",
+      "observed", "hook_count"
+    ) %in%
+      colnames(test_sim))
   )
 
   if (any(checks > 0)) {
@@ -594,7 +596,8 @@ message("  - eval_years: ", paste(eval_years, collapse = ", "))
   sim_data <- purrr::map(sim_files, function(f) {
     allocation_lu <- readRDS(file.path("data-generated", "allocation-lu.rds"))
     rep <- as.integer(stringr::str_extract(basename(f), "(?<=rep)\\d+"))
-    sim_dat <- readRDS(f) |> left_join(allocation_lu, by = join_by(X, Y, survey_abbrev))
+    sim_dat <- readRDS(f) |>
+      left_join(allocation_lu, by = join_by(X, Y, survey_abbrev, restricted))
 
     historical_locations <- readRDS(file.path("data-generated", "historical-locations.rds")) |>
       tidyr::drop_na(block_id) |>
@@ -911,10 +914,12 @@ message("  - eval_years: ", paste(eval_years, collapse = ", "))
   if (Sys.info()['user'] %in% c("dunic", "anderson")) {
     USE_PARALLEL <- TRUE
     N_WORKERS <- 80
-  }
-  if (Sys.info()['user'] %in% c("jillian", "jilliandunic")) {
+  } else if (Sys.info()['user'] %in% c("jillian", "jilliandunic")) {
     USE_PARALLEL <- TRUE
     N_WORKERS <- ifelse(Sys.info()['user'] == "jillian", 10, 8)
+  } else {
+    USE_PARALLEL <- TRUE
+    N_WORKERS <- 5L
   }
   # replicates <- 1:20
   eval_years <- c(2030, 2034, 2038, 2042, 2046)
