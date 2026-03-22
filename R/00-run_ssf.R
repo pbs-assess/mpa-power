@@ -8,6 +8,13 @@ prep_full_timeseries <- function(species, sampling_plan, rep_num, sample_dir,
   )
   n_files <- length(samp_files)
 
+  if (n_files == 0) {
+    stop("No sampled files found for species=", species,
+      ", sampling_plan=", sampling_plan,
+      ", rep_num=", rep_num,
+      " in sample_dir=", sample_dir)
+  }
+
   if (length(samp_files) > 3) {
     warning("Found ", n_files, " files, using first 3 only")
     samp_files <- samp_files[1:3]
@@ -54,7 +61,10 @@ prep_full_timeseries <- function(species, sampling_plan, rep_num, sample_dir,
 }
 
 fit_simulation <- function(dat,
-  formula = catch_prop ~ 0 + fyear + restricted:year_covariate,
+  # formula = catch_prop ~ 0 + fyear + restricted:year_covariate,
+  formula = catch_prop ~ 1 + restricted:year_covariate,
+  time_varying = ~ 1,
+  time_varying_type = "ar1",
   spatial = "on",
   spatiotemporal = "iid",
   family = betabinomial(link = "cloglog"),
@@ -111,7 +121,7 @@ run_ssf <- function(species, mpa_rate, tag, reps = 1:25, parallel = TRUE) {
     } else if (Sys.info()['user'] %in% c("jillian", "jilliandunic")) {
       N_WORKERS <- ifelse(Sys.info()['user'] == "jillian", 10, 8)
     } else {
-      N_WORKERS <- floor(future::availableCores() / 2)
+      N_WORKERS <- max(1L, floor(future::availableCores()) - 2L)
     }
   } else {
     N_WORKERS <- 1L
@@ -309,6 +319,7 @@ run_ssf <- function(species, mpa_rate, tag, reps = 1:25, parallel = TRUE) {
 
     tvc_intercept <- if (!is.null(rho_V)) ~ 1 else NULL
 
+
     # Simulate data --------------------------------------------------------------
     sim_dat <- sdmTMB::simulate_new(
       formula = formula,
@@ -345,13 +356,18 @@ run_ssf <- function(species, mpa_rate, tag, reps = 1:25, parallel = TRUE) {
         sigma_O = mpa_trend_gmrf_sd,
         mesh = input_mesh,
         seed = seed * 18273,
-        B = 0.01
+        B = mpa_trend
       )
       # ggplot(svc, aes(X, Y, colour = mu)) + geom_point()
       # hist(svc$mu); abline(v = mpa_trend, col = "red"); abline(v = mpa_trend * 2, col = "blue")
       # mean(svc$mu)
       # sd(svc$mu)
       sim_dat$svc_log_lambda <- rep(svc$mu, length.out = length(sim_dat$year))
+
+    } else {
+      sim_dat$svc_log_lambda <- mpa_trend # constant; not SVC
+    }
+
       sim_dat <- mutate(sim_dat, eta = ifelse(restricted == 1, eta + year * svc_log_lambda, eta))
 
       set.seed(seed * 291818)
@@ -367,7 +383,7 @@ run_ssf <- function(species, mpa_rate, tag, reps = 1:25, parallel = TRUE) {
         prob = inv_cloglog(sim_dat$eta),
         phi = phi
       )
-    }
+
 
     sim_dat$hook_count <- weights
     sim_dat$survey_abbrev <- survey_type
@@ -557,6 +573,7 @@ run_ssf <- function(species, mpa_rate, tag, reps = 1:25, parallel = TRUE) {
   meep()
 
   future::plan(future::sequential)
+  check_rep <- reps[[1]]
 
   # SIMULATION CHECKS --------
   test_sim <- purrr::map_dfr(c("HBLL INS N", "HBLL OUT N", "HBLL OUT S"), function(survey) {
@@ -564,7 +581,7 @@ run_ssf <- function(species, mpa_rate, tag, reps = 1:25, parallel = TRUE) {
       sim_dir, paste0(sp_to_hyphens(sp),
         "-", survey,
         "-", round(lambda_val, 4),
-        "-rep", sprintf("%03d", 1), ".rds")
+        "-rep", sprintf("%03d", check_rep), ".rds")
     )
     )
   })
@@ -690,6 +707,9 @@ run_ssf <- function(species, mpa_rate, tag, reps = 1:25, parallel = TRUE) {
       "-(HBLL INS N|HBLL OUT N|HBLL OUT S)-",
       round(lambda_val, 4), "-rep\\d{3}.*rds"),
     full.names = TRUE)
+  sim_files <- sim_files[
+    as.integer(stringr::str_extract(basename(sim_files), "(?<=rep)\\d+")) %in% reps
+  ]
 
   sim_data <- purrr::map(sim_files, function(f) {
     allocation_lu <- readRDS(file.path("data-generated", "allocation-lu.rds"))
@@ -739,7 +759,7 @@ run_ssf <- function(species, mpa_rate, tag, reps = 1:25, parallel = TRUE) {
       "-", survey,
       "-", round(lambda_val, 4),
       "-", sampling_plan,
-      "-rep", sprintf("%03d", 1), ".rds")))
+      "-rep", sprintf("%03d", check_rep), ".rds")))
   })
 
   ggplot(samp_data) +
@@ -813,7 +833,7 @@ run_ssf <- function(species, mpa_rate, tag, reps = 1:25, parallel = TRUE) {
 
   # DATA STRUCTURE CHECKING ------------------------------------------------------
   # This is what goes into the model fitting
-  check_data_prep <- prep_full_timeseries(sp, sampling_plan, rep_num = 1, sample_dir, hist_dir)
+  check_data_prep <- prep_full_timeseries(sp, sampling_plan, rep_num = check_rep, sample_dir, hist_dir)
 
   # Check that years are correct
   p1 <- ggplot(data = check_data_prep) +
@@ -917,7 +937,7 @@ run_ssf <- function(species, mpa_rate, tag, reps = 1:25, parallel = TRUE) {
   }
   # Process each replicate; `future_walk()` runs sequentially when the plan is sequential
   results_parallel <- furrr::future_walk(
-    replicates,
+    reps,
     function(rep_num) {
       # Fit all eval years for this replicate
       rep_results <- purrr::map_dfr(eval_years, function(eval_yr) {
