@@ -11,8 +11,10 @@ theme_set(gfplot::theme_pbs())
 run_ssf <- function(species, mpa_rate, tag, reps = 1:25) {
   hbll_allocations <- readRDS(here::here("data-generated", "hbll-allocations.rds")) |>
     as_tibble()
-  hbll_grid <- gfdata::load_survey_blocks(type = "XY") |>
-    filter(stringr::str_detect(survey_abbrev, "HBLL"))
+  hbll_grid <- readRDS(here::here("data-generated", "hbll-restricted-sf.rds")) |>
+    sf::st_drop_geometry() |>
+    distinct(survey_series_id, survey_abbrev, block_id, grouping_code, depth_m,
+      active_block, area, X, Y, restricted)
 
   allocation_lu <- left_join(hbll_grid, hbll_allocations) |>
     select(-depth_m, -active_block, -area)
@@ -1025,7 +1027,7 @@ sp_list <- c("yelloweye rockfish")
 mpa_rate_list <- c("10%")
 # mpa_rate_list <- c("25%")
 
-replicates <- 1:20 # FIXME not used in function right now
+replicates <- 1:2
 
 stop('stop here', call. = FALSE)
 
