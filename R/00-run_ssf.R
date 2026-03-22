@@ -367,6 +367,7 @@ run_ssf <- function(species, mpa_rate, tag, reps = 1:25, parallel = TRUE) {
     } else {
       sim_dat$svc_log_lambda <- mpa_trend # constant; not SVC
     }
+
       sim_dat <- mutate(sim_dat, eta = ifelse(restricted == 1, eta + year * svc_log_lambda, eta))
 
       set.seed(seed * 291818)
@@ -572,6 +573,7 @@ run_ssf <- function(species, mpa_rate, tag, reps = 1:25, parallel = TRUE) {
   meep()
 
   future::plan(future::sequential)
+  check_rep <- reps[[1]]
 
   # SIMULATION CHECKS --------
   test_sim <- purrr::map_dfr(c("HBLL INS N", "HBLL OUT N", "HBLL OUT S"), function(survey) {
@@ -579,7 +581,7 @@ run_ssf <- function(species, mpa_rate, tag, reps = 1:25, parallel = TRUE) {
       sim_dir, paste0(sp_to_hyphens(sp),
         "-", survey,
         "-", round(lambda_val, 4),
-        "-rep", sprintf("%03d", 1), ".rds")
+        "-rep", sprintf("%03d", check_rep), ".rds")
     )
     )
   })
@@ -754,7 +756,7 @@ run_ssf <- function(species, mpa_rate, tag, reps = 1:25, parallel = TRUE) {
       "-", survey,
       "-", round(lambda_val, 4),
       "-", sampling_plan,
-      "-rep", sprintf("%03d", 1), ".rds")))
+      "-rep", sprintf("%03d", check_rep), ".rds")))
   })
 
   ggplot(samp_data) +
@@ -828,7 +830,7 @@ run_ssf <- function(species, mpa_rate, tag, reps = 1:25, parallel = TRUE) {
 
   # DATA STRUCTURE CHECKING ------------------------------------------------------
   # This is what goes into the model fitting
-  check_data_prep <- prep_full_timeseries(sp, sampling_plan, rep_num = 1, sample_dir, hist_dir)
+  check_data_prep <- prep_full_timeseries(sp, sampling_plan, rep_num = check_rep, sample_dir, hist_dir)
 
   # Check that years are correct
   p1 <- ggplot(data = check_data_prep) +
