@@ -413,7 +413,6 @@ message("  - eval_years: ", paste(eval_years, collapse = ", "))
   # future::plan(future::sequential)
   # map_fn <- purrr::pmap # sequential
   #
-  reps <- 1:20
   sims <- map_fn(sim_task_grid, function(rep, fit_file, lambda_val) {
     fit <- readRDS(fit_file)
     survey_abbrev <- unique(fit$data$survey_abbrev)[[1]]
