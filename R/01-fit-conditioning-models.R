@@ -230,7 +230,7 @@ sp_list <- c(
   "north pacific spiny dogfish",
   "lingcod",
   "quillback rockfish",
-  # "pacific halibut",
+  "pacific halibut",
   "canary rockfish",
   "silvergray rockfish"
 )
@@ -288,6 +288,28 @@ all_fits_flat <- all_fits |> purrr::flatten()
 n_fits_attempted <- length(sp_list) * 3  # 3 surveys per species
 n_fits_succeeded <- sum(purrr::map_lgl(all_fits_flat, ~!is.null(.x) && inherits(.x, "sdmTMB")))
 n_fits_failed <- n_fits_attempted - n_fits_succeeded
+
+# Grab some values for comparison later:
+fit_characteristics <- purrr::map_dfr(all_fits_flat, \(x) {
+  if (!is.null(x) && inherits(x, "sdmTMB")) {
+    p <- tidy(x, "ran_pars")
+    sp <- unique(x$data$species_common_name)
+    surv <- unique(x$data$survey_abbrev)
+    encountered_count_per_year <- sum(x$data$catch_count) / length(unique(x$data$year))
+    temp <- group_by(x$data, fishing_event_id) |>
+      summarise(encountered = sum(catch_count, na.rm = TRUE) > 1) |> ungroup()
+    encountered_rate_avg <- mean(temp$encountered)
+    pw <- p |> select(1:2) |> tidyr::pivot_wider(names_from  = term, values_from = estimate)
+    out <- tibble(
+      species = sp,
+      survey = surv,
+      encountered_count_per_year = encountered_count_per_year,
+      encountered_rate_avg = encountered_rate_avg
+    )
+    bind_cols(out, pw)
+  }
+})
+saveRDS(fit_characteristics, here::here("data-generated", "fit_characteristics.rds"))
 
 message("\n=== Fitting Summary ===")
 message(sprintf("Attempted: %d species × survey combinations", n_fits_attempted))
