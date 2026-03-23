@@ -176,6 +176,33 @@ load_sim_data <- function(species, survey_abbrev, mpa_trend, ar1_scenario,
   return(sim_dat)
 }
 
+#' Get available replicate IDs for a simulation file pattern
+#'
+#' @param file_pattern File pattern from simulation summary
+#' @param sim_dir Directory containing simulated data
+#'
+#' @return Sorted integer vector of available replicate IDs
+get_available_sim_replicates <- function(file_pattern, sim_dir) {
+  if (!grepl("-rep\\*-", file_pattern)) {
+    return(integer())
+  }
+
+  replicate_files <- list.files(
+    path = sim_dir,
+    pattern = glob2rx(file_pattern),
+    full.names = FALSE
+  )
+
+  if (length(replicate_files) == 0) {
+    return(integer())
+  }
+
+  replicate_ids <- stringr::str_match(replicate_files, "rep([0-9]{3})")[, 2] |>
+    as.integer()
+
+  sort(unique(replicate_ids[!is.na(replicate_ids)]))
+}
+
 #' Generate clean filename for sampled data
 #'
 #' @param species Species name
@@ -439,11 +466,11 @@ if (is.na(ye_mpa_trend)) {
 # =============================================================================
 
 USE_PARALLEL <- TRUE
-#N_WORKERS <- 6
+N_WORKERS <- NULL
 
 # Setup parallel processing
 if (USE_PARALLEL) {
-  if (is.null(N_WORKERS)) N_WORKERS <- floor(future::availableCores() / 2)
+  if (is.null(N_WORKERS)) N_WORKERS <- max(1L, floor(future::availableCores() / 2))
 
   if (Sys.info()['user'] %in% c("dunic", "anderson")) {
     future::plan(future::multicore, workers = N_WORKERS)
@@ -491,7 +518,7 @@ if (USE_PARALLEL) {
 #   FILTER_TIME_SCENARIO: Character vector of time scenario names
 #   FILTER_REPLICATES: Integer vector of replicate numbers
 
-FILTER_SPECIES <- NULL#c("silvergray rockfish", "yelloweye rockfish")
+FILTER_SPECIES <- "pacific halibut" #c("silvergray rockfish", "yelloweye rockfish")
 FILTER_SURVEY <- NULL
 FILTER_MPA_TREND <- NULL
 FILTER_AR1_SCENARIO <- NULL#"fitted_AR1"
@@ -566,11 +593,36 @@ sampling_summary <- purrr::map_dfr(species_list, function(sp) {
 
     row <- list(...)
 
-    # Determine which replicates to process
+    # Determine which replicate IDs actually exist on disk for this combo.
+    available_replicates <- get_available_sim_replicates(row$file, sim_dir)
+
+    if (length(available_replicates) == 0) {
+      warning(
+        "No simulation replicate files found for species=", row$species,
+        ", survey=", row$survey_abbrev,
+        ", mpa=", row$mpa_trend,
+        ", ar1=", row$ar1_scenario,
+        ", time=", row$time_scenario,
+        ". Skipping this parameter combination."
+      )
+      return(tibble())
+    }
+
     replicates_to_process <- if (!is.null(replicate_filter)) {
-      intersect(replicate_filter, 1:row$n_replicates)
+      intersect(replicate_filter, available_replicates)
     } else {
-      1:row$n_replicates
+      available_replicates
+    }
+
+    if (length(replicates_to_process) == 0) {
+      message(
+        "  No requested replicates available for survey=", row$survey_abbrev,
+        ", mpa=", row$mpa_trend,
+        ", requested=", paste(replicate_filter, collapse = ", "),
+        ", available=", paste(available_replicates, collapse = ", "),
+        ". Skipping."
+      )
+      return(tibble())
     }
 
     # Define sampling plan names
