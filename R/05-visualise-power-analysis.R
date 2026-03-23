@@ -8,8 +8,9 @@ theme_set(gfplot::theme_pbs())
 
 source(here::here("R", "00-fit-power-analysis-functions.R"))
 
-hbll_ecp_encounter_cpue <- readRDS(here::here("data-generated", "overlays", "hbll-ecp-encounter-cpue.rds"))
-glimpse(hbll_ecp_encounter_cpue)
+# FIXME: missing!
+# hbll_ecp_encounter_cpue <- readRDS(here::here("data-generated", "overlays", "hbll-ecp-encounter-cpue.rds"))
+# glimpse(hbll_ecp_encounter_cpue)
 
 presentation <- FALSE
 if (presentation) {
@@ -52,7 +53,9 @@ summarise_power <- function(power_df,
       n_converged = sum(converged),
       convergence_rate = n_converged / n_reps,
       n_significant = sum(significant & converged),
+      n_significant_signed = sum(significant & converged & sign_correct),
       power = n_significant / n_converged,
+      power_signed = n_significant_signed / n_converged,
       power_allreps = n_significant / n_reps,
       type_s_error = sum(!sign_correct & significant & converged) / n_significant,
       type_m_error = mean(ratio_to_true[significant & converged], na.rm = TRUE),
@@ -286,10 +289,10 @@ year_threshold <- dat |>
 
 power_summary <- dat |>
   filter(sampling_plan == "status quo") |> #, sim_ar1_scenario == "fitted_AR1") |>
-  select(species, mpa_effect_label, eval_year, power, n_converged, n_reps) |>
+  select(species, mpa_effect_label, eval_year, power_signed, n_converged, n_reps) |>
   pivot_wider(
     names_from = eval_year,
-    values_from = power,
+    values_from = power_signed,
     names_prefix = "power_"
   ) |>
   left_join(year_threshold, by = c("species", "mpa_effect_label")) |>
@@ -301,10 +304,10 @@ sampling_comparison <- dat |>
     sim_ar1_scenario == "fitted_AR1",
     eval_year %in% c(2038, 2046)  # Key evaluation years
   ) |>
-  select(species, mpa_effect_label, eval_year, sampling_plan, power) |>
+  select(species, mpa_effect_label, eval_year, sampling_plan, power_signed) |>
   pivot_wider(
     names_from = sampling_plan,
-    values_from = power,
+    values_from = power_signed,
     names_prefix = "power_"
   ) |>
   mutate(
@@ -318,21 +321,21 @@ sampling_comparison <- dat |>
 # Power plot ------
 dat |>
   ggplot() +
-  aes(x = eval_year, y = power, colour = mpa_effect_label,
+  aes(x = eval_year, y = power_signed, colour = mpa_effect_label,
     group = interaction(mpa_effect_label, sim_ar1_scenario, sampling_plan)) +
   geom_line(aes(linetype = sampling_plan)) +
   geom_point() +
   geom_hline(yintercept = 0.8, linetype = "dashed", colour = "grey50") +
   # geom_label(data = dat |> filter(eval_year == 2048), aes(label = (mpa_effect_label)), x = 2048) +
-  facet_grid(cols = vars(species), rows = vars(mpa_effect_label), scales = "free_y") +
-  ggtitle("Power") +
+  facet_grid(cols = vars(stringr::str_to_title(species)), rows = vars(mpa_effect_label), scales = "free_y") +
   scale_colour_manual(values = trend_colours) +
   labs(colour = "MPA trend", linetype = "Sampling plan") +
-  theme(legend.position = "bottom")
+  theme(legend.position = "bottom") + xlab("Evaluation year") + ylab("Correctly signed power") +
+  scale_y_continuous(limits = c(-0.005, 1.005), expand = expansion(mult = c(0, 00)))
 if (presentation) {
   ggsave(file.path(fig_dir, "power.png"), width = 12, height = 5)
 } else {
-  ggsave(file.path(fig_dir, "power.png"), width = 7.6, height = 7.6)
+  ggsave(file.path(fig_dir, "power.png"), width = 10.7, height = 7.2)
 }
 
 # Type M error rate ------
