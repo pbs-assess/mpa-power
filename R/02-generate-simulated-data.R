@@ -36,8 +36,7 @@ dir.create(sim_dir, showWarnings = FALSE, recursive = TRUE)
 # Load and validate recovery rates
 # ---------------------------------
 #recovery_rates <- readRDS(here::here("data-generated", "recovery-rates-lambda.rds"))
-recovery_rates <- expand_grid(species = c("canary rockfish", "lingcod", "pacific halibut", "pacific spiny dogfish",
-  "silvergray rockfish", "yelloweye rockfish"),
+recovery_rates <- expand_grid(species = c("yelloweye rockfish", "quillback rockfish", "lingcod", "pacific halibut", "north pacific spiny dogfish", "silvergray rockfish", "canary rockfish"),
                               lambda = c(exp(log(c(1.05, 1.10, 1.25, 1.5)) / 25)))
                               # lambda = c(exp(log(c(1.25)) / 25)))
 
