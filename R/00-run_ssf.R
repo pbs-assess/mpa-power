@@ -103,7 +103,9 @@ fit_simulation <- function(dat,
   fit
 }
 
-run_ssf <- function(species, mpa_rate, tag, reps = 1:25, parallel = TRUE) {
+run_ssf <- function(species, mpa_rate, tag, reps = 1:25,
+  eval_years = c(2030, 2034, 2038, 2042, 2046),
+  parallel = TRUE) {
   hbll_allocations <- readRDS(here::here("data-generated", "hbll-allocations.rds")) |>
     as_tibble()
   hbll_grid <- readRDS(here::here("data-generated", "hbll-restricted-sf.rds")) |>
@@ -920,12 +922,8 @@ run_ssf <- function(species, mpa_rate, tag, reps = 1:25, parallel = TRUE) {
   # samp_files <- list.files(file.path(sample_dir), full.names = TRUE)
   # hist_files <- list.files(hist_dir, pattern = paste0(sp_to_hyphens(species), ".*"), full.names = TRUE)
 
-  eval_years <- c(2030, 2034, 2038, 2042, 2046)
-
   SAVE_FITS <- TRUE
   SAVE_FITS <- FALSE
-
-  # eval_years <- c(2030, 2034, 2038, 2042, 2046)
 
   # Set up future backend
   if (parallel) {
@@ -962,8 +960,9 @@ run_ssf <- function(species, mpa_rate, tag, reps = 1:25, parallel = TRUE) {
 
         fit_path <- file.path(fit_dir, out_fname)
 
-        if (!file.exists(fit_path) || SAVE_FITS) {
-          # Fit model
+        if (file.exists(fit_path)) {
+          fit <- readRDS(fit_path)
+        } else {
           message('Fitting model for eval year ', eval_yr, '; replicate ', rep_num)
           fit <- fit_simulation(
             dat = cdat,
@@ -976,9 +975,9 @@ run_ssf <- function(species, mpa_rate, tag, reps = 1:25, parallel = TRUE) {
             silent = FALSE
           )
 
-          saveRDS(fit, fit_path)
-        } else {
-          fit <- readRDS(fit_path)
+          if (SAVE_FITS) {
+            saveRDS(fit, fit_path)
+          }
         }
 
         message('Extracting estimates')

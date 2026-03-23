@@ -20,13 +20,14 @@ mpa_rate_list <- c("5%", "10%", "25%", "50%")
 # mpa_rate_list <- c("25%")
 
 replicates <- 1:15
+fit_eval_years <- c(2030, 2034, 2038, 2042, 2046)
 
 # tag_list <- c("svc-rates-sd-0.01", "no-svc-rates")
 tag_list <- c("no-svc-rates")
 for (sp in sp_list) {
   for (mpa_rate in mpa_rate_list) {
     for (tag in tag_list) {
-      run_ssf(sp, mpa_rate, tag = tag, reps = replicates, parallel = T)
+      run_ssf(sp, mpa_rate, tag = tag, reps = replicates, eval_years = fit_eval_years, parallel = T)
     }
   }
 }
