@@ -24,7 +24,7 @@ N_REPLICATES <- 50
 
 if (Sys.info()['user'] %in% c("dunic", "anderson")) {
   USE_PARALLEL <- TRUE
-  N_WORKERS <- 70
+  N_WORKERS <- 80
   N_REPLICATES <- 100
 }
 
@@ -271,7 +271,7 @@ FILTER_MPA_TREND <- NULL #1.018       # NULL = all MPA trends
 FILTER_AR1_SCENARIO <- "fitted_AR1"    # NULL = all AR1 scenarios
 FILTER_TIME_SCENARIO <- "twenty-five_years"   # NULL = all time scenarios
 FILTER_PLAN <- NULL #c("status quo", "MPAs every 4 years")  # NULL = all plans
-FILTER_REPLICATES <- 1:20      # NULL = all available replicates, e.g., 1:50
+FILTER_REPLICATES <- 1:50      # NULL = all available replicates, e.g., 1:50
 FILTER_EVALUATION_YEARS <- NULL #c(2046)  # NULL = all evaluation years
 
 results_dir <- here::here("data-generated", "power-results")

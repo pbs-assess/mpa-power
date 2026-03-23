@@ -9,10 +9,10 @@ source(here::here("R", "00-setup.R"))
 source(here::here("R", "00-fit-sim-functions.R"))
 
 # Make sure we are using latest recovery rates
-knitr::purl(here::here("R", "recovery-rates-clean.Rmd"), output = here::here("R", "recovery-rates-clean.R"))
-# Source the newly created R script to run all code in the console
-source(here::here("R", "recovery-rates-clean.R"))
-
+# knitr::purl(here::here("R", "recovery-rates-clean.Rmd"), output = here::here("R", "recovery-rates-clean.R"))
+# # Source the newly created R script to run all code in the console
+# source(here::here("R", "recovery-rates-clean.R"))
+#
 # =============================================================================
 # Configuration
 # =============================================================================
@@ -35,7 +35,11 @@ dir.create(sim_dir, showWarnings = FALSE, recursive = TRUE)
 
 # Load and validate recovery rates
 # ---------------------------------
-recovery_rates <- readRDS(here::here("data-generated", "recovery-rates-lambda.rds"))
+#recovery_rates <- readRDS(here::here("data-generated", "recovery-rates-lambda.rds"))
+recovery_rates <- expand_grid(species = c("yelloweye rockfish", "quillback rockfish", "lingcod"),
+                              lambda = c(exp(log(c(1.05, 1.10, 1.25, 1.5)) / 25)))
+
+
 message("Loaded recovery rates for ", length(unique(recovery_rates$species)), " species")
 
 ar1_parameters <- readRDS(here::here("data-generated", "ar1-parameters.rds"))
@@ -643,7 +647,7 @@ message("Running simulations for ", length(sp_list), " species")
 # - sigma_V: marginal standard deviation for AR(1) process
 ar1_scenarios <- tribble(
   ~ar1_scenario,
-  # "no_AR1",           # No temporal AR1 variation
+ # "no_AR1",           # No temporal AR1 variation
   "fitted_AR1"        # Use species-survey-specific values from ar1_parameters.rds
 )
 
