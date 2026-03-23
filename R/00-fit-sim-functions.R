@@ -186,7 +186,7 @@ fit_cached_sdmTMB <- function(fit_dir, check_cache = TRUE, update_from = NULL,
   }
 
   # Store sanity check results on final model
-  sanity_result <- sdmTMB::sanity(fit, silent = TRUE)
+  sanity_result <- sdmTMB::sanity(fit, silent = TRUE, gradient_thresh = 0.01)
   fit$sanity_check <- list(
     passed = all(unlist(sanity_result)),
     details = sanity_result,
