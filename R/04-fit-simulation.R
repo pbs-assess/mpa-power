@@ -19,13 +19,18 @@ results_dir <- here::here("data-generated", "power-results")
 dir.create(results_dir, showWarnings = FALSE, recursive = TRUE)
 
 USE_PARALLEL <- TRUE
+<<<<<<< HEAD
 N_WORKERS <- 10 #NULL
 N_REPLICATES <- 10
+=======
+N_WORKERS <- 8 #NULL
+N_REPLICATES <- 20
+>>>>>>> b1e35de (Reduced estimation for testing)
 
 if (Sys.info()['user'] %in% c("dunic", "anderson")) {
   USE_PARALLEL <- TRUE
-  N_WORKERS <- 80
-  N_REPLICATES <- 100
+  N_WORKERS <- 75
+  N_REPLICATES <- 20
 }
 
 if (Sys.info()['user'] %in% c("jillian", "jilliandunic")) {
@@ -34,10 +39,16 @@ if (Sys.info()['user'] %in% c("jillian", "jilliandunic")) {
   N_REPLICATES <- 100
 }
 
+<<<<<<< HEAD
 FORMULA <- catch_prop ~ 0 + fyear + restricted*year_covariate
 # EVALUATION_YEARS <- c(2030, 2034, 2038, 2042, 2046)
 EVALUATION_YEARS <- c(2030, 2038, 2046)
 # EVALUATION_YEARS <- c(2038)
+=======
+FORMULA <- catch_prop ~ 0 + fyear + restricted:year_covariate
+EVALUATION_YEARS <- c(2030, 2034, 2038, 2042, 2046)
+EVALUATION_YEARS <- c(2030, 2038, 2046)
+>>>>>>> b1e35de (Reduced estimation for testing)
 
 hbll_last_sampled_year <- readRDS(file.path("data-generated", "hbll-last-sampled-year.rds"))
 
@@ -267,17 +278,25 @@ sampling_summary <- readRDS(file.path(sample_dir, "sampling-summary.rds"))
 # =============================================================================
 # Task grid filtering (set to NULL to use all available)
 # =============================================================================
+<<<<<<< HEAD
 # FILTER_SPECIES <- "pacific halibut" #"silvergray rockfish"         # NULL = all species
+=======
+>>>>>>> b1e35de (Reduced estimation for testing)
 FILTER_SPECIES <- "pacific halibut" #"silvergray rockfish"         # NULL = all species
 FILTER_SURVEY <- NULL          # NULL = all surveys
 FILTER_MPA_TREND <- NULL #1.018       # NULL = all MPA trends
 # FILTER_MPA_TREND <- 1.088 #1.018       # NULL = all MPA trends
 # FILTER_MPA_TREND <- 1.009 #1.018       # NULL = all MPA trends
 FILTER_AR1_SCENARIO <- "fitted_AR1"    # NULL = all AR1 scenarios
+<<<<<<< HEAD
 # FILTER_TIME_SCENARIO <- "twenty-five_years"   # NULL = all time scenarios
 FILTER_TIME_SCENARIO <- NULL   # NULL = all time scenarios
 # FILTER_PLAN <- NULL #c("status quo", "MPAs every 4 years")  # NULL = all plans
 FILTER_PLAN <- "status quo" #c("status quo", "MPAs every 4 years")  # NULL = all plans
+=======
+FILTER_TIME_SCENARIO <- "twenty-five_years"   # NULL = all time scenarios
+FILTER_PLAN <- NULL #c("status quo", "MPAs every 4 years")  # NULL = all plans
+>>>>>>> b1e35de (Reduced estimation for testing)
 FILTER_REPLICATES <- 1:20      # NULL = all available replicates, e.g., 1:50
 FILTER_EVALUATION_YEARS <- NULL #c(2046)  # NULL = all evaluation years
 
