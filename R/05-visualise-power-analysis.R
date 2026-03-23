@@ -143,6 +143,9 @@ power_df0 <- all_fitted_results |>
 
 power_df0 |> glimpse()
 
+# ignore these for now - sanity was set too strict for no Newton loops:
+power_df0 <- mutate(power_df0, converged = if_else(sanity == "gradients; all", TRUE, converged))
+
 # Calculate scenario-level metrics
 # ------------------------------------------------------------------------------
 combo <- c("species", "survey_abbrev",
@@ -318,6 +321,8 @@ sampling_comparison <- dat |>
 # View(power_summary)
 # View(sampling_comparison)
 
+saveRDS(dat, here::here("data-generated", "power-results-df.rds"))
+
 # Power plot ------
 dat |>
   ggplot() +
@@ -331,11 +336,15 @@ dat |>
   scale_colour_manual(values = trend_colours) +
   labs(colour = "MPA trend", linetype = "Sampling plan") +
   theme(legend.position = "bottom") + xlab("Evaluation year") + ylab("Correctly signed power") +
-  scale_y_continuous(limits = c(-0.005, 1.005), expand = expansion(mult = c(0, 00)))
+  scale_y_continuous(limits = c(-0.005, 1.005), expand = expansion(mult = c(0, 00))) +
+  theme(
+    legend.position = "bottom",
+    panel.spacing.y = unit(0.5, "lines")
+  )
 if (presentation) {
   ggsave(file.path(fig_dir, "power.png"), width = 12, height = 5)
 } else {
-  ggsave(file.path(fig_dir, "power.png"), width = 10.7, height = 7.2)
+  ggsave(file.path(fig_dir, "power.png"), width = 10.7, height = 7)
 }
 
 # Type M error rate ------
