@@ -168,7 +168,7 @@ fit_simulation <- function(dat,
                            spatiotemporal = "iid",
                            family = betabinomial(link = "cloglog"),
                            cutoff = 10,
-                           control = sdmTMBcontrol(collapse_spatial_variance = TRUE, 
+                           control = sdmTMBcontrol(collapse_spatial_variance = TRUE,
                                                              multiphase = FALSE, profile = TRUE, newton_loops = 0L),
                            silent = TRUE) {
 
@@ -198,13 +198,13 @@ fit_simulation <- function(dat,
     control = control
   )
 
-  fit <- local({
+  fit <-
     tryCatch({
       do.call(sdmTMB, params)
     }, error = function(e) {
       list(error = TRUE, message = e$message)
     })
-  })
+  fit
 }
 
 # TODO: move this into extract_trend estimate?
@@ -398,7 +398,7 @@ fit_parameter_combo <- function(combo,
           spatiotemporal = "iid",
           family = betabinomial(link = "cloglog"),
           cutoff = 20,
-          control = sdmTMBcontrol(collapse_spatial_variance = TRUE, multiphase = FALSE, 
+          control = sdmTMBcontrol(collapse_spatial_variance = TRUE, multiphase = FALSE,
                                   profile = TRUE, newton_loops = 0L),
           #control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
           silent = FALSE
