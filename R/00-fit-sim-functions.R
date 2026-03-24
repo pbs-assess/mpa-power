@@ -9,9 +9,9 @@ load_cached_species <- function(sp_name, fit_dir = here::here("data-generated", 
 
   # Pattern for each survey's betabinomial models
   patterns <- c(
-    fit_ON = paste0(sp, "-HBLL-OUT-N-betabinomial-on-iid-"),
-    fit_OS = paste0(sp, "-HBLL-OUT-S-betabinomial-on-iid-"),
-    fit_IN = paste0(sp, "-HBLL-INS-N-betabinomial-on-iid-")
+    fit_ON = paste0(sp, "-HBLL-OUT-N-betabinomial-restricted-on-iid-"),
+    fit_OS = paste0(sp, "-HBLL-OUT-S-betabinomial-restricted-on-iid-"),
+    fit_IN = paste0(sp, "-HBLL-INS-N-betabinomial-restricted-on-iid-")
   )
 
   # Find and load each model
@@ -483,16 +483,27 @@ simulate_hbll <- function(fit,
     b$estimate[b$term == "(Intercept)"]
   }
 
+  restricted_value <- {
+    restricted_terms <- c("restricted", "restrictedTRUE")
+    match_idx <- match(restricted_terms, b$term, nomatch = 0L)
+    match_idx <- match_idx[match_idx > 0]
+    if (length(match_idx) > 0) {
+      b$estimate[match_idx[1]]
+    } else {
+      0
+    }
+  }
+
   if (is.null(B)) {
     B <- numeric(n_coef)
     # Coefficients - @TODO: generalise this...
     B[grep("(Intercept)", coef_names)] <- intercept_value
     # If simulating with year as factor, option to use random draws of year effects
-    B[grep("fyear", coef_names)] <- sample(b[grepl("fyear", b$term), "estimate"], #
-      size = length(B[grep("fyear", coef_names)]), replace = TRUE)
-    B[grep("restrictedTRUE", coef_names)] <- 0
-    B[grep("year_covariate$", coef_names)] <- 0 # Main effect (not interaction)
-    B[grep("restricted:year_covariate", coef_names)] <- mpa_trend
+    # B[grep("fyear", coef_names)] <- sample(b[grepl("fyear", b$term), "estimate"], #
+    #   size = length(B[grep("fyear", coef_names)]), replace = TRUE)
+    B[coef_names %in% c("restricted", "restrictedTRUE")] <- restricted_value
+    B[coef_names == "year_covariate"] <- 0
+    B[coef_names == "restricted:year_covariate"] <- mpa_trend
     # B[grep("poly(log_depth, 2)1", coef_names)] <- b$estimate[b$term == "poly(log_depth, 2)1"]
     # B[grep("poly(log_depth, 2)2", coef_names)] <- b$estimate[b$term == "poly(log_depth, 2)2"]
   }
@@ -581,6 +592,22 @@ simulate_hbll <- function(fit,
     ...
   ) |>
     as_tibble()
+
+  # browser()
+  # group_by(sim_dat) |> group_by(year, restricted) |>
+  #   summarise(s = mean(weights)) |>
+  #   ggplot(aes(year, s, colour = factor(restricted))) + geom_point()
+  #
+  # x <- sim_dat |> group_by(year, restricted) |>
+  #   summarise(mean_density = sum(mu)/n()) #|>
+  #
+  # x <- sim_dat |> group_by(year, restricted) |>
+  #   summarise(mean_density = sum(mu)) |>
+  #   group_by(restricted) |>
+  #   mutate(mean_density = mean_density - mean_density[1])
+
+  # ggplot(x, aes(year, mean_density, colour = factor(restricted))) + geom_line()
+  #
 # browser()
   # to test --> try to match simulate.sdmTMB
   # - start with the sampling data locations
