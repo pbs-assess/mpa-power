@@ -15,7 +15,7 @@ library(digest)
 # =============================================================================
 # Configuration
 # =============================================================================
-USE_PARALLEL <- FALSE
+USE_PARALLEL <- TRUE
 N_WORKERS <- NULL
 
 if (Sys.info()['user'] %in% c("dunic", "anderson")) {
