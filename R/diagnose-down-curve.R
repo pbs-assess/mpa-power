@@ -25,7 +25,7 @@ time_scenario <- "twenty-five_years"
 plan <- "status quo"
 replicate <- 1
 eval_years <- c(2030, 2034, 2038, 2042, 2046)
-# SIMULATED_LOCATION_MODE <- "all_sampled"
+SIMULATED_LOCATION_MODE <- "all_sampled"
 # SIMULATED_LOCATION_MODE <- "historical_locations_only"
 # MODEL_MODE <- "baseline"
 MODEL_MODE <- "future_step"
@@ -34,8 +34,8 @@ if (MODEL_MODE == "baseline") {
   FORMULA <- catch_prop ~ 0 + fyear + restricted*year_covariate
   TARGET_TERMS <- "restricted:year_covariate"
 } else if (MODEL_MODE == "future_step") {
-  FORMULA <- catch_prop ~ 0 + fyear + restricted + year_covariate +
-    restricted:future_step +
+  FORMULA <- catch_prop ~ 0 + fyear + restricted +
+    # restricted:future_step +
     restricted:future_year_covariate
   TARGET_TERMS <- c(
     "restricted:future_step",
@@ -111,6 +111,11 @@ hist_data <- if (!is.null(component_surveys)) {
 fit_one_year <- function(eval_year) {
   combined_data <- combine_hist_sim_data(sampled_data, hist_data, eval_year)
   combined_data <- prepare_fit_data(combined_data, MODEL_MODE)
+  # table(combined_data$year, combined_data$historical)
+  # table(combined_data$year, combined_data$future_step)
+  # table(combined_data$year, combined_data$fyear)
+  # table(combined_data$year, combined_data$future_year_covariate)
+  # table(combined_data$year, combined_data$year_covariate)
 
   if (!is.null(component_surveys)) {
     combined_data <- combined_data |>
@@ -128,7 +133,7 @@ fit_one_year <- function(eval_year) {
       collapse_spatial_variance = TRUE,
       multiphase = FALSE,
       profile = FALSE,
-      newton_loops = 0L
+      newton_loops = 1L
     ),
     silent = TRUE
     # time_varying = ~1,
@@ -185,6 +190,11 @@ down_curve |> filter(term == "restricted:future_year_covariate")
 
 combined_plot_data <- combine_hist_sim_data(sampled_data, hist_data, max(eval_years))
 combined_plot_data <- prepare_fit_data(combined_plot_data, MODEL_MODE)
+
+d <- fits_by_year[[3]]$data
+glimpse(d)
+table(d$year, d$future_step)
+table(d$year, d$fyear)
 
 combined_plot_data |>
   group_by(year, restricted) |>
