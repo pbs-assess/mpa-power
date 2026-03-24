@@ -19,8 +19,7 @@ results_dir <- here::here("data-generated", "power-results")
 dir.create(results_dir, showWarnings = FALSE, recursive = TRUE)
 
 USE_PARALLEL <- TRUE
-
-N_WORKERS <- 10 #NULL
+N_WORKERS <- 6 #NULL
 N_REPLICATES <- 10
 
 if (Sys.info()['user'] %in% c("dunic", "anderson")) {
@@ -35,10 +34,14 @@ if (Sys.info()['user'] %in% c("jillian", "jilliandunic")) {
   N_REPLICATES <- 100
 }
 
-FORMULA <- catch_prop ~ 0 + fyear + restricted*year_covariate
+FORMULA <- catch_prop ~ 0 + fyear + restricted + year_covariate +
+  restricted:future_step + restricted:future_year_covariate
+TREND_PARAM <- "restricted:future_year_covariate"
 # EVALUATION_YEARS <- c(2030, 2034, 2038, 2042, 2046)
 EVALUATION_YEARS <- c(2030, 2038, 2046)
 
+EVALUATION_YEARS <- c(2046)
+# EVALUATION_YEARS <- c(2038)
 
 hbll_last_sampled_year <- readRDS(file.path("data-generated", "hbll-last-sampled-year.rds"))
 
@@ -192,7 +195,8 @@ if (RUN_DEFENSIVE_CHECKS) {
     save_fits = SAVE_TEST_FITS,  # Save fit objects
     fits_dir = TEST_FITS_DIR,  # Where to save fits
     evaluation_years = EVALUATION_YEARS,
-    .formula = FORMULA
+    .formula = FORMULA,
+    .trend_param = TREND_PARAM
   )
 
   message("\n=== Defensive Check Results ===")
@@ -269,7 +273,7 @@ sampling_summary <- readRDS(file.path(sample_dir, "sampling-summary.rds"))
 # Task grid filtering (set to NULL to use all available)
 # =============================================================================
 # FILTER_SPECIES <- "pacific halibut" #"silvergray rockfish"         # NULL = all species
-FILTER_SPECIES <- "pacific halibut" #"silvergray rockfish"         # NULL = all species
+FILTER_SPECIES <- "yelloweye rockfish" #"silvergray rockfish"         # NULL = all species
 FILTER_SURVEY <- NULL          # NULL = all surveys
 FILTER_MPA_TREND <- NULL #1.018       # NULL = all MPA trends
 # FILTER_MPA_TREND <- 1.088 #1.018       # NULL = all MPA trends
@@ -280,7 +284,7 @@ FILTER_TIME_SCENARIO <- NULL   # NULL = all time scenarios
 # FILTER_PLAN <- NULL #c("status quo", "MPAs every 4 years")  # NULL = all plans
 FILTER_PLAN <- "status quo" #c("status quo", "MPAs every 4 years")  # NULL = all plans
 FILTER_TIME_SCENARIO <- "twenty-five_years"   # NULL = all time scenarios
-FILTER_REPLICATES <- 1:20      # NULL = all available replicates, e.g., 1:50
+FILTER_REPLICATES <- 1:10      # NULL = all available replicates, e.g., 1:50
 FILTER_EVALUATION_YEARS <- NULL #c(2046)  # NULL = all evaluation years
 
 results_dir <- here::here("data-generated", "power-results")
@@ -349,7 +353,8 @@ summary_stats <- execute_parallel_fitting(
   replicate_filter = FILTER_REPLICATES,
   evaluation_years_filter = FILTER_EVALUATION_YEARS,
   evaluation_years = EVALUATION_YEARS,
-  .formula = FORMULA
+  .formula = FORMULA,
+  .trend_param = TREND_PARAM
 )
 # meep()
 message("\n=== Creating Summary Catalog ===")
@@ -373,4 +378,3 @@ meep()
 # glimpse(test)
 
 # distinct(test, survey_abbrev)
-
