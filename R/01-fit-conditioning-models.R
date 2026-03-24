@@ -38,7 +38,7 @@ dir.create(mesh_dir, recursive = TRUE, showWarnings = FALSE)
 shared_mesh_species <- "yelloweye rockfish"
 shared_mesh_file <- file.path(
   mesh_dir,
-  paste0(sp_to_hyphens(shared_mesh_species), "-HBLL-combined-mesh.rds")
+  paste0("HBLL-combined-mesh.rds")
 )
 
 if (!file.exists(shared_mesh_file)) {
