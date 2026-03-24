@@ -434,7 +434,7 @@ fit_single_replicate <- function(combo,
         cutoff = 20,
         control = sdmTMBcontrol(collapse_spatial_variance = TRUE, multiphase = FALSE,
                                 profile = FALSE, newton_loops = 1L),
-        silent = FALSE
+        silent = TRUE
       )
 
       if (save_fits && !is.null(fits_dir)) {
