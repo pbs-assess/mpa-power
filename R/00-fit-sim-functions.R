@@ -1,3 +1,24 @@
+#' Toggle whether simulation scripts use the restricted-effect conditioning fits
+use_restricted_conditioning_fits <- function() {
+  isTRUE(getOption("mpa_power.use_restricted_conditioning_fits", TRUE))
+}
+
+#' Build HBLL conditioning-fit filename patterns for a species
+hbll_fit_patterns <- function(sp_name, use_restricted = use_restricted_conditioning_fits()) {
+  sp <- sp_to_hyphens(sp_name)
+  fit_tag <- if (use_restricted) {
+    "betabinomial-restricted-on-iid-"
+  } else {
+    "betabinomial-on-iid-"
+  }
+
+  c(
+    fit_ON = paste0(sp, "-HBLL-OUT-N-", fit_tag),
+    fit_OS = paste0(sp, "-HBLL-OUT-S-", fit_tag),
+    fit_IN = paste0(sp, "-HBLL-INS-N-", fit_tag)
+  )
+}
+
 #' Load cached conditioning models for a species
 #'
 #' @param sp_name Species name (will be converted to hyphens)
@@ -5,14 +26,7 @@
 #'
 #' @return List with fit_ON, fit_OS, fit_IN (same structure as fit_species)
 load_cached_species <- function(sp_name, fit_dir = here::here("data-generated", "fits")) {
-  sp <- sp_to_hyphens(sp_name)
-
-  # Pattern for each survey's betabinomial models
-  patterns <- c(
-    fit_ON = paste0(sp, "-HBLL-OUT-N-betabinomial-restricted-on-iid-"),
-    fit_OS = paste0(sp, "-HBLL-OUT-S-betabinomial-restricted-on-iid-"),
-    fit_IN = paste0(sp, "-HBLL-INS-N-betabinomial-restricted-on-iid-")
-  )
+  patterns <- hbll_fit_patterns(sp_name)
 
   # Find and load each model
   fits <- purrr::map(patterns, function(pattern) {

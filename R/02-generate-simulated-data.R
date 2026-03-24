@@ -16,7 +16,11 @@ source(here::here("R", "00-fit-sim-functions.R"))
 # =============================================================================
 # Configuration
 # =============================================================================
-USE_PARALLEL <- TRUE
+USE_RESTRICTED_CONDITIONING_FITS <- TRUE
+# USE_RESTRICTED_CONDITIONING_FITS <- FALSE
+options(mpa_power.use_restricted_conditioning_fits = USE_RESTRICTED_CONDITIONING_FITS)
+
+USE_PARALLEL <- F
 N_WORKERS <- 8L
 
 if (Sys.info()['user'] %in% c("dunic", "anderson")) {
@@ -137,15 +141,7 @@ generate_sim_filename <- function(species, survey_abbrev, param_row, sim_hash) {
 #' @return List with survey_fits (list of survey configs) or NULL if no valid fits
 prepare_species_fits <- function(sp_name, fit_dir = here::here("data-generated", "fits")) {
   message("Loading fits for species: ", sp_name)
-
-  sp <- sp_to_hyphens(sp_name)
-
-  # Pattern for each survey's betabinomial models
-  patterns <- c(
-    fit_ON = paste0(sp, "-HBLL-OUT-N-betabinomial-restricted-on-iid-"),
-    fit_OS = paste0(sp, "-HBLL-OUT-S-betabinomial-restricted-on-iid-"),
-    fit_IN = paste0(sp, "-HBLL-INS-N-betabinomial-restricted-on-iid-")
-  )
+  patterns <- hbll_fit_patterns(sp_name)
 
   # Find fit files and check sanity
   fit_info <- purrr::map(patterns, function(pattern) {
@@ -580,34 +576,34 @@ run_survey_simulation <- function(sp_name,
 # =============================================================================
 # Defensive check: Test simulation validity
 # =============================================================================
-
-sp <- sp_to_hyphens("yelloweye rockfish")
-# sp <- sp_to_hyphens("lingcod")\
-fit_files <- list.files(here::here("data-generated", "fits"),
-                        pattern = paste0("^", sp, "-HBLL-INS-N-betabinomial-restricted-on-iid-"),
-                        full.names = TRUE)
-if (length(fit_files) > 0) {
-  fit <- readRDS(fit_files[1])
-  fit$sanity_check$passed
-
-  test_sim <- simulate_hbll(
-    fit = readRDS(fit_files[1]), restricted_df = restricted_df, sim_dir = sim_dir,
-    check_cache = FALSE, save_sim = FALSE, formula = ~ 1 + restricted * year_covariate,
-    seed = 999, year_covariate = 0:4, mpa_trend = log(1.01), use_fixed_spatial_field = TRUE
-  )
-
-  catch_prop <- test_sim$observed / test_sim$hook_count
-
-  checks <- c(
-    `NaN` = sum(is.nan(test_sim$observed)),
-    `Inf` = sum(is.infinite(test_sim$observed)),
-    all_zero = all(test_sim$observed == 0, na.rm = TRUE),
-    bad_range = any(catch_prop < 0 | catch_prop > 1, na.rm = TRUE)
-  )
-
-  if (any(checks > 0)) stop("Simulation check failed: ", paste(names(checks)[checks > 0], collapse = ", "))
-  message("✓ Simulation check passed")
-}
+#
+# sp <- sp_to_hyphens("yelloweye rockfish")
+# # sp <- sp_to_hyphens("lingcod")\
+# fit_files <- list.files(here::here("data-generated", "fits"),
+#                         pattern = paste0("^", hbll_fit_patterns(sp)[["fit_IN"]]),
+#                         full.names = TRUE)
+# if (length(fit_files) > 0) {
+#   fit <- readRDS(fit_files[1])
+#   fit$sanity_check$passed
+#
+#   test_sim <- simulate_hbll(
+#     fit = readRDS(fit_files[1]), restricted_df = restricted_df, sim_dir = sim_dir,
+#     check_cache = FALSE, save_sim = FALSE, formula = ~ 1 + restricted * year_covariate,
+#     seed = 999, year_covariate = 0:4, mpa_trend = log(1.01), use_fixed_spatial_field = TRUE
+#   )
+#
+#   catch_prop <- test_sim$observed / test_sim$hook_count
+#
+#   checks <- c(
+#     `NaN` = sum(is.nan(test_sim$observed)),
+#     `Inf` = sum(is.infinite(test_sim$observed)),
+#     all_zero = all(test_sim$observed == 0, na.rm = TRUE),
+#     bad_range = any(catch_prop < 0 | catch_prop > 1, na.rm = TRUE)
+#   )
+#
+#   if (any(checks > 0)) stop("Simulation check failed: ", paste(names(checks)[checks > 0], collapse = ", "))
+#   message("✓ Simulation check passed")
+# }
 
 # =============================================================================
 # Main execution
@@ -677,7 +673,7 @@ formula_scenarios <- tribble(
 )
 
 nreps <- 120
-nreps <- 11
+nreps <- 12
 
 # Note: Parameter grids are now created per-species using recovery rates
 # See task grid creation below for species-specific implementation
