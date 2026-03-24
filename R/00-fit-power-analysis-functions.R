@@ -123,6 +123,17 @@ get_hist_data <- function(species, survey_abbrev, hist_path, cache_env) {
   hist_data
 }
 
+#' Prepare combined historical/simulated data for power fitting
+prepare_power_fit_data <- function(dat) {
+  dat |>
+    mutate(
+      fyear_value = if_else(historical, as.character(year), "future"),
+      fyear = factor(fyear_value),
+      future_step = as.integer(historical == FALSE),
+      future_year_covariate = if_else(historical, 0, year_covariate)
+    )
+}
+
 #' Combine historical and simulated data
 combine_hist_sim_data <- function(sim_data, hist_data, eval_year) {
   hbll_last_sampled_year <- readRDS(file.path("data-generated", "hbll-last-sampled-year.rds"))
@@ -148,10 +159,9 @@ combine_hist_sim_data <- function(sim_data, hist_data, eval_year) {
            plan, sim_mpa_trend, sim_ar1_scenario, sim_time_scenario) |>
     mutate(
       replicate = ifelse(historical, 0, replicate),
-      catch_prop = catch_count / hook_count,
-      fyear_value = ifelse(historical, year, last_sampled_year),
-      fyear = as.factor(fyear_value)
+      catch_prop = catch_count / hook_count
     ) |>
+    prepare_power_fit_data() |>
     filter(year <= eval_year)
 
   if (nrow(combined_data) == 0) {
@@ -163,7 +173,8 @@ combine_hist_sim_data <- function(sim_data, hist_data, eval_year) {
 
 #' Fit sdmTMB model to sampled data
 fit_simulation <- function(dat,
-                           formula = catch_prop ~ 0 + fyear + restricted:year_covariate,
+                           formula = catch_prop ~ 0 + fyear + restricted + year_covariate +
+                             restricted:future_step + restricted:future_year_covariate,
                            spatial = "on",
                            spatiotemporal = "iid",
                            family = betabinomial(link = "cloglog"),
@@ -249,7 +260,7 @@ extract_re_pars <- function(fit) {
 }
 
 #' Extract MPA trend estimate from fitted model
-extract_trend_estimate <- function(fit, trend_param = "restricted:year_covariate") {
+extract_trend_estimate <- function(fit, trend_param = "restricted:future_year_covariate") {
   if (!is.null(fit$error) && fit$error) {
     return(list(
       estimate = NA_real_,
@@ -289,7 +300,9 @@ fit_single_replicate <- function(combo,
                                  evaluation_years_filter = NULL,
                                  save_fits = FALSE,
                                  fits_dir = NULL,
-                                 .formula = catch_prop ~ 0 + fyear + restricted + restricted:year_covariate,
+                                 .formula = catch_prop ~ 0 + fyear + restricted + year_covariate +
+                                   restricted:future_step + restricted:future_year_covariate,
+                                 .trend_param = "restricted:future_year_covariate",
                                  sample_dir, results_dir,
                                  hist_path,
                                  evaluation_years = EVALUATION_YEARS,
@@ -426,7 +439,7 @@ fit_single_replicate <- function(combo,
         ), fit_file)
       }
 
-      trend_results <- extract_trend_estimate(fit, "restricted:year_covariate")
+      trend_results <- extract_trend_estimate(fit, .trend_param)
       re_pars <- extract_re_pars(fit)
 
       tibble(
@@ -483,7 +496,9 @@ fit_parameter_combo <- function(combo,
                                evaluation_years_filter = NULL,
                                save_fits = FALSE,
                                fits_dir = NULL,
-                               .formula = catch_prop ~ 0 + fyear + restricted + restricted:year_covariate,
+                               .formula = catch_prop ~ 0 + fyear + restricted + year_covariate +
+                                 restricted:future_step + restricted:future_year_covariate,
+                               .trend_param = "restricted:future_year_covariate",
                                sample_dir, results_dir,
                                hist_path,
                                evaluation_years = EVALUATION_YEARS,
@@ -498,6 +513,7 @@ fit_parameter_combo <- function(combo,
       save_fits = save_fits,
       fits_dir = fits_dir,
       .formula = .formula,
+      .trend_param = .trend_param,
       sample_dir = sample_dir,
       results_dir = results_dir,
       hist_path = hist_path,
@@ -629,7 +645,9 @@ execute_parallel_fitting <- function(task_grid, results_dir,
                                     save_fits = FALSE,
                                     fits_dir = NULL,
                                     evaluation_years = EVALUATION_YEARS,
-                                    .formula = catch_prop ~ 0 + fyear + restricted*year_covariate) {
+                                    .formula = catch_prop ~ 0 + fyear + restricted + year_covariate +
+                                      restricted:future_step + restricted:future_year_covariate,
+                                    .trend_param = "restricted:future_year_covariate") {
 
   progressr::handlers(global = TRUE)
   progressr::handlers("txtprogressbar")
@@ -675,7 +693,8 @@ execute_parallel_fitting <- function(task_grid, results_dir,
           hist_path = hist_path,
           evaluation_years = evaluation_years,
           sampling_summary = sampling_summary,
-          .formula = .formula
+          .formula = .formula,
+          .trend_param = .trend_param
         )
 
         p()
@@ -701,7 +720,8 @@ execute_parallel_fitting <- function(task_grid, results_dir,
                    "clean_family_name", "summarise_sanity", "load_sampled_data",
                    "results_dir", "hist_path", "sample_dir", "sampling_summary",
                    "evaluation_years_filter_captured", "save_fits_captured",
-                   "fits_dir_captured", "evaluation_years", "p", ".formula"),
+                   "fits_dir_captured", "evaluation_years", "p", ".formula", ".trend_param",
+                   "prepare_power_fit_data"),
         packages = c("dplyr", "sdmTMB")
       )
     )
