@@ -302,21 +302,21 @@ power_summary <- dat |>
   mutate(year_80pct_power = replace_na(as.character(year_80pct_power), ">2046")) |>
   arrange(species, mpa_effect_label)
 
-sampling_comparison <- dat |>
-  filter(
-    sim_ar1_scenario == "fitted_AR1",
-    eval_year %in% c(2038, 2046)  # Key evaluation years
-  ) |>
-  select(species, mpa_effect_label, eval_year, sampling_plan, power_signed) |>
-  pivot_wider(
-    names_from = sampling_plan,
-    values_from = power_signed,
-    names_prefix = "power_"
-  ) |>
-  mutate(
-    power_difference = `power_status quo` - `power_MPAs every 4 years`
-  ) |>
-  arrange(species, mpa_effect_label, eval_year)
+# sampling_comparison <- dat |>
+#   filter(
+#     sim_ar1_scenario == "fitted_AR1",
+#     eval_year %in% c(2038, 2046)  # Key evaluation years
+#   ) |>
+#   select(species, mpa_effect_label, eval_year, sampling_plan, power_signed) |>
+#   pivot_wider(
+#     names_from = sampling_plan,
+#     values_from = power_signed,
+#     names_prefix = "power_"
+#   ) |>
+#   mutate(
+#     power_difference = `power_status quo` - `power_MPAs every 4 years`
+#   ) |>
+#   arrange(species, mpa_effect_label, eval_year)
 
 # View(power_summary)
 # View(sampling_comparison)
@@ -341,6 +341,9 @@ dat |>
     legend.position = "bottom",
     panel.spacing.y = unit(0.5, "lines")
   )
+
+if (FALSE) {
+
 if (presentation) {
   ggsave(file.path(fig_dir, "power.png"), width = 12, height = 5)
 } else {
@@ -569,3 +572,5 @@ hbll_ecp_tigure_combined <-
     theme = theme(plot.title = element_text(size = 11))
   )
 hbll_ecp_tigure_combined
+
+}
