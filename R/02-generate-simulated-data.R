@@ -107,11 +107,11 @@ create_sim_param_grid <- function(mpa_trend,
 #' @param sim_hash Hash for cache validation
 #'
 #' @return Character string with file name
-generate_sim_filename <- function(species, survey_abbrev, param_row, sim_hash) {
+generate_sim_base_name <- function(species, survey_abbrev, param_row) {
   sp <- sp_to_hyphens(species)
 
   # Create descriptive name parts
-  mpa_str <- paste0("mpa", round(param_row$mpa_trend, digits = 3))
+  mpa_str <- paste0("mpa", round(param_row$mpa_trend, digits = 5))
   ar1_str <- param_row$ar1_scenario
   time_str <- param_row$time_scenario
   formula_str <- if (param_row$formula_scenario != "standard") {
@@ -121,12 +121,76 @@ generate_sim_filename <- function(species, survey_abbrev, param_row, sim_hash) {
   }
 
   # Combine name parts
-  name_parts <- c(sp, survey_abbrev, mpa_str, ar1_str, time_str, formula_str,
-                  substr(sim_hash, 1, 8))
+  name_parts <- c(sp, survey_abbrev, mpa_str, ar1_str, time_str, formula_str)
   fname <- paste(name_parts, collapse = "-")
   fname <- gsub("[^a-zA-Z0-9_.-]", "-", fname)
 
+  fname
+}
+
+#' Generate file name for simulated data
+#'
+#' @param species Species name
+#' @param param_row Single row from parameter grid
+#' @param sim_hash Hash for cache validation
+#'
+#' @return Character string with file name
+generate_sim_filename <- function(species, survey_abbrev, param_row, sim_hash) {
+  fname <- paste(
+    generate_sim_base_name(species, survey_abbrev, param_row),
+    substr(sim_hash, 1, 8),
+    sep = "-"
+  )
+
   return(paste0(fname, ".rds"))
+}
+
+#' Compute simulation hash for a parameter combination
+#'
+#' Hashes only the simulation-generating inputs. The replicate count is
+#' intentionally excluded so increasing `nreps` can extend an existing cache
+#' instead of creating a parallel hash namespace.
+compute_sim_hash <- function(species, survey_abbrev, param_combo) {
+  hash_string <- paste(
+    species,
+    survey_abbrev,
+    param_combo$mpa_trend,
+    param_combo$ar1_scenario,
+    param_combo$time_scenario,
+    paste(deparse(param_combo$formula[[1]]), collapse = " "),
+    param_combo$rho_V,
+    param_combo$sigma_V,
+    param_combo$phi,
+    sep = "|"
+  )
+
+  digest::digest(hash_string, algo = "xxhash64")
+}
+
+#' Detect an existing simulation hash for a parameter combination
+#'
+#' Legacy caches included `nreps` in the hash. If a compatible cache already
+#' exists on disk, keep writing missing replicates into that same hash group so
+#' increasing `nreps` extends the cache instead of duplicating it.
+detect_existing_sim_hash <- function(species, survey_abbrev, param_combo, sim_dir) {
+  base_name <- generate_sim_base_name(species, survey_abbrev, param_combo)
+  candidate_files <- list.files(sim_dir, full.names = TRUE)
+  candidate_files <- candidate_files[
+    startsWith(basename(candidate_files), paste0(base_name, "-rep")) &
+      grepl("-rep[0-9]{3}-.*\\.rds$", basename(candidate_files))
+  ]
+
+  if (length(candidate_files) == 0) {
+    return(NULL)
+  }
+
+  hash_counts <- purrr::map_dfr(candidate_files, function(fpath) {
+    params <- attr(readRDS(fpath), "sim_params")
+    tibble(sim_hash = params$sim_hash)
+  }) |>
+    count(sim_hash, sort = TRUE)
+
+  hash_counts$sim_hash[[1]]
 }
 
 #' Load and prepare survey fits for a species
@@ -220,35 +284,13 @@ check_cache_and_prepare_tasks <- function(task_grid, sim_dir) {
         formula_scenario == param_combo$formula_scenario
       )
 
-    # Calculate hash (must match original formula exactly)
-    hash_string <- paste(
-      species,
-      survey_abbrev,
-      param_combo$mpa_trend,
-      param_combo$ar1_scenario,
-      param_combo$time_scenario,
-      deparse(param_combo$formula[[1]]),
-      param_combo$rho_V,
-      param_combo$sigma_V,
-      param_combo$phi,
-      nrow(combo_reps),
-      sep = "|"
-    )
-    sim_hash <- digest::digest(hash_string, algo = "xxhash64")
+    sim_hash <- detect_existing_sim_hash(species, survey_abbrev, param_combo, sim_dir)
+    if (is.null(sim_hash)) {
+      sim_hash <- compute_sim_hash(species, survey_abbrev, param_combo)
+    }
 
     # Generate base filename pattern (without rep number)
-    sp <- sp_to_hyphens(species)
-    mpa_str <- paste0("mpa", round(param_combo$mpa_trend, digits = 3))
-    ar1_str <- param_combo$ar1_scenario
-    time_str <- param_combo$time_scenario
-    formula_str <- if (param_combo$formula_scenario != "standard") {
-      param_combo$formula_scenario
-    } else {
-      NULL
-    }
-    name_parts <- c(sp, survey_abbrev, mpa_str, ar1_str, time_str, formula_str)
-    base_name <- paste(name_parts, collapse = "-")
-    base_name <- gsub("[^a-zA-Z0-9_.-]", "-", base_name)
+    base_name <- generate_sim_base_name(species, survey_abbrev, param_combo)
 
     # Check which replicate files are missing
     missing_reps <- purrr::map_dfr(1:nrow(combo_reps), function(i) {
@@ -400,6 +442,11 @@ create_summary_from_replicate_files <- function(sim_dir) {
   summary <- purrr::map_dfr(replicate_files, function(fpath) {
     # Load attributes without loading full data
     params <- attr(readRDS(fpath), "sim_params")
+    created_date <- if (!is.null(params$created_date)) {
+      as.POSIXct(params$created_date, origin = "1970-01-01", tz = "UTC")
+    } else {
+      as.POSIXct(file.mtime(fpath), origin = "1970-01-01", tz = "UTC")
+    }
 
     tibble(
       species = params$species,
@@ -409,7 +456,8 @@ create_summary_from_replicate_files <- function(sim_dir) {
       time_scenario = params$time_scenario,
       replicate = params$replicate,
       file = basename(fpath),
-      sim_hash = params$sim_hash
+      sim_hash = params$sim_hash,
+      created_date = created_date
     )
   })
 
@@ -418,6 +466,7 @@ create_summary_from_replicate_files <- function(sim_dir) {
     group_by(species, survey_abbrev, mpa_trend, ar1_scenario, time_scenario, sim_hash) |>
     summarise(
       n_replicates = n(),
+      created_date = max(created_date),
       file_pattern = paste0(
         gsub("-rep[0-9]{3}-", "-rep*-", first(file))
       ),
@@ -467,21 +516,10 @@ run_survey_simulation <- function(sp_name,
     )
 
   # Create hash and check cache BEFORE running simulations
-  # Use string-based hash for consistency across platforms
-  hash_string <- paste(
-    sp_name,
-    survey_abbrev,
-    param_combo$mpa_trend,
-    param_combo$ar1_scenario,
-    param_combo$time_scenario,
-    deparse(param_combo$formula[[1]]),
-    param_combo$rho_V,
-    param_combo$sigma_V,
-    param_combo$phi,
-    nrow(combo_reps),
-    sep = "|"
-  )
-  sim_hash <- digest::digest(hash_string, algo = "xxhash64")
+  sim_hash <- detect_existing_sim_hash(sp_name, survey_abbrev, param_combo, sim_dir)
+  if (is.null(sim_hash)) {
+    sim_hash <- compute_sim_hash(sp_name, survey_abbrev, param_combo)
+  }
 
   # Generate filename
   fname <- generate_sim_filename(sp_name, survey_abbrev, param_combo, sim_hash)
@@ -618,7 +656,7 @@ sp_list <- c(
   # "silvergray rockfish"
 )
 nreps <- 120
-nreps <- 35
+nreps <- 7
 
 
 # Filter to species with recovery rates

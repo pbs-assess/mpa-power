@@ -59,6 +59,40 @@ historical_locations <- readRDS(file.path("data-generated", "historical-location
 # =============================================================================
 # Helper Functions
 # =============================================================================
+#' Resolve multiple cache versions for the same simulation combo
+#'
+#' When legacy cache versions exist for the same parameter combination, keep
+#' the version with the most replicates, breaking ties by newest creation time.
+resolve_sim_summary_versions <- function(sim_summary) {
+  if (nrow(sim_summary) == 0) {
+    return(sim_summary)
+  }
+
+  if (!"created_date" %in% names(sim_summary)) {
+    sim_summary <- sim_summary |>
+      mutate(created_date = as.POSIXct(NA))
+  } else {
+    sim_summary <- sim_summary |>
+      mutate(created_date = as.POSIXct(created_date, origin = "1970-01-01", tz = "UTC"))
+  }
+
+  resolved <- sim_summary |>
+    group_by(species, survey_abbrev, mpa_trend, ar1_scenario, time_scenario) |>
+    arrange(desc(n_replicates), desc(created_date), .by_group = TRUE) |>
+    slice(1) |>
+    ungroup()
+
+  n_dropped <- nrow(sim_summary) - nrow(resolved)
+  if (n_dropped > 0) {
+    message(
+      "Resolved ", n_dropped, " duplicate simulation summary row(s) by keeping ",
+      "the cache version with the most replicates."
+    )
+  }
+
+  resolved
+}
+
 #' Load simulated data for a specific parameter combination
 #'
 #' @param species Species name
@@ -68,10 +102,13 @@ historical_locations <- readRDS(file.path("data-generated", "historical-location
 #' @param sim_summary Simulation summary tibble
 #' @param sim_dir Directory containing simulated data
 #' @param replicates Integer vector of replicate numbers to load, or NULL to load all
+#' @param sim_hash Optional simulation hash to require
+#' @param file_pattern Optional exact file pattern from the simulation summary
 #'
 #' @return Simulated data tibble
 load_sim_data <- function(species, survey_abbrev, mpa_trend, ar1_scenario,
-                          time_scenario, sim_summary, sim_dir, replicates = NULL) {
+                          time_scenario, sim_summary, sim_dir, replicates = NULL,
+                          sim_hash = NULL, file_pattern = NULL) {
 
   # Find matching file
   file_info <- sim_summary |>
@@ -82,6 +119,16 @@ load_sim_data <- function(species, survey_abbrev, mpa_trend, ar1_scenario,
       ar1_scenario == .env$ar1_scenario,
       time_scenario == .env$time_scenario
     )
+
+  if (!is.null(sim_hash)) {
+    file_info <- file_info |>
+      filter(sim_hash == .env$sim_hash)
+  }
+
+  if (!is.null(file_pattern)) {
+    file_info <- file_info |>
+      filter(file == .env$file_pattern)
+  }
 
   if (nrow(file_info) == 0) {
     stop("No simulation found for: ", species, ", survey_abbrev=", survey_abbrev,
@@ -530,7 +577,7 @@ FILTER_SURVEY <- NULL
 FILTER_MPA_TREND <- NULL
 FILTER_AR1_SCENARIO <- NULL#"fitted_AR1"
 FILTER_TIME_SCENARIO <- NULL
-FILTER_REPLICATES <- 1:35
+FILTER_REPLICATES <- 1:5
 
 # Apply filters to simulation summary
 filter_config <- list(
@@ -570,6 +617,8 @@ sim_summary_filtered <- purrr::reduce(filter_config, function(dat, cfg) {
   dat |>
     filter(.data[[cfg$column]] %in% cfg$values)
 }, .init = sim_summary)
+
+sim_summary_filtered <- resolve_sim_summary_versions(sim_summary_filtered)
 
 # Get unique species from filtered summary
 species_list <- unique(sim_summary_filtered$species)
@@ -703,7 +752,9 @@ sampling_summary <- purrr::map_dfr(species_list, function(sp) {
         time_scenario = row$time_scenario,
         sim_summary = sim_summary,
         sim_dir = sim_dir,
-        replicates = rep_num
+        replicates = rep_num,
+        sim_hash = row$sim_hash,
+        file_pattern = row$file
       )
 
       # Apply all sampling designs to this replicate
