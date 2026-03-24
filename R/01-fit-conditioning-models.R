@@ -49,9 +49,6 @@ if (!file.exists(shared_mesh_file)) {
   )
 }
 
-shared_hbll_mesh <- readRDS(shared_mesh_file)
-message("Using shared HBLL mesh: ", shared_mesh_file)
-
 # -----------------------------------------------------------------------------
 # Prepare data
 # -----------------------------------------------------------------------------
@@ -112,9 +109,33 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
     }
   }
 
-  mesh_ON <- shared_hbll_mesh
-  mesh_OS <- shared_hbll_mesh
-  mesh_IN <- shared_hbll_mesh
+  # Cache vertices to make sure these are consistent across platforms
+  f <- file.path(mesh_dir, paste0(sp, "-HBLL-OUT-N.rds"))
+  if (!file.exists(f)) {
+    mesh_ON <- local(make_mesh(d_ON, xy_cols = c("X", "Y"), cutoff = 10))
+    saveRDS(mesh_ON, file.path(mesh_dir, paste0(sp, "-HBLL-OUT-N.rds")))
+  } else {
+    message("Reading cached mesh")
+    mesh_ON <- readRDS(f)
+  }
+
+  f <- file.path(mesh_dir, paste0(sp, "-HBLL-OUT-S.rds"))
+  if (!file.exists(f)) {
+    mesh_OS <- local(make_mesh(d_OS, xy_cols = c("X", "Y"), cutoff = 10))
+    saveRDS(mesh_OS, file.path(mesh_dir, paste0(sp, "-HBLL-OUT-S.rds")))
+  } else {
+    message("Reading cached mesh")
+    mesh_OS <- readRDS(f)
+  }
+
+  f <- file.path(mesh_dir, paste0(sp, "-HBLL-INS-N.rds"))
+  if (!file.exists(f)) {
+    mesh_IN <- local(make_mesh(d_IN, xy_cols = c("X", "Y"), cutoff = 10))
+    saveRDS(mesh_IN, file.path(mesh_dir, paste0(sp, "-HBLL-INS-N.rds")))
+  } else {
+    message("Reading cached mesh")
+    mesh_IN <- readRDS(f)
+  }
 
   # Save cleaned datasets
   if (save_cleaned_data) {
@@ -212,7 +233,6 @@ assert_fits_have_omega_s <- function(all_fits_flat) {
   omega_check <- purrr::map_dfr(fitted_models, function(fit) {
     osp <- one_sample_posterior(fit)
     omega_draw <- osp[grepl("omega_s", names(osp))]
-
     tibble(
       species = unique(fit$data$species_common_name),
       survey_abbrev = unique(fit$data$survey_abbrev),
