@@ -35,6 +35,22 @@ cleaned_data_dir <- here::here("data-generated", "cleaned-species-data")
 dir.create(cleaned_data_dir, recursive = TRUE, showWarnings = FALSE)
 mesh_dir <- here::here("data-generated", "mesh-cache")
 dir.create(mesh_dir, recursive = TRUE, showWarnings = FALSE)
+shared_mesh_species <- "yelloweye rockfish"
+shared_mesh_file <- file.path(
+  mesh_dir,
+  paste0(sp_to_hyphens(shared_mesh_species), "-HBLL-combined-mesh.rds")
+)
+
+if (!file.exists(shared_mesh_file)) {
+  stop(
+    "Shared HBLL mesh file not found: ", shared_mesh_file, ". ",
+    "Build it first with R/build-shared-hbll-mesh.R",
+    call. = FALSE
+  )
+}
+
+shared_hbll_mesh <- readRDS(shared_mesh_file)
+message("Using shared HBLL mesh: ", shared_mesh_file)
 
 # -----------------------------------------------------------------------------
 # Prepare data
@@ -96,34 +112,9 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
     }
   }
 
-
-  # Cache vertices to make sure these are consistent across platforms
-  f <- file.path(mesh_dir, paste0(sp, "-HBLL-OUT-N.rds"))
-  if (!file.exists(f)) {
-    mesh_ON <- local(make_mesh(d_ON, xy_cols = c("X", "Y"), cutoff = 10))
-    saveRDS(mesh_ON, file.path(mesh_dir, paste0(sp, "-HBLL-OUT-N.rds")))
-  } else {
-    message("Reading cached mesh")
-    mesh_ON <- readRDS(f)
-  }
-
-  f <- file.path(mesh_dir, paste0(sp, "-HBLL-OUT-S.rds"))
-  if (!file.exists(f)) {
-    mesh_OS <- local(make_mesh(d_OS, xy_cols = c("X", "Y"), cutoff = 10))
-    saveRDS(mesh_OS, file.path(mesh_dir, paste0(sp, "-HBLL-OUT-S.rds")))
-  } else {
-    message("Reading cached mesh")
-    mesh_OS <- readRDS(f)
-  }
-
-  f <- file.path(mesh_dir, paste0(sp, "-HBLL-INS-N.rds"))
-  if (!file.exists(f)) {
-    mesh_IN <- local(make_mesh(d_IN, xy_cols = c("X", "Y"), cutoff = 10))
-    saveRDS(mesh_IN, file.path(mesh_dir, paste0(sp, "-HBLL-INS-N.rds")))
-  } else {
-    message("Reading cached mesh")
-    mesh_IN <- readRDS(f)
-  }
+  mesh_ON <- shared_hbll_mesh
+  mesh_OS <- shared_hbll_mesh
+  mesh_IN <- shared_hbll_mesh
 
   # Save cleaned datasets
   if (save_cleaned_data) {
