@@ -513,11 +513,11 @@ simulate_hbll <- function(fit,
     # Coefficients - @TODO: generalise this...
     B[grep("(Intercept)", coef_names)] <- intercept_value
     # If simulating with year as factor, option to use random draws of year effects
-    # B[grep("fyear", coef_names)] <- sample(b[grepl("fyear", b$term), "estimate"], #
-    #   size = length(B[grep("fyear", coef_names)]), replace = TRUE)
+    B[grep("fyear", coef_names)] <- sample(b[grepl("fyear", b$term), "estimate"], #
+      size = length(B[grep("fyear", coef_names)]), replace = TRUE)
     B[coef_names %in% c("restricted", "restrictedTRUE")] <- restricted_value
-    B[coef_names == "year_covariate"] <- 0
-    B[coef_names == "restricted:year_covariate"] <- mpa_trend
+    B[grep("year_covariate$", coef_names)] <- 0 # Main effect (not interaction)
+    B[grep("restricted:year_covariate", coef_names)] <- mpa_trend
     # B[grep("poly(log_depth, 2)1", coef_names)] <- b$estimate[b$term == "poly(log_depth, 2)1"]
     # B[grep("poly(log_depth, 2)2", coef_names)] <- b$estimate[b$term == "poly(log_depth, 2)2"]
   }

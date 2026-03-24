@@ -21,7 +21,7 @@ USE_RESTRICTED_CONDITIONING_FITS <- TRUE
 options(mpa_power.use_restricted_conditioning_fits = USE_RESTRICTED_CONDITIONING_FITS)
 
 USE_PARALLEL <- TRUE
-N_WORKERS <- 10L
+N_WORKERS <- NULL
 
 if (Sys.info()['user'] %in% c("dunic", "anderson")) {
   USE_PARALLEL <- TRUE
@@ -40,8 +40,7 @@ dir.create(sim_dir, showWarnings = FALSE, recursive = TRUE)
 # Load and validate recovery rates
 # ---------------------------------
 #recovery_rates <- readRDS(here::here("data-generated", "recovery-rates-lambda.rds"))
-recovery_rates <- tidyr::expand_grid(species = c("canary rockfish", "lingcod", "pacific halibut",
-  "silvergray rockfish", "yelloweye rockfish", "quillback rockfish", "north pacific spiny dogfish"),
+recovery_rates <- expand_grid(species = c("yelloweye rockfish", "quillback rockfish", "lingcod", "pacific halibut", "north pacific spiny dogfish", "silvergray rockfish", "canary rockfish"),
                               lambda = c(exp(log(c(1.05, 1.10, 1.25, 1.5)) / 25)))
                               # lambda = c(exp(log(c(1.25)) / 25)))
 
@@ -536,7 +535,7 @@ run_survey_simulation <- function(sp_name,
       left_join(hbll_last_sampled_year, by = "survey_abbrev") |>
       mutate(
         year_counter = year,  # Store original simulation year
-        year = last_sampled_year + year + 1,  # Convert to calendar year with future trend starting at 0
+        year = last_sampled_year + year,  # Convert to calendar year
         d = "simulated",
         replicate = row$replicate
       ) |>
@@ -576,34 +575,33 @@ run_survey_simulation <- function(sp_name,
 # =============================================================================
 # Defensive check: Test simulation validity
 # =============================================================================
-#
-# sp <- sp_to_hyphens("yelloweye rockfish")
-# # sp <- sp_to_hyphens("lingcod")\
-# fit_files <- list.files(here::here("data-generated", "fits"),
-#                         pattern = paste0("^", hbll_fit_patterns(sp)[["fit_IN"]]),
-#                         full.names = TRUE)
-# if (length(fit_files) > 0) {
-#   fit <- readRDS(fit_files[1])
-#   fit$sanity_check$passed
-#
-#   test_sim <- simulate_hbll(
-#     fit = readRDS(fit_files[1]), restricted_df = restricted_df, sim_dir = sim_dir,
-#     check_cache = FALSE, save_sim = FALSE, formula = ~ 1 + restricted * year_covariate,
-#     seed = 999, year_covariate = 0:4, mpa_trend = log(1.01), use_fixed_spatial_field = TRUE
-#   )
-#
-#   catch_prop <- test_sim$observed / test_sim$hook_count
-#
-#   checks <- c(
-#     `NaN` = sum(is.nan(test_sim$observed)),
-#     `Inf` = sum(is.infinite(test_sim$observed)),
-#     all_zero = all(test_sim$observed == 0, na.rm = TRUE),
-#     bad_range = any(catch_prop < 0 | catch_prop > 1, na.rm = TRUE)
-#   )
-#
-#   if (any(checks > 0)) stop("Simulation check failed: ", paste(names(checks)[checks > 0], collapse = ", "))
-#   message("✓ Simulation check passed")
-# }
+
+sp <- sp_to_hyphens("yelloweye rockfish")
+fit_files <- list.files(here::here("data-generated", "fits"),
+                        pattern = paste0("^", hbll_fit_patterns(sp)[["fit_IN"]]),
+                        full.names = TRUE)
+if (length(fit_files) > 0) {
+  fit <- readRDS(fit_files[1])
+  fit$sanity_check$passed
+
+  test_sim <- simulate_hbll(
+    fit = readRDS(fit_files[1]), restricted_df = restricted_df, sim_dir = sim_dir,
+    check_cache = FALSE, save_sim = FALSE, formula = ~ 1 + restricted * year_covariate,
+    seed = 999, year_covariate = 1:5, mpa_trend = log(1.01), use_fixed_spatial_field = TRUE
+  )
+
+  catch_prop <- test_sim$observed / test_sim$hook_count
+
+  checks <- c(
+    `NaN` = sum(is.nan(test_sim$observed)),
+    `Inf` = sum(is.infinite(test_sim$observed)),
+    all_zero = all(test_sim$observed == 0, na.rm = TRUE),
+    bad_range = any(catch_prop < 0 | catch_prop > 1, na.rm = TRUE)
+  )
+
+  if (any(checks > 0)) stop("Simulation check failed: ", paste(names(checks)[checks > 0], collapse = ", "))
+  message("✓ Simulation check passed")
+}
 
 # =============================================================================
 # Main execution
@@ -612,8 +610,8 @@ run_survey_simulation <- function(sp_name,
 # Define species list
 sp_list <- c(
   "yelloweye rockfish"
-  # "lingcod",
   # "north pacific spiny dogfish",
+  # "lingcod",
   # "quillback rockfish",
   # "pacific halibut",
   # "canary rockfish",
