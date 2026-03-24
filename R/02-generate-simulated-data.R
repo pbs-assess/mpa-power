@@ -20,8 +20,8 @@ USE_RESTRICTED_CONDITIONING_FITS <- TRUE
 # USE_RESTRICTED_CONDITIONING_FITS <- FALSE
 options(mpa_power.use_restricted_conditioning_fits = USE_RESTRICTED_CONDITIONING_FITS)
 
-USE_PARALLEL <- F
-N_WORKERS <- 8L
+USE_PARALLEL <- TRUE
+N_WORKERS <- 10L
 
 if (Sys.info()['user'] %in% c("dunic", "anderson")) {
   USE_PARALLEL <- TRUE
@@ -40,7 +40,7 @@ dir.create(sim_dir, showWarnings = FALSE, recursive = TRUE)
 # Load and validate recovery rates
 # ---------------------------------
 #recovery_rates <- readRDS(here::here("data-generated", "recovery-rates-lambda.rds"))
-recovery_rates <- tidyr::expand_grid(species = c("canary rockfish", "lingcod", "pacific halibut", "pacific spiny dogfish",
+recovery_rates <- tidyr::expand_grid(species = c("canary rockfish", "lingcod", "pacific halibut",
   "silvergray rockfish", "yelloweye rockfish", "quillback rockfish", "north pacific spiny dogfish"),
                               lambda = c(exp(log(c(1.05, 1.10, 1.25, 1.5)) / 25)))
                               # lambda = c(exp(log(c(1.25)) / 25)))
@@ -611,9 +611,9 @@ run_survey_simulation <- function(sp_name,
 
 # Define species list
 sp_list <- c(
-  # "yelloweye rockfish",
-  # "north pacific spiny dogfish",
   "yelloweye rockfish"
+  # "lingcod",
+  # "north pacific spiny dogfish",
   # "quillback rockfish",
   # "pacific halibut",
   # "canary rockfish",
@@ -661,7 +661,7 @@ ar1_scenarios <- tribble(
 # - Example with multiple: tribble(~time_scenario, ~year_covariate, "short", list(0:10), "long", list(0:20))
 time_scenarios <- tribble(
   ~time_scenario, ~year_covariate,
-  "twenty-five_years", list(0:24)                      # 25 future years with the first year at t = 0
+  "twenty-five_years", list(1:25)
 )
 
 # Formula scenarios
@@ -673,7 +673,7 @@ formula_scenarios <- tribble(
 )
 
 nreps <- 120
-nreps <- 12
+nreps <- 10
 
 # Note: Parameter grids are now created per-species using recovery rates
 # See task grid creation below for species-specific implementation
