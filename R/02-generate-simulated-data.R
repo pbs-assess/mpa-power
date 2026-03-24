@@ -161,6 +161,7 @@ compute_sim_hash <- function(species, survey_abbrev, param_combo) {
     param_combo$rho_V,
     param_combo$sigma_V,
     param_combo$phi,
+    "calendar_alignment=shared_hbll_baseline_v2",
     sep = "|"
   )
 
@@ -186,11 +187,22 @@ detect_existing_sim_hash <- function(species, survey_abbrev, param_combo, sim_di
 
   hash_counts <- purrr::map_dfr(candidate_files, function(fpath) {
     params <- attr(readRDS(fpath), "sim_params")
+    if (!identical(params$calendar_alignment, "shared_hbll_baseline_v2")) {
+      return(tibble())
+    }
     tibble(sim_hash = params$sim_hash)
   }) |>
     count(sim_hash, sort = TRUE)
 
+  if (nrow(hash_counts) == 0) {
+    return(NULL)
+  }
+
   hash_counts$sim_hash[[1]]
+}
+
+get_hbll_future_base_year <- function(hbll_last_sampled_year) {
+  max(hbll_last_sampled_year$last_sampled_year, na.rm = TRUE)
 }
 
 #' Load and prepare survey fits for a species
@@ -343,7 +355,8 @@ check_cache_and_prepare_tasks <- function(task_grid, sim_dir) {
 #' @param sim_hash Hash for this parameter combination
 #' @param restricted_df Restricted dataframe for simulation
 #' @param hbll_grid HBLL grid for spatial joins
-#' @param hbll_last_sampled_year Last sampled year by survey
+#' @param hbll_last_sampled_year Last sampled year lookup used to derive a shared
+#'   HBLL future baseline year across surveys
 #'
 #' @return TRUE if successful, FALSE otherwise
 run_single_replicate_simulation <- function(species,
@@ -358,6 +371,7 @@ run_single_replicate_simulation <- function(species,
                                            hbll_last_sampled_year) {
 
   survey_abbrev <- survey_config$abbrev
+  future_base_year <- get_hbll_future_base_year(hbll_last_sampled_year)
 
   # Load fit from disk - each worker gets independent TMB object
   fit <- readRDS(survey_config$fit_path)
@@ -385,14 +399,12 @@ run_single_replicate_simulation <- function(species,
   sim_dat <- survey_sim |>
     select(!contains("fyear")) |>
     left_join(hbll_grid |> select(X, Y, block_id, grouping_code), by = c("X", "Y")) |>
-    left_join(hbll_last_sampled_year, by = "survey_abbrev") |>
     mutate(
       year_counter = year,
-      year = last_sampled_year + year,
+      year = future_base_year + year,
       d = "simulated",
       replicate = replicate
-    ) |>
-    select(-last_sampled_year)
+    )
 
   # Add parameter metadata as attributes
   attr(sim_dat, "sim_params") <- list(
@@ -409,6 +421,8 @@ run_single_replicate_simulation <- function(species,
     formula = param_combo$formula[[1]],
     replicate = replicate,
     sim_hash = sim_hash,
+    calendar_alignment = "shared_hbll_baseline_v2",
+    future_base_year = future_base_year,
     created_date = Sys.time()
   )
 
@@ -485,7 +499,8 @@ create_summary_from_replicate_files <- function(sim_dir) {
 #' @param param_grid Full parameter grid (for getting replicates)
 #' @param restricted_df Restricted dataframe for simulation
 #' @param hbll_grid HBLL grid for spatial joins
-#' @param hbll_last_sampled_year Last sampled year by survey
+#' @param hbll_last_sampled_year Last sampled year lookup used to derive a shared
+#'   HBLL future baseline year across surveys
 #' @param sim_dir Directory to save simulated data
 #' @param check_cache Check for cached simulations
 #'
@@ -501,6 +516,7 @@ run_survey_simulation <- function(sp_name,
                                   check_cache = TRUE) {
 
   survey_abbrev <- survey_config$abbrev
+  future_base_year <- get_hbll_future_base_year(hbll_last_sampled_year)
 
   message("\n[", sp_name, " | ", survey_abbrev, "] ",
           "MPA:", param_combo$mpa_trend, " AR1:", param_combo$ar1_scenario,
@@ -569,14 +585,12 @@ run_survey_simulation <- function(sp_name,
     survey_sim |>
       select(!contains("fyear")) |>
       left_join(hbll_grid |> select(X, Y, block_id, grouping_code), by = c("X", "Y")) |>
-      left_join(hbll_last_sampled_year, by = "survey_abbrev") |>
       mutate(
         year_counter = year,  # Store original simulation year
-        year = last_sampled_year + year,  # Convert to calendar year
+        year = future_base_year + year,  # Shared HBLL baseline year across surveys
         d = "simulated",
         replicate = row$replicate
-      ) |>
-      select(-last_sampled_year)  # Don't need to store this in every row
+      )
   })
 
   # Add parameter metadata as attributes
@@ -593,6 +607,8 @@ run_survey_simulation <- function(sp_name,
     year_covariate = param_combo$year_covariate[[1]],
     formula = param_combo$formula[[1]],
     nreps = nrow(combo_reps),
+    calendar_alignment = "shared_hbll_baseline_v2",
+    future_base_year = future_base_year,
     created_date = Sys.time()
   )
 
