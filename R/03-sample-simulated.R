@@ -90,7 +90,13 @@ load_sim_data <- function(species, survey_abbrev, mpa_trend, ar1_scenario,
   }
 
   if (nrow(file_info) > 1) {
-    warning("Multiple simulations found, using first - meaning you haven't accounted for some kind of parameter combo")
+    if ("created_date" %in% names(file_info)) {
+      file_info <- file_info |>
+        arrange(desc(created_date))
+      warning("Multiple simulations found; using the newest created simulation set.")
+    } else {
+      warning("Multiple simulations found, using first - meaning you haven't accounted for some kind of parameter combo")
+    }
     file_info <- file_info[1, ]
   }
 
@@ -466,7 +472,7 @@ if (is.na(ye_mpa_trend)) {
 # =============================================================================
 
 USE_PARALLEL <- TRUE
-N_WORKERS <- NULL
+N_WORKERS <- 9L
 
 # Setup parallel processing
 if (USE_PARALLEL) {
@@ -518,12 +524,12 @@ if (USE_PARALLEL) {
 #   FILTER_TIME_SCENARIO: Character vector of time scenario names
 #   FILTER_REPLICATES: Integer vector of replicate numbers
 
-FILTER_SPECIES <- "pacific halibut" #c("silvergray rockfish", "yelloweye rockfish")
+FILTER_SPECIES <- NULL #c("silvergray rockfish", "yelloweye rockfish")
 FILTER_SURVEY <- NULL
 FILTER_MPA_TREND <- NULL
 FILTER_AR1_SCENARIO <- NULL#"fitted_AR1"
 FILTER_TIME_SCENARIO <- NULL
-FILTER_REPLICATES <- 1:50
+FILTER_REPLICATES <- 1:20
 
 # Apply filters to simulation summary
 filter_config <- list(
@@ -651,8 +657,12 @@ sampling_summary <- purrr::map_dfr(species_list, function(sp) {
         file.path(sp_dir, fname)
       })
 
-      # If all files exist for this replicate, skip and load metadata
-      if (all(file.exists(expected_files))) {
+      sim_created_date <- if ("created_date" %in% names(row)) as.POSIXct(row$created_date) else NA
+      sampled_files_current <- all(file.exists(expected_files)) &&
+        (is.na(sim_created_date) || all(file.mtime(expected_files) >= sim_created_date))
+
+      # If all files exist for this replicate and are newer than the source simulations, skip and load metadata
+      if (sampled_files_current) {
         message("  Cache hit: survey=", row$survey_abbrev, ", mpa=", row$mpa_trend,
                 ", ar1=", row$ar1_scenario, ", time=", row$time_scenario, ", rep=", rep_num)
 
@@ -672,6 +682,11 @@ sampling_summary <- purrr::map_dfr(species_list, function(sp) {
         })
 
         return(file_metadata)
+      }
+
+      if (all(file.exists(expected_files)) && !sampled_files_current) {
+        message("  Cache stale: resampling survey=", row$survey_abbrev, ", mpa=", row$mpa_trend,
+                ", ar1=", row$ar1_scenario, ", time=", row$time_scenario, ", rep=", rep_num)
       }
 
       # At least one file missing - proceed with sampling this replicate

@@ -17,7 +17,7 @@ source(here::here("R", "00-fit-sim-functions.R"))
 # Configuration
 # =============================================================================
 USE_PARALLEL <- TRUE
-N_WORKERS <- NULL
+N_WORKERS <- 8L
 
 if (Sys.info()['user'] %in% c("dunic", "anderson")) {
   USE_PARALLEL <- TRUE
@@ -36,7 +36,8 @@ dir.create(sim_dir, showWarnings = FALSE, recursive = TRUE)
 # Load and validate recovery rates
 # ---------------------------------
 #recovery_rates <- readRDS(here::here("data-generated", "recovery-rates-lambda.rds"))
-recovery_rates <- expand_grid(species = c("yelloweye rockfish", "quillback rockfish", "lingcod", "pacific halibut", "north pacific spiny dogfish", "silvergray rockfish", "canary rockfish"),
+recovery_rates <- tidyr::expand_grid(species = c("canary rockfish", "lingcod", "pacific halibut", "pacific spiny dogfish",
+  "silvergray rockfish", "yelloweye rockfish", "quillback rockfish", "north pacific spiny dogfish"),
                               lambda = c(exp(log(c(1.05, 1.10, 1.25, 1.5)) / 25)))
                               # lambda = c(exp(log(c(1.25)) / 25)))
 
@@ -141,9 +142,9 @@ prepare_species_fits <- function(sp_name, fit_dir = here::here("data-generated",
 
   # Pattern for each survey's betabinomial models
   patterns <- c(
-    fit_ON = paste0(sp, "-HBLL-OUT-N-betabinomial-on-iid-"),
-    fit_OS = paste0(sp, "-HBLL-OUT-S-betabinomial-on-iid-"),
-    fit_IN = paste0(sp, "-HBLL-INS-N-betabinomial-on-iid-")
+    fit_ON = paste0(sp, "-HBLL-OUT-N-betabinomial-restricted-on-iid-"),
+    fit_OS = paste0(sp, "-HBLL-OUT-S-betabinomial-restricted-on-iid-"),
+    fit_IN = paste0(sp, "-HBLL-INS-N-betabinomial-restricted-on-iid-")
   )
 
   # Find fit files and check sanity
@@ -209,6 +210,7 @@ check_cache_and_prepare_tasks <- function(task_grid, sim_dir) {
 
   micro_tasks <- purrr::pmap_dfr(task_grid, function(species, survey_config, param_combo, param_grid) {
     survey_abbrev <- survey_config$abbrev
+    fit_id <- if (!is.null(survey_config$fit_path)) basename(survey_config$fit_path) else "fit-in-memory"
 
     # Get replicates for this parameter combination
     combo_reps <- param_grid |>
@@ -230,6 +232,7 @@ check_cache_and_prepare_tasks <- function(task_grid, sim_dir) {
       param_combo$rho_V,
       param_combo$sigma_V,
       param_combo$phi,
+      fit_id,
       nrow(combo_reps),
       sep = "|"
     )
@@ -408,7 +411,8 @@ create_summary_from_replicate_files <- function(sim_dir) {
       time_scenario = params$time_scenario,
       replicate = params$replicate,
       file = basename(fpath),
-      sim_hash = params$sim_hash
+      sim_hash = params$sim_hash,
+      created_date = params$created_date
     )
   })
 
@@ -417,6 +421,7 @@ create_summary_from_replicate_files <- function(sim_dir) {
     group_by(species, survey_abbrev, mpa_trend, ar1_scenario, time_scenario, sim_hash) |>
     summarise(
       n_replicates = n(),
+      created_date = max(created_date),
       file_pattern = paste0(
         gsub("-rep[0-9]{3}-", "-rep*-", first(file))
       ),
@@ -451,6 +456,7 @@ run_survey_simulation <- function(sp_name,
                                   check_cache = TRUE) {
 
   survey_abbrev <- survey_config$abbrev
+  fit_id <- if (!is.null(survey_config$fit_path)) basename(survey_config$fit_path) else "fit-in-memory"
 
   message("\n[", sp_name, " | ", survey_abbrev, "] ",
           "MPA:", param_combo$mpa_trend, " AR1:", param_combo$ar1_scenario,
@@ -477,6 +483,7 @@ run_survey_simulation <- function(sp_name,
     param_combo$rho_V,
     param_combo$sigma_V,
     param_combo$phi,
+    fit_id,
     nrow(combo_reps),
     sep = "|"
   )
@@ -533,7 +540,7 @@ run_survey_simulation <- function(sp_name,
       left_join(hbll_last_sampled_year, by = "survey_abbrev") |>
       mutate(
         year_counter = year,  # Store original simulation year
-        year = last_sampled_year + year,  # Convert to calendar year
+        year = last_sampled_year + year + 1,  # Convert to calendar year with future trend starting at 0
         d = "simulated",
         replicate = row$replicate
       ) |>
@@ -575,8 +582,9 @@ run_survey_simulation <- function(sp_name,
 # =============================================================================
 
 sp <- sp_to_hyphens("yelloweye rockfish")
+# sp <- sp_to_hyphens("lingcod")\
 fit_files <- list.files(here::here("data-generated", "fits"),
-                        pattern = paste0("^", sp, "-HBLL-INS-N-betabinomial-on-iid-"),
+                        pattern = paste0("^", sp, "-HBLL-INS-N-betabinomial-restricted-on-iid-"),
                         full.names = TRUE)
 if (length(fit_files) > 0) {
   fit <- readRDS(fit_files[1])
@@ -585,7 +593,7 @@ if (length(fit_files) > 0) {
   test_sim <- simulate_hbll(
     fit = readRDS(fit_files[1]), restricted_df = restricted_df, sim_dir = sim_dir,
     check_cache = FALSE, save_sim = FALSE, formula = ~ 1 + restricted * year_covariate,
-    seed = 999, year_covariate = 1:5, mpa_trend = log(1.01), use_fixed_spatial_field = TRUE
+    seed = 999, year_covariate = 0:4, mpa_trend = log(1.01), use_fixed_spatial_field = TRUE
   )
 
   catch_prop <- test_sim$observed / test_sim$hook_count
@@ -607,13 +615,13 @@ if (length(fit_files) > 0) {
 
 # Define species list
 sp_list <- c(
-  "yelloweye rockfish",
-  "north pacific spiny dogfish",
-  "lingcod",
-  "quillback rockfish",
-  "pacific halibut",
-  "canary rockfish",
-  "silvergray rockfish"
+  # "yelloweye rockfish",
+  # "north pacific spiny dogfish",
+  "yelloweye rockfish"
+  # "quillback rockfish",
+  # "pacific halibut",
+  # "canary rockfish",
+  # "silvergray rockfish"
 )
 
 # Filter to species with recovery rates
@@ -654,10 +662,10 @@ ar1_scenarios <- tribble(
 
 # Time scenarios
 # - year_covariate must be a list column
-# - Example with multiple: tribble(~time_scenario, ~year_covariate, "short", list(1:11), "long", list(1:21))
+# - Example with multiple: tribble(~time_scenario, ~year_covariate, "short", list(0:10), "long", list(0:20))
 time_scenarios <- tribble(
   ~time_scenario, ~year_covariate,
-  "twenty-five_years", list(1:25)                      # 25 years of simulated data
+  "twenty-five_years", list(0:24)                      # 25 future years with the first year at t = 0
 )
 
 # Formula scenarios
@@ -669,7 +677,7 @@ formula_scenarios <- tribble(
 )
 
 nreps <- 120
-nreps <- 50
+nreps <- 11
 
 # Note: Parameter grids are now created per-species using recovery rates
 # See task grid creation below for species-specific implementation
@@ -823,7 +831,7 @@ meep()
 # glimpse(test2)
 # max(test2$replicate)
 
-# fit <- readRDS(file.path("data-generated", "fits", "yelloweye-rockfish-HBLL-OUT-N-betabinomial-on-iid-31cebb495143a6d5.rds" ))
+# fit <- readRDS(file.path("data-generated", "fits", "yelloweye-rockfish-HBLL-OUT-N-betabinomial-restricted-on-iid-31cebb495143a6d5.rds" ))
 # recovery_rates |> filter(species == "yelloweye rockfish")
 # ar1_parameters |> filter(species == "yelloweye rockfish", survey_abbrev == "HBLL OUT N")
 
@@ -835,7 +843,7 @@ meep()
 #   save_sim = FALSE,
 #   formula = ~ 1 + restricted * year_covariate,
 #   seed = 1,
-#   year_covariate = 1:25,
+#   year_covariate = 0:24,
 #   mpa_trend = log(1.02),
 #   rho_V = -0.126,
 #   sigma_V = 0.106
