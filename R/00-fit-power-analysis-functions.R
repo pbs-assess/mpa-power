@@ -169,8 +169,8 @@ fit_simulation <- function(dat,
                            family = betabinomial(link = "cloglog"),
                            cutoff = 10,
                            control = sdmTMBcontrol(collapse_spatial_variance = TRUE,
-                                                             multiphase = FALSE, profile = TRUE, newton_loops = 0L),
-                           silent = TRUE) {
+                                                             multiphase = FALSE, profile = FALSE, newton_loops = 1L),
+                           silent = TRUE, ...) {
 
   survey_type <- unique(dat$survey_abbrev)
 
@@ -195,7 +195,8 @@ fit_simulation <- function(dat,
     weights = weights,
     offset = offset,
     silent = silent,
-    control = control
+    control = control,
+    ...
   )
 
   fit <-
@@ -204,6 +205,21 @@ fit_simulation <- function(dat,
     }, error = function(e) {
       list(error = TRUE, message = e$message)
     })
+
+  # d <- fit$data
+  # ggplot(d, aes(year, catch_count / hook_count, colour = factor(restricted))) +
+  #   geom_point()
+  #
+  # x <- d |> group_by(year, restricted) |>
+  #   summarise(m = mean(catch_count/hook_count))
+  # ggplot(x, aes(year, m, colour = factor(restricted))) +
+  #   geom_point() +
+  #   geom_vline(xintercept = 2024)
+  #
+  # ggplot(d, aes(X, Y, colour = factor(restricted), size = catch_count/hook_count)) +
+  #   geom_point(pch = 21) + facet_wrap(~year)
+  #
+  # browser()
   fit
 }
 
@@ -388,7 +404,7 @@ fit_single_replicate <- function(combo,
         family = betabinomial(link = "cloglog"),
         cutoff = 20,
         control = sdmTMBcontrol(collapse_spatial_variance = TRUE, multiphase = FALSE,
-                                profile = TRUE, newton_loops = 0L),
+                                profile = FALSE, newton_loops = 1L),
         silent = FALSE
       )
 
