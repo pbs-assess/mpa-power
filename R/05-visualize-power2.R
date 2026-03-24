@@ -324,7 +324,7 @@ power_summary <- dat |>
 saveRDS(dat, here::here("data-generated", "power-results-df.rds"))
 
 # Power plot ------
-dat |>
+g <- dat |>
   ggplot() +
   aes(x = eval_year, y = power_signed, colour = mpa_effect_label,
     group = interaction(mpa_effect_label, sim_ar1_scenario, sampling_plan)) +
@@ -341,6 +341,7 @@ dat |>
     legend.position = "bottom",
     panel.spacing.y = unit(0.5, "lines")
   )
+print(g)
 
 if (FALSE) {
 
