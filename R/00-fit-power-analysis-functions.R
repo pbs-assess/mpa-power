@@ -361,7 +361,14 @@ fit_simulation <- function(dat,
     offset <- dat$offset
   }
 
+  # f <- here::here("data-generated", "mesh-cache", "coastwide-mesh.rds")
+  # if (!file.exists(f)) {
   mesh <- make_mesh(dat, xy_cols = c("X", "Y"), cutoff = cutoff)
+  #   saveRDS(mesh, file = f)
+  # } else {
+  #   old_mesh <- readRDS(f)
+  #   mesh <- make_mesh(dat, xy_cols = c("X", "Y"), mesh = old_mesh$mesh)
+  # }
 
   params <- list(
     formula = formula,

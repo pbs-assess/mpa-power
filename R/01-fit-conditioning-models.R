@@ -16,7 +16,7 @@ library(digest)
 # Configuration
 # =============================================================================
 USE_PARALLEL <- TRUE
-N_WORKERS <- NULL
+N_WORKERS <- 8
 
 if (Sys.info()['user'] %in% c("dunic", "anderson")) {
   USE_PARALLEL <- TRUE
@@ -33,6 +33,8 @@ fit_dir <- here::here("data-generated", "fits")
 dir.create(fit_dir, recursive = TRUE, showWarnings = FALSE)
 cleaned_data_dir <- here::here("data-generated", "cleaned-species-data")
 dir.create(cleaned_data_dir, recursive = TRUE, showWarnings = FALSE)
+mesh_dir <- here::here("data-generated", "mesh-cache")
+dir.create(mesh_dir, recursive = TRUE, showWarnings = FALSE)
 
 # -----------------------------------------------------------------------------
 # Prepare data
@@ -94,9 +96,34 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
     }
   }
 
-  mesh_ON <- local(make_mesh(d_ON, xy_cols = c("X", "Y"), cutoff = 10))
-  mesh_OS <- local(make_mesh(d_OS, xy_cols = c("X", "Y"), cutoff = 10))
-  mesh_IN <- local(make_mesh(d_IN, xy_cols = c("X", "Y"), cutoff = 10))
+
+  # Cache vertices to make sure these are consistent across platforms
+  f <- file.path(mesh_dir, paste0(sp, "-HBLL-OUT-N.rds"))
+  if (!file.exists(f)) {
+    mesh_ON <- local(make_mesh(d_ON, xy_cols = c("X", "Y"), cutoff = 10))
+    saveRDS(mesh_ON, file.path(mesh_dir, paste0(sp, "-HBLL-OUT-N.rds")))
+  } else {
+    message("Reading cached mesh")
+    mesh_ON <- readRDS(f)
+  }
+
+  f <- file.path(mesh_dir, paste0(sp, "-HBLL-OUT-S.rds"))
+  if (!file.exists(f)) {
+    mesh_OS <- local(make_mesh(d_OS, xy_cols = c("X", "Y"), cutoff = 10))
+    saveRDS(mesh_OS, file.path(mesh_dir, paste0(sp, "-HBLL-OUT-S.rds")))
+  } else {
+    message("Reading cached mesh")
+    mesh_OS <- readRDS(f)
+  }
+
+  f <- file.path(mesh_dir, paste0(sp, "-HBLL-INS-N.rds"))
+  if (!file.exists(f)) {
+    mesh_IN <- local(make_mesh(d_IN, xy_cols = c("X", "Y"), cutoff = 10))
+    saveRDS(mesh_IN, file.path(mesh_dir, paste0(sp, "-HBLL-INS-N.rds")))
+  } else {
+    message("Reading cached mesh")
+    mesh_IN <- readRDS(f)
+  }
 
   # Save cleaned datasets
   if (save_cleaned_data) {
@@ -185,6 +212,45 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
     validation_OS = val_OS,
     validation_IN = val_IN
   )))
+}
+
+assert_fits_have_omega_s <- function(all_fits_flat) {
+  fitted_models <- all_fits_flat |>
+    purrr::keep(~!is.null(.x) && inherits(.x, "sdmTMB"))
+
+  omega_check <- purrr::map_dfr(fitted_models, function(fit) {
+    osp <- one_sample_posterior(fit)
+    omega_draw <- osp[grepl("omega_s", names(osp))]
+
+    tibble(
+      species = unique(fit$data$species_common_name),
+      survey_abbrev = unique(fit$data$survey_abbrev),
+      n_omega_s = length(omega_draw),
+      has_omega_s = length(omega_draw) > 0
+    )
+  })
+
+  missing_omega <- omega_check |>
+    filter(!has_omega_s)
+
+  if (nrow(missing_omega) > 0) {
+    missing_labels <- paste(
+      missing_omega$species,
+      "(",
+      missing_omega$survey_abbrev,
+      ")"
+    )
+
+    stop(
+      "Conditioning fit validation failed: omega_s was empty for ",
+      nrow(missing_omega),
+      " fit(s): ",
+      paste(missing_labels, collapse = ", "),
+      call. = FALSE
+    )
+  }
+
+  message("Validated omega_s posterior draws for ", nrow(omega_check), " conditioning fit(s)")
 }
 
 # -----------------------------------------------------------------------------
@@ -309,6 +375,8 @@ if (n_fits_failed > 0) {
     }
   }
 }
+
+assert_fits_have_omega_s(all_fits_flat)
 
 # Grab some values for comparison later:
 fit_characteristics <- purrr::map_dfr(all_fits_flat, \(x) {
