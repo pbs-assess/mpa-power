@@ -109,12 +109,13 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
   # Beta binomial ----------------------------------------------------------------
   sprf <- "on"
   strf <- "iid"
+  conditioning_formula <- catch_prop ~ 0 + fyear + restricted
   fit_ON <- if (val_ON$passed) {
     fit_cached_sdmTMB(
-      model_tag = paste0(sp, "-HBLL-OUT-N-betabinomial-", sprf, "-", strf),
+      model_tag = paste0(sp, "-HBLL-OUT-N-betabinomial-restricted-", sprf, "-", strf),
       fit_dir = fit_dir,
       data = d_ON,
-      formula = catch_prop ~ 0 + fyear,
+      formula = conditioning_formula,
       mesh = mesh_ON,
       family = betabinomial(link = "cloglog"),
       spatial = sprf,
@@ -133,10 +134,10 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
 
   fit_OS <- if (val_OS$passed) {
     fit_cached_sdmTMB(
-      model_tag = paste0(sp, "-HBLL-OUT-S-betabinomial-", sprf, "-", strf),
+      model_tag = paste0(sp, "-HBLL-OUT-S-betabinomial-restricted-", sprf, "-", strf),
       fit_dir = fit_dir,
       data = d_OS,
-      formula = catch_prop ~ 0 + fyear,
+      formula = conditioning_formula,
       mesh = mesh_OS,
       family = betabinomial(link = "cloglog"),
       spatial = sprf,
@@ -155,10 +156,10 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
 
   fit_IN <- if (val_IN$passed) {
     fit_cached_sdmTMB(
-      model_tag = paste0(sp, "-HBLL-INS-N-betabinomial-", sprf, "-", strf),
+      model_tag = paste0(sp, "-HBLL-INS-N-betabinomial-restricted-", sprf, "-", strf),
       fit_dir = fit_dir,
       data = d_IN,
-      formula = catch_prop ~ 0 + fyear,
+      formula = conditioning_formula,
       mesh = mesh_IN,
       family = betabinomial(link = "cloglog"),
       spatial = sprf,
@@ -308,3 +309,36 @@ if (n_fits_failed > 0) {
     }
   }
 }
+
+# Grab some values for comparison later:
+fit_characteristics <- purrr::map_dfr(all_fits_flat, \(x) {
+  if (!is.null(x) && inherits(x, "sdmTMB")) {
+    p <- tidy(x, "ran_pars")
+    sp <- unique(x$data$species_common_name)
+    surv <- unique(x$data$survey_abbrev)
+    encountered_count_per_year <- sum(x$data$catch_count) / length(unique(x$data$year))
+    temp <- group_by(x$data, fishing_event_id) |>
+      summarise(encountered = sum(catch_count, na.rm = TRUE) > 1) |> ungroup()
+    encountered_rate_avg <- mean(temp$encountered)
+    pw <- p |> select(1:2) |> tidyr::pivot_wider(names_from  = term, values_from = estimate)
+
+    temp <- group_by(x$data, fishing_event_id, restricted) |>
+      summarise(encountered = sum(catch_count, na.rm = TRUE) > 1) |>
+      filter(restricted == 1)
+    encountered_rate_restricted <- mean(temp$encountered)
+
+    temp <- filter(x$data, restricted == 1)
+    encountered_count_per_year_restricted <- sum(temp$catch_count) / length(unique(temp$year))
+
+    out <- tibble(
+      species = sp,
+      survey = surv,
+      encountered_count_per_year = encountered_count_per_year,
+      encountered_rate_avg = encountered_rate_avg,
+      encountered_rate_restricted = encountered_rate_restricted,
+      encountered_count_per_year_restricted = encountered_count_per_year_restricted
+    )
+    bind_cols(out, pw)
+  }
+})
+saveRDS(fit_characteristics, here::here("data-generated", "fit_characteristics.rds"))
