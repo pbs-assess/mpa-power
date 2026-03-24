@@ -15,10 +15,8 @@ library(progressr)
 hist_path <- here::here("data-generated", "cleaned-species-data")
 sample_dir <- here::here("data-generated", "sampled-data")
 results_dir <- here::here("data-generated", "power-results")
-fit_log_dir <- file.path(results_dir, "fit-logs")
 # hist_path <- here::here("data-generated", "historical-data-processed")
 dir.create(results_dir, showWarnings = FALSE, recursive = TRUE)
-dir.create(fit_log_dir, showWarnings = FALSE, recursive = TRUE)
 
 USE_PARALLEL <- TRUE
 N_WORKERS <- 10 #NULL
@@ -197,7 +195,6 @@ if (RUN_DEFENSIVE_CHECKS) {
     hist_path = hist_path,
     sample_dir = sample_dir,
     sampling_summary = test_sampling_summary,  # Use filtered version
-    log_dir = file.path(TEST_FITS_DIR, "fit-logs"),
     replicate_filter = 1,  # Just first replicate
     evaluation_years_filter = 2046,  # Just one year for testing
     save_fits = SAVE_TEST_FITS,  # Save fit objects
@@ -352,7 +349,6 @@ message("Parameter combinations: ", nrow(task_grid))
 message("Replicates per combination: ", n_reps_msg)
 message("Evaluation years: ", paste(eval_years_to_use, collapse = ", "))
 message("Parallel workers: ", if (is.null(N_WORKERS)) "auto" else N_WORKERS)
-message("Fit log directory: ", fit_log_dir)
 
 message("\n=== Executing Parallel Fitting ===")
 summary_stats <- execute_parallel_fitting(
@@ -361,7 +357,6 @@ summary_stats <- execute_parallel_fitting(
   hist_path = hist_path,
   sample_dir = sample_dir,
   sampling_summary = sampling_summary_filtered,
-  log_dir = fit_log_dir,
   replicate_filter = FILTER_REPLICATES,
   evaluation_years_filter = FILTER_EVALUATION_YEARS,
   evaluation_years = EVALUATION_YEARS,

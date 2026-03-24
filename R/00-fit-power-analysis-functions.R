@@ -103,174 +103,6 @@ generate_result_filename <- function(species, survey_abbrev, mpa_trend,
     gsub(" ", "-", x = _)
 }
 
-#' Generate per-fit diagnostic log filename
-generate_fit_log_filename <- function(species, survey_abbrev, mpa_trend,
-                                      ar1_scenario, time_scenario, plan,
-                                      replicate, eval_year) {
-  generate_result_filename(
-    species = species,
-    survey_abbrev = survey_abbrev,
-    mpa_trend = mpa_trend,
-    ar1_scenario = ar1_scenario,
-    time_scenario = time_scenario,
-    plan = plan,
-    replicate = replicate
-  ) |>
-    sub(
-      "_results\\.rds$",
-      paste0("_eval", eval_year, "_fit.log"),
-      x = _
-    )
-}
-
-#' Run a fit while capturing warnings/messages/console output to a per-fit log
-run_fit_with_logging <- function(expr, combo, rep, eval_year, log_dir = NULL) {
-  if (is.null(log_dir)) {
-    return(force(expr))
-  }
-
-  sp_dir <- file.path(log_dir, sp_to_hyphens(combo$species))
-  dir.create(sp_dir, showWarnings = FALSE, recursive = TRUE)
-
-  log_path <- file.path(
-    sp_dir,
-    generate_fit_log_filename(
-      species = combo$species,
-      survey_abbrev = combo$survey_abbrev,
-      mpa_trend = combo$mpa_trend,
-      ar1_scenario = combo$ar1_scenario,
-      time_scenario = combo$time_scenario,
-      plan = combo$plan,
-      replicate = rep,
-      eval_year = eval_year
-    )
-  )
-
-  if (file.exists(log_path)) {
-    unlink(log_path)
-  }
-
-  output_path <- tempfile("fit-output-", fileext = ".log")
-  message_path <- tempfile("fit-message-", fileext = ".log")
-  output_con <- file(output_path, open = "wt")
-  message_con <- file(message_path, open = "wt")
-  warnings_seen <- character()
-  messages_seen <- character()
-  error_seen <- NULL
-  start_time <- Sys.time()
-  base_output_sinks <- sink.number(type = "output")
-  base_message_sinks <- sink.number(type = "message")
-
-  cleanup_capture <- function() {
-    while (sink.number(type = "message") > base_message_sinks) {
-      sink(type = "message")
-    }
-    while (sink.number(type = "output") > base_output_sinks) {
-      sink(type = "output")
-    }
-    try(close(output_con), silent = TRUE)
-    try(close(message_con), silent = TRUE)
-  }
-
-  on.exit(cleanup_capture(), add = TRUE)
-
-  sink(output_con, type = "output")
-  sink(message_con, type = "message")
-
-  result <- tryCatch(
-    withCallingHandlers(
-      force(expr),
-      warning = function(w) {
-        warnings_seen <<- c(warnings_seen, conditionMessage(w))
-        invokeRestart("muffleWarning")
-      },
-      message = function(m) {
-        messages_seen <<- c(messages_seen, conditionMessage(m))
-        invokeRestart("muffleMessage")
-      }
-    ),
-    error = function(e) {
-      error_seen <<- conditionMessage(e)
-      NULL
-    }
-  )
-
-  cleanup_capture()
-
-  output_lines <- if (file.exists(output_path)) readLines(output_path, warn = FALSE) else character()
-  message_lines <- if (file.exists(message_path)) readLines(message_path, warn = FALSE) else character()
-  unlink(c(output_path, message_path))
-
-  metadata_lines <- c(
-    paste0("timestamp: ", format(start_time, tz = Sys.timezone(), usetz = TRUE)),
-    paste0("species: ", combo$species),
-    paste0("survey_abbrev: ", combo$survey_abbrev),
-    paste0("mpa_trend: ", combo$mpa_trend),
-    paste0("ar1_scenario: ", combo$ar1_scenario),
-    paste0("time_scenario: ", combo$time_scenario),
-    paste0("plan: ", combo$plan),
-    paste0("replicate: ", rep),
-    paste0("eval_year: ", eval_year)
-  )
-
-  sections <- c(metadata_lines)
-
-  if (length(unique(messages_seen)) > 0) {
-    sections <- c(
-      sections,
-      "",
-      "[captured_messages]",
-      unique(messages_seen)
-    )
-  }
-
-  if (length(unique(warnings_seen)) > 0) {
-    sections <- c(
-      sections,
-      "",
-      "[captured_warnings]",
-      unique(warnings_seen)
-    )
-  }
-
-  if (length(message_lines) > 0) {
-    sections <- c(
-      sections,
-      "",
-      "[message_stream]",
-      message_lines
-    )
-  }
-
-  if (length(output_lines) > 0) {
-    sections <- c(
-      sections,
-      "",
-      "[output_stream]",
-      output_lines
-    )
-  }
-
-  if (!is.null(error_seen)) {
-    sections <- c(
-      sections,
-      "",
-      "[error]",
-      error_seen
-    )
-  }
-
-  if (length(sections) > length(metadata_lines)) {
-    writeLines(sections, log_path)
-  }
-
-  if (!is.null(error_seen)) {
-    stop(error_seen)
-  }
-
-  result
-}
-
 #' Lazy load historical data with per-worker caching
 get_hist_data <- function(species, survey_abbrev, hist_path, cache_env) {
   key <- paste(species, survey_abbrev, sep = "___")
@@ -473,7 +305,6 @@ fit_single_replicate <- function(combo,
                                  evaluation_years_filter = NULL,
                                  save_fits = FALSE,
                                  fits_dir = NULL,
-                                 log_dir = NULL,
                                  .formula = catch_prop ~ 0 + fyear + restricted + year_covariate +
                                    restricted:future_step + restricted:future_year_covariate,
                                  .trend_param = "restricted:future_year_covariate",
@@ -583,22 +414,16 @@ fit_single_replicate <- function(combo,
         combined_data <- combined_data |> mutate(survey_abbrev = combo$survey_abbrev)
       }
 
-      fit <- run_fit_with_logging(
-        expr = fit_simulation(
-          dat = combined_data,
-          formula = .formula,
-          spatial = "on",
-          spatiotemporal = "iid",
-          family = betabinomial(link = "cloglog"),
-          cutoff = 20,
-          control = sdmTMBcontrol(collapse_spatial_variance = TRUE, multiphase = FALSE,
-                                  profile = FALSE, newton_loops = 1L),
-          silent = TRUE
-        ),
-        combo = combo,
-        rep = rep,
-        eval_year = eval_year,
-        log_dir = log_dir
+      fit <- fit_simulation(
+        dat = combined_data,
+        formula = .formula,
+        spatial = "on",
+        spatiotemporal = "iid",
+        family = betabinomial(link = "cloglog"),
+        cutoff = 20,
+        control = sdmTMBcontrol(collapse_spatial_variance = TRUE, multiphase = FALSE,
+                                profile = FALSE, newton_loops = 1L),
+        silent = FALSE
       )
 
       if (save_fits && !is.null(fits_dir)) {
@@ -676,7 +501,6 @@ fit_parameter_combo <- function(combo,
                                evaluation_years_filter = NULL,
                                save_fits = FALSE,
                                fits_dir = NULL,
-                               log_dir = NULL,
                                .formula = catch_prop ~ 0 + fyear + restricted + year_covariate +
                                  restricted:future_step + restricted:future_year_covariate,
                                .trend_param = "restricted:future_year_covariate",
@@ -693,7 +517,6 @@ fit_parameter_combo <- function(combo,
       evaluation_years_filter = evaluation_years_filter,
       save_fits = save_fits,
       fits_dir = fits_dir,
-      log_dir = log_dir,
       .formula = .formula,
       .trend_param = .trend_param,
       sample_dir = sample_dir,
@@ -826,7 +649,6 @@ execute_parallel_fitting <- function(task_grid, results_dir,
                                     evaluation_years_filter = NULL,
                                     save_fits = FALSE,
                                     fits_dir = NULL,
-                                    log_dir = NULL,
                                     evaluation_years = EVALUATION_YEARS,
                                     .formula = catch_prop ~ 0 + fyear + restricted + year_covariate +
                                       restricted:future_step + restricted:future_year_covariate,
@@ -840,7 +662,6 @@ execute_parallel_fitting <- function(task_grid, results_dir,
   evaluation_years_filter_captured <- evaluation_years_filter
   save_fits_captured <- save_fits
   fits_dir_captured <- fits_dir
-  log_dir_captured <- log_dir
   replicate_task_grid <- expand_task_grid_by_replicate(task_grid, replicate_filter_captured)
 
   if (nrow(replicate_task_grid) == 0) {
@@ -872,7 +693,6 @@ execute_parallel_fitting <- function(task_grid, results_dir,
           evaluation_years_filter = evaluation_years_filter_captured,
           save_fits = save_fits_captured,
           fits_dir = fits_dir_captured,
-          log_dir = log_dir_captured,
           sample_dir = sample_dir,
           results_dir = results_dir,
           hist_path = hist_path,
@@ -902,11 +722,10 @@ execute_parallel_fitting <- function(task_grid, results_dir,
                    "fit_simulation", "extract_trend_estimate", "extract_re_pars",
                    "combine_hist_sim_data", "create_error_row",
                    "generate_result_filename", "sp_to_hyphens",
-                   "generate_fit_log_filename", "run_fit_with_logging",
                    "clean_family_name", "summarise_sanity", "load_sampled_data",
                    "results_dir", "hist_path", "sample_dir", "sampling_summary",
                    "evaluation_years_filter_captured", "save_fits_captured",
-                   "fits_dir_captured", "log_dir_captured", "evaluation_years", "p", ".formula", ".trend_param",
+                   "fits_dir_captured", "evaluation_years", "p", ".formula", ".trend_param",
                    "prepare_power_fit_data"),
         packages = c("dplyr", "sdmTMB")
       )
