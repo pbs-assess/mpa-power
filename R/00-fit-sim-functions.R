@@ -424,7 +424,18 @@ simulate_hbll <- function(fit,
   # Fixed random effects (get single draw from rf distributions)
   osp <- one_sample_posterior(fit)
   omega_s <- if (use_fixed_spatial_field) {
-    osp[grepl("omega_s", names(osp))] |> matrix()
+    omega_draw <- osp[grepl("omega_s", names(osp))]
+
+    if (length(omega_draw) == 0) {
+      warning(
+        "No omega_s values found in posterior draw for ",
+        species, " ", survey_type,
+        "; falling back to omega_s = NULL."
+      )
+      NULL
+    } else {
+      matrix(omega_draw)
+    }
   } else {
     NULL
   }
