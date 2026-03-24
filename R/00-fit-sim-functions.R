@@ -483,7 +483,8 @@ simulate_hbll <- function(fit,
     b$estimate[b$term == "(Intercept)"]
   }
 
-  restricted_value <- filter(b, term == "restricted") |> pull(estimate)
+  restricted_value <- dplyr::filter(b, term == "restricted") |> pull(estimate)
+  print(restricted_value)
   if (is.null(B)) {
     B <- numeric(n_coef)
     # Coefficients - @TODO: generalise this...

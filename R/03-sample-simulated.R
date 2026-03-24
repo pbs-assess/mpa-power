@@ -471,7 +471,7 @@ load_sampled_data <- function(species, survey_abbrev, mpa_trend, ar1_scenario,
 # Main execution
 # =============================================================================
 
-USE_PARALLEL <- FALSE
+USE_PARALLEL <- TRUE
 N_WORKERS <- 9L
 
 # Setup parallel processing
@@ -524,12 +524,13 @@ if (USE_PARALLEL) {
 #   FILTER_TIME_SCENARIO: Character vector of time scenario names
 #   FILTER_REPLICATES: Integer vector of replicate numbers
 
+### SETTINGS
 FILTER_SPECIES <- "yelloweye rockfish" #c("silvergray rockfish", "yelloweye rockfish")
 FILTER_SURVEY <- NULL
 FILTER_MPA_TREND <- NULL
 FILTER_AR1_SCENARIO <- NULL#"fitted_AR1"
 FILTER_TIME_SCENARIO <- NULL
-FILTER_REPLICATES <- 1:10
+FILTER_REPLICATES <- 1:35
 
 # Apply filters to simulation summary
 filter_config <- list(

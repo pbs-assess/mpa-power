@@ -24,8 +24,8 @@ N_REPLICATES <- 10
 
 if (Sys.info()['user'] %in% c("dunic", "anderson")) {
   USE_PARALLEL <- TRUE
-  N_WORKERS <- 75
-  N_REPLICATES <- 20
+  N_WORKERS <- 78
+  N_REPLICATES <- 10
 }
 
 if (Sys.info()['user'] %in% c("jillian", "jilliandunic")) {
@@ -274,6 +274,8 @@ setup_parallel(USE_PARALLEL, N_WORKERS)
 
 sampling_summary <- readRDS(file.path(sample_dir, "sampling-summary.rds"))
 
+
+### SETTINGS
 # =============================================================================
 # Task grid filtering (set to NULL to use all available)
 # =============================================================================
@@ -289,7 +291,7 @@ FILTER_TIME_SCENARIO <- NULL   # NULL = all time scenarios
 # FILTER_PLAN <- NULL #c("status quo", "MPAs every 4 years")  # NULL = all plans
 FILTER_PLAN <- "status quo" #c("status quo", "MPAs every 4 years")  # NULL = all plans
 FILTER_TIME_SCENARIO <- "twenty-five_years"   # NULL = all time scenarios
-FILTER_REPLICATES <- 1:10      # NULL = all available replicates, e.g., 1:50
+FILTER_REPLICATES <- 1:35      # NULL = all available replicates, e.g., 1:50
 FILTER_EVALUATION_YEARS <- NULL #c(2046)  # NULL = all evaluation years
 
 results_dir <- here::here("data-generated", "power-results")

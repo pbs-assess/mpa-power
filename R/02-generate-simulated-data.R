@@ -7,6 +7,7 @@
 source(here::here("R", "00-setup.R"))
 # source(here::here("R", "01-fit-conditioning-models.R"))
 source(here::here("R", "00-fit-sim-functions.R"))
+library(tidyr)
 
 # Make sure we are using latest recovery rates
 # knitr::purl(here::here("R", "recovery-rates-clean.Rmd"), output = here::here("R", "recovery-rates-clean.R"))
@@ -605,6 +606,7 @@ if (length(fit_files) > 0) {
 # Main execution
 # =============================================================================
 
+### SETTINGS
 # Define species list
 sp_list <- c(
   "yelloweye rockfish"
@@ -615,6 +617,9 @@ sp_list <- c(
   # "canary rockfish",
   # "silvergray rockfish"
 )
+nreps <- 120
+nreps <- 35
+
 
 # Filter to species with recovery rates
 missing_rates <- setdiff(sp_list, unique(recovery_rates$species))
@@ -667,9 +672,6 @@ formula_scenarios <- tribble(
   ~formula_scenario, ~formula,
   "standard", list(~ 1 + restricted * year_covariate)  # MPA × time interaction
 )
-
-nreps <- 120
-nreps <- 10
 
 # Note: Parameter grids are now created per-species using recovery rates
 # See task grid creation below for species-specific implementation

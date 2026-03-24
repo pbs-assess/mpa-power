@@ -180,7 +180,7 @@ fit_simulation <- function(dat,
                            family = betabinomial(link = "cloglog"),
                            cutoff = 10,
                            control = sdmTMBcontrol(collapse_spatial_variance = TRUE,
-                                                             multiphase = FALSE, profile = FALSE, newton_loops = 1L),
+                                                             multiphase = TRUE, profile = FALSE, newton_loops = 1L),
                            silent = TRUE, ...) {
 
   survey_type <- unique(dat$survey_abbrev)
