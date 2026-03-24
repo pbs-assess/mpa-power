@@ -112,7 +112,7 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
   conditioning_formula <- catch_prop ~ 0 + fyear + restricted
   fit_ON <- if (val_ON$passed) {
     fit_cached_sdmTMB(
-      model_tag = paste0(sp, "-HBLL-OUT-N-betabinomial-restricted-", sprf, "-", strf),
+      model_tag = paste0(sp, "-HBLL-OUT-N-betabinomial-", sprf, "-", strf),
       fit_dir = fit_dir,
       data = d_ON,
       formula = conditioning_formula,

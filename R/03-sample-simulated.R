@@ -419,59 +419,59 @@ load_sampled_data <- function(species, survey_abbrev, mpa_trend, ar1_scenario,
 # Defensive check: test sampling on yelloweye before main execution
 # =============================================================================
 # Get first available MPA trend for yelloweye rockfish
-ye_mpa_trend <- sim_summary |>
-  filter(species == "yelloweye rockfish",
-         ar1_scenario == "fitted_AR1",
-         time_scenario == "twenty-five_years") |>
-  pull(mpa_trend) |>
-  unique() |>
-  first()
-
-if (is.na(ye_mpa_trend)) {
-  message("ℹ Skipping yelloweye defensive checks (no data available)")
-} else {
-  message("Running defensive checks with yelloweye MPA trend: ", ye_mpa_trend)
-
-  ye_sim <- purrr::map_dfr(c("HBLL OUT N", "HBLL OUT S", "HBLL INS N"), ~{
-    load_sim_data("yelloweye rockfish", .x, ye_mpa_trend, "fitted_AR1", "twenty-five_years", sim_summary, sim_dir, replicates = 1)
-  })
-
-  unique(ye_sim$survey_abbrev)
-
-  ye_sampled <- run_sampling(ye_sim)
-
-  ggplot() +
-    aes(X, Y, colour = observed, shape = factor(restricted)) +
-    geom_point(data = ye_sampled |> filter(restricted == 0), shape = 21) +
-    geom_point(data = ye_sampled |> filter(restricted == 1), shape = 19) +
-    scale_colour_viridis_c(trans = "log10") +
-    facet_grid(cols = vars(plan), rows = vars(year))
-
-  ye_sampled |>
-    filter(plan == "status quo") |>
-    janitor::tabyl(year, restricted, survey_abbrev)
-
-  ye_sampled |>
-    filter(plan == "MPAs every 4 years") |>
-    janitor::tabyl(year, restricted, survey_abbrev)
-
-  # Quick checks
-  stopifnot("Odd years: HBLL INS N/OUT N" =
-    all((ye_sampled |> filter(survey_abbrev %in% c("HBLL INS N", "HBLL OUT N")) |> pull(year)) %% 2 == 1))
-  stopifnot("Even years: HBLL OUT S" =
-    all((ye_sampled |> filter(survey_abbrev == "HBLL OUT S") |> pull(year)) %% 2 == 0))
-  stopifnot("MPA 4-yr: restricted every 4 years" =
-    all(diff(unique((ye_sampled |> filter(plan == "MPAs every 4 years", survey_abbrev %in% c("HBLL INS N", "HBLL OUT N"), restricted == 1) |> pull(year)))) %in% c(4, 5)))
-  stopifnot("MPA 4-yr: restricted every 4 years" =
-    all(diff(unique((ye_sampled |> filter(plan == "MPAs every 4 years", survey_abbrev == "HBLL OUT S", restricted == 1) |> pull(year)))) %in% c(4, 5)))
-  message("✓ Sampling checks passed")
-}
+# ye_mpa_trend <- sim_summary |>
+#   filter(species == "yelloweye rockfish",
+#          ar1_scenario == "fitted_AR1",
+#          time_scenario == "twenty-five_years") |>
+#   pull(mpa_trend) |>
+#   unique() |>
+#   first()
+#
+# if (is.na(ye_mpa_trend)) {
+#   message("ℹ Skipping yelloweye defensive checks (no data available)")
+# } else {
+#   message("Running defensive checks with yelloweye MPA trend: ", ye_mpa_trend)
+#
+#   ye_sim <- purrr::map_dfr(c("HBLL OUT N", "HBLL OUT S", "HBLL INS N"), ~{
+#     load_sim_data("yelloweye rockfish", .x, ye_mpa_trend, "fitted_AR1", "twenty-five_years", sim_summary, sim_dir, replicates = 1)
+#   })
+#
+#   unique(ye_sim$survey_abbrev)
+#
+#   ye_sampled <- run_sampling(ye_sim)
+#
+#   ggplot() +
+#     aes(X, Y, colour = observed, shape = factor(restricted)) +
+#     geom_point(data = ye_sampled |> filter(restricted == 0), shape = 21) +
+#     geom_point(data = ye_sampled |> filter(restricted == 1), shape = 19) +
+#     scale_colour_viridis_c(trans = "log10") +
+#     facet_grid(cols = vars(plan), rows = vars(year))
+#
+#   ye_sampled |>
+#     filter(plan == "status quo") |>
+#     janitor::tabyl(year, restricted, survey_abbrev)
+#
+#   ye_sampled |>
+#     filter(plan == "MPAs every 4 years") |>
+#     janitor::tabyl(year, restricted, survey_abbrev)
+#
+#   # Quick checks
+#   stopifnot("Odd years: HBLL INS N/OUT N" =
+#     all((ye_sampled |> filter(survey_abbrev %in% c("HBLL INS N", "HBLL OUT N")) |> pull(year)) %% 2 == 1))
+#   stopifnot("Even years: HBLL OUT S" =
+#     all((ye_sampled |> filter(survey_abbrev == "HBLL OUT S") |> pull(year)) %% 2 == 0))
+#   stopifnot("MPA 4-yr: restricted every 4 years" =
+#     all(diff(unique((ye_sampled |> filter(plan == "MPAs every 4 years", survey_abbrev %in% c("HBLL INS N", "HBLL OUT N"), restricted == 1) |> pull(year)))) %in% c(4, 5)))
+#   stopifnot("MPA 4-yr: restricted every 4 years" =
+#     all(diff(unique((ye_sampled |> filter(plan == "MPAs every 4 years", survey_abbrev == "HBLL OUT S", restricted == 1) |> pull(year)))) %in% c(4, 5)))
+#   message("✓ Sampling checks passed")
+# }
 
 # =============================================================================
 # Main execution
 # =============================================================================
 
-USE_PARALLEL <- TRUE
+USE_PARALLEL <- FALSE
 N_WORKERS <- 9L
 
 # Setup parallel processing
@@ -524,12 +524,12 @@ if (USE_PARALLEL) {
 #   FILTER_TIME_SCENARIO: Character vector of time scenario names
 #   FILTER_REPLICATES: Integer vector of replicate numbers
 
-FILTER_SPECIES <- NULL #c("silvergray rockfish", "yelloweye rockfish")
+FILTER_SPECIES <- "yelloweye rockfish" #c("silvergray rockfish", "yelloweye rockfish")
 FILTER_SURVEY <- NULL
 FILTER_MPA_TREND <- NULL
 FILTER_AR1_SCENARIO <- NULL#"fitted_AR1"
 FILTER_TIME_SCENARIO <- NULL
-FILTER_REPLICATES <- 1:20
+FILTER_REPLICATES <- 1:10
 
 # Apply filters to simulation summary
 filter_config <- list(
