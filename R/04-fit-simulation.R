@@ -19,7 +19,7 @@ results_dir <- here::here("data-generated", "power-results")
 dir.create(results_dir, showWarnings = FALSE, recursive = TRUE)
 
 USE_PARALLEL <- TRUE
-N_WORKERS <- 6 #NULL
+N_WORKERS <- 10 #NULL
 N_REPLICATES <- 10
 
 if (Sys.info()['user'] %in% c("dunic", "anderson")) {
@@ -35,12 +35,17 @@ if (Sys.info()['user'] %in% c("jillian", "jilliandunic")) {
 }
 
 FORMULA <- catch_prop ~ 0 + fyear + restricted + year_covariate +
-  restricted:future_step + restricted:future_year_covariate
-TREND_PARAM <- "restricted:future_year_covariate"
-# EVALUATION_YEARS <- c(2030, 2034, 2038, 2042, 2046)
-EVALUATION_YEARS <- c(2030, 2038, 2046)
+  # restricted:future_step +
+  restricted:future_year_covariate
 
-EVALUATION_YEARS <- c(2046)
+# FORMULA <- catch_prop ~ 0 + fyear + restricted + year_covariate +
+#   restricted:future_step + restricted:future_year_covariate
+
+TREND_PARAM <- "restricted:future_year_covariate"
+EVALUATION_YEARS <- c(2030, 2034, 2038, 2042, 2046)
+# EVALUATION_YEARS <- c(2030, 2038, 2046)
+
+# EVALUATION_YEARS <- c(2046)
 # EVALUATION_YEARS <- c(2038)
 
 hbll_last_sampled_year <- readRDS(file.path("data-generated", "hbll-last-sampled-year.rds"))
