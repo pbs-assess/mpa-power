@@ -200,6 +200,7 @@ fit_simulation <- function(dat,
   cached_mesh <- readRDS(mesh_file)
   mesh <- make_mesh(dat, xy_cols = c("X", "Y"), mesh = cached_mesh$mesh)
 
+  control$multiphase <- FALSE
   params <- list(
     formula = formula,
     data = dat,
@@ -214,6 +215,16 @@ fit_simulation <- function(dat,
     control = control,
     ...
   )
+
+  # browser()
+  # sink()
+  # sink()
+  # print(control)
+  # print(formula)
+  # table(dat$year, dat$fyear)
+  # table(dat$year, dat$restricted)
+  # table(dat$year, dat$future_year_covariate)
+  # table(dat$year, dat$year_covariate)
 
   fit <-
     tryCatch({

@@ -10,8 +10,8 @@ load_cached_species <- function(sp_name, fit_dir = here::here("data-generated", 
   # Pattern for each survey's betabinomial models
   patterns <- c(
     fit_ON = paste0(sp, "-HBLL-OUT-N-betabinomial-on-iid-"),
-    fit_OS = paste0(sp, "-HBLL-OUT-S-betabinomial-on-iid-"),
-    fit_IN = paste0(sp, "-HBLL-INS-N-betabinomial-on-iid-")
+    fit_OS = paste0(sp, "-HBLL-OUT-S-betabinomial-(restricted-)?on-iid-"),
+    fit_IN = paste0(sp, "-HBLL-INS-N-betabinomial-(restricted-)?on-iid-")
   )
 
   # Find and load each model

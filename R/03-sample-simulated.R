@@ -16,6 +16,7 @@ library(tidyr)
 
 sim_dir <- here::here("data-generated", "sim-data")
 sample_dir <- here::here("data-generated", "sampled-data")
+hist_clean_dir <- here::here("data-generated", "cleaned-species-data")
 dir.create(sample_dir, showWarnings = FALSE, recursive = TRUE)
 
 # Not used, but sometimes usefulf or me to see
@@ -296,7 +297,85 @@ filter_hbll_survey_years <- function(sim_dat) {
   )
 }
 
-run_sampling <- function(sim_dat) {
+bootstrap_historical_survey_years <- function(sim_dat, species, hist_clean_dir, seed = NULL) {
+  if (!is.null(seed)) set.seed(seed)
+
+  future_survey_years <- filter_hbll_survey_years(sim_dat) |>
+    distinct(survey_abbrev, year)
+
+  sim_grid <- sim_dat |>
+    distinct(survey_abbrev, X, Y, grouping_code, restricted)
+
+  historical_templates <- purrr::map_dfr(unique(future_survey_years$survey_abbrev), function(survey_abbrev) {
+    hist_file <- file.path(
+      hist_clean_dir,
+      paste0(sp_to_hyphens(species), "-", sp_to_hyphens(survey_abbrev), ".rds")
+    )
+
+    if (!file.exists(hist_file)) {
+      stop("Historical cleaned data not found: ", hist_file, call. = FALSE)
+    }
+
+    readRDS(hist_file) |>
+      select(survey_abbrev, hist_year = year, X, Y, restricted)
+  })
+
+  mapped_templates <- purrr::map_dfr(unique(historical_templates$survey_abbrev), function(survey_abbrev) {
+    purrr::map_dfr(sort(unique(historical_templates$restricted[historical_templates$survey_abbrev == survey_abbrev])), function(restricted_value) {
+      hist_subset <- historical_templates |>
+        filter(survey_abbrev == .env$survey_abbrev, restricted == .env$restricted_value)
+
+      grid_subset <- sim_grid |>
+        filter(survey_abbrev == .env$survey_abbrev, restricted == .env$restricted_value)
+
+      if (nrow(hist_subset) == 0 || nrow(grid_subset) == 0) {
+        return(tibble())
+      }
+
+      hist_sf <- hist_subset |>
+        mutate(x_m = X * 1000, y_m = Y * 1000) |>
+        sf::st_as_sf(coords = c("x_m", "y_m"), crs = 32609)
+
+      grid_sf <- grid_subset |>
+        mutate(x_m = X * 1000, y_m = Y * 1000) |>
+        sf::st_as_sf(coords = c("x_m", "y_m"), crs = 32609)
+
+      nearest_idx <- sf::st_nearest_feature(hist_sf, grid_sf)
+
+      tibble(
+        survey_abbrev = hist_subset$survey_abbrev,
+        hist_year = hist_subset$hist_year,
+        X = grid_subset$X[nearest_idx],
+        Y = grid_subset$Y[nearest_idx],
+        grouping_code = grid_subset$grouping_code[nearest_idx],
+        restricted = grid_subset$restricted[nearest_idx]
+      ) |>
+        distinct()
+    })
+  })
+
+  sampled_year_map <- future_survey_years |>
+    group_by(survey_abbrev) |>
+    mutate(
+      hist_year = sample(
+        unique(mapped_templates$hist_year[mapped_templates$survey_abbrev == first(survey_abbrev)]),
+        size = n(),
+        replace = TRUE
+      )
+    ) |>
+    ungroup()
+
+  bootstrap_locations <- purrr::pmap_dfr(sampled_year_map, function(survey_abbrev, year, hist_year) {
+    mapped_templates |>
+      filter(survey_abbrev == .env$survey_abbrev, hist_year == .env$hist_year) |>
+      transmute(survey_abbrev, year = year, X, Y, grouping_code, restricted)
+  })
+
+  sim_dat |>
+    semi_join(bootstrap_locations, by = c("survey_abbrev", "year", "X", "Y", "grouping_code", "restricted"))
+}
+
+run_sampling <- function(sim_dat, species) {
   # Verify sim_dat contains single replicate
   rep <- unique(sim_dat$replicate)
   if (length(rep) != 1) {
@@ -351,6 +430,14 @@ run_sampling <- function(sim_dat) {
   ) |>
     mutate(plan = "MPAs every 4 years", replicate = rep)
 
+  sampled_historical_bootstrap <- bootstrap_historical_survey_years(
+    sim_dat = sim_dat,
+    species = species,
+    hist_clean_dir = hist_clean_dir,
+    seed = rep + 12000
+  ) |>
+    mutate(plan = "historical survey-year bootstrap", replicate = rep)
+
   # Case 3: Status quo + 20% effort ------------------------
   # For low power species, does increasing sampling make a difference to power?
   # sampled_status_quo_1.2 <- sample_by_plan(
@@ -404,7 +491,8 @@ run_sampling <- function(sim_dat) {
     # sampled_status_quo_1.2,
     # sampled_status_quo_1.4,
     # sampled_status_quo_5_year,
-    sampled_mpas_5_years
+    sampled_mpas_5_years,
+    sampled_historical_bootstrap
   )
 }
 
@@ -518,7 +606,7 @@ load_sampled_data <- function(species, survey_abbrev, mpa_trend, ar1_scenario,
 # Main execution
 # =============================================================================
 
-USE_PARALLEL <- TRUE
+USE_PARALLEL <- F
 N_WORKERS <- 9L
 
 # Setup parallel processing
@@ -577,7 +665,7 @@ FILTER_SURVEY <- NULL
 FILTER_MPA_TREND <- NULL
 FILTER_AR1_SCENARIO <- NULL#"fitted_AR1"
 FILTER_TIME_SCENARIO <- NULL
-FILTER_REPLICATES <- 1:5
+FILTER_REPLICATES <- 1:3
 
 # Apply filters to simulation summary
 filter_config <- list(
@@ -685,7 +773,8 @@ sampling_summary <- purrr::map_dfr(species_list, function(sp) {
     plan_names <- c(
       # "historical locations only",
       "status quo",
-      "MPAs every 4 years"#,
+      "MPAs every 4 years",
+      "historical survey-year bootstrap"#,
       # "status quo + 20% effort"
       # "status quo - no sampling in MPAs"
     )
@@ -758,7 +847,7 @@ sampling_summary <- purrr::map_dfr(species_list, function(sp) {
       )
 
       # Apply all sampling designs to this replicate
-      sampled <- run_sampling(sim_dat = sim_dat)
+      sampled <- run_sampling(sim_dat = sim_dat, species = row$species)
 
       # Add simulation metadata
       sampled <- sampled |>

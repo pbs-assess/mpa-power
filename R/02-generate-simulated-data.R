@@ -207,8 +207,8 @@ prepare_species_fits <- function(sp_name, fit_dir = here::here("data-generated",
   # Pattern for each survey's betabinomial models
   patterns <- c(
     fit_ON = paste0(sp, "-HBLL-OUT-N-betabinomial-on-iid-"),
-    fit_OS = paste0(sp, "-HBLL-OUT-S-betabinomial-on-iid-"),
-    fit_IN = paste0(sp, "-HBLL-INS-N-betabinomial-on-iid-")
+    fit_OS = paste0(sp, "-HBLL-OUT-S-betabinomial-(restricted-)?on-iid-"),
+    fit_IN = paste0(sp, "-HBLL-INS-N-betabinomial-(restricted-)?on-iid-")
   )
 
   # Find fit files and check sanity
@@ -656,7 +656,7 @@ sp_list <- c(
   # "silvergray rockfish"
 )
 nreps <- 120
-nreps <- 7
+nreps <- 3
 
 
 # Filter to species with recovery rates

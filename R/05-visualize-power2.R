@@ -129,7 +129,7 @@ all_fitted_results |> glimpse()
 filter(all_fitted_results, !converged) |>
   distinct(sanity, error_msg, converged) |>
   glimpse()
-unique(all_fitted_results$sanity)
+table(all_fitted_results$sanity)
 
 # Calculate replicate-level metrics
 # ----------------------------------
@@ -173,6 +173,7 @@ power_df <- power_df0 |>
 # ------------------------------------------------------------------------------
 # filter_species <- "lingcod"
 filter_species <- c("yelloweye rockfish", "lingcod", "quillback rockfish")
+filter_species <- c("lingcod")
 filter_survey <- "HBLL"
 filter_ar1 <- "fitted_AR1"
 
@@ -225,7 +226,7 @@ samples |>
   ) |>
   mutate(species = factor(species, levels = spp_levels)) |>
   ggplot(data = _) +
-  aes(x = n_samps, y = power, colour = mpa_effect_pct) +
+  aes(x = n_samps, y = power, colour = factor(mpa_effect_pct)) +
   geom_point() +
   geom_line(aes(group = mpa_effect_pct)) +
   geom_hline(yintercept = 0.8, linetype = "dashed", colour = "grey50") +
