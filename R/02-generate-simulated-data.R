@@ -673,6 +673,11 @@ sp_list <- c(
 )
 nreps <- 20
 
+# Change what number value of replicates to run
+nreps <- 220 # this is dumb but I didn't want to change the create_sim_param_grid function now
+# Filter task_grid to only include replicates 200-219
+replicates <- 200:219
+
 # Filter to species with recovery rates
 missing_rates <- setdiff(sp_list, unique(recovery_rates$species))
 if (length(missing_rates) > 0) {
@@ -814,13 +819,16 @@ message("Total tasks: ", nrow(task_grid))
 message("  Species: ", length(unique(task_grid$species)))
 message("  Average tasks per species: ", round(nrow(task_grid) / length(unique(task_grid$species)), 1))
 
+task_grid_filtered <- task_grid |>
+  mutate(param_grid = map(param_grid, ~ filter(.x, replicate %in% replicates)))
+
 # Setup parallel processing
 tictoc::tic("Starting micro-task simulations")
 map_fn <- setup_parallel(USE_PARALLEL, N_WORKERS)
 
 # Pre-computation: check which replicate files are missing
 message("\n=== Checking Cache and Preparing Micro-Tasks ===")
-micro_tasks <- check_cache_and_prepare_tasks(task_grid, sim_dir)
+micro_tasks <- check_cache_and_prepare_tasks(task_grid_filtered, sim_dir)
 
 # Parallel execution (only if missing replicates exist)
 if (nrow(micro_tasks) > 0) {
