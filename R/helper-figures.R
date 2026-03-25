@@ -6,6 +6,7 @@ source(here::here("R", "00-fit-sim-functions.R"))
 library(ggsidekick)
 library(tidyr)
 library(patchwork)
+library(dplyr)
 
 sample_dir <- here::here("data-generated", "sampled-data")
 
