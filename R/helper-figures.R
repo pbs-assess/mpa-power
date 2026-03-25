@@ -6,6 +6,7 @@ source(here::here("R", "00-fit-sim-functions.R"))
 library(ggsidekick)
 library(tidyr)
 library(patchwork)
+library(dplyr)
 
 sample_dir <- here::here("data-generated", "sampled-data")
 
@@ -240,28 +241,28 @@ sample_f <- list.files(file.path(sample_dir, "yelloweye-rockfish"),
 sampled_data <- purrr::map_dfr(sample_f, readRDS)
 plan_levels <- c("status quo", "MPAs at 5 year intervals")
 
-sampled_data |>
-  mutate(plan = factor(plan, levels = plan_levels)) |>
-  mutate(plan = forcats::fct_recode(plan, "Status quo" = "status quo", "MPAs at 4 year intervals" = "MPAs at 5 year intervals")) |>
-  filter(replicate == 1) |>
-  filter(year <= 2028) |>
-  XY_to_sf(crs_to = st_crs(hbll_grid_crs)) |>
-  rotate_sf(angle = angle) |>
-ggplot() +
-  geom_sf(data = ne_coast |> rotate_sf(angle = angle), fill = "white", linewidth = 0.05) +
-  geom_sf(data = display_mpa |> rotate_sf(angle = angle), fill = "grey85", linewidth = 0.05) +
-  geom_sf(aes(colour = observed, shape = factor(restricted)), size = 1.2, alpha = 0.5) +
-  scale_shape_manual(name = "Restricted", values = c(`0` = 21, `1` = 19)) +
-  scale_colour_viridis_c(name = "Observed", breaks = scales::breaks_pretty(n = 3)) +
-  theme(legend.position = "bottom") +
-  theme(strip.text = element_text(size = ifelse(presentation, 18, 8))) +
-  facet_grid(plan ~ year) +
-  auto_coord()
-if (presentation) {
-  ggsave(file.path(fig_dir, "sampling-scenario-comparison.png"), width = 11.7, height = 7.1)
-} else {
-  ggsave(file.path(fig_dir, "sampling-scenario-comparison.png"), width = 9, height = 10.9)
-}
+# sampled_data |>
+#   mutate(plan = factor(plan, levels = plan_levels)) |>
+#   mutate(plan = forcats::fct_recode(plan, "Status quo" = "status quo", "MPAs at 4 year intervals" = "MPAs at 5 year intervals")) |>
+#   filter(replicate == 1) |>
+#   filter(year <= 2028) |>
+#   XY_to_sf(crs_to = st_crs(hbll_grid_crs)) |>
+#   rotate_sf(angle = angle) |>
+# ggplot() +
+#   geom_sf(data = ne_coast |> rotate_sf(angle = angle), fill = "white", linewidth = 0.05) +
+#   geom_sf(data = display_mpa |> rotate_sf(angle = angle), fill = "grey85", linewidth = 0.05) +
+#   geom_sf(aes(colour = observed, shape = factor(restricted)), size = 1.2, alpha = 0.5) +
+#   scale_shape_manual(name = "Restricted", values = c(`0` = 21, `1` = 19)) +
+#   scale_colour_viridis_c(name = "Observed", breaks = scales::breaks_pretty(n = 3)) +
+#   theme(legend.position = "bottom") +
+#   theme(strip.text = element_text(size = ifelse(presentation, 18, 8))) +
+#   facet_grid(plan ~ year) +
+#   auto_coord()
+# if (presentation) {
+#   ggsave(file.path(fig_dir, "sampling-scenario-comparison.png"), width = 11.7, height = 7.1)
+# } else {
+#   ggsave(file.path(fig_dir, "sampling-scenario-comparison.png"), width = 9, height = 10.9)
+# }
 
  # (2) From a replicate of the simulated data, plot the relative index of abundance
 # for each species coastwide
@@ -275,10 +276,10 @@ relative_index_single_survey <- function(
   species,
   survey_abbrev,
   replicate_id,
-  mpa_trend = 1.018,
+  mpa_trend = 1.016,
   ar1_scenario = "fitted_AR1",
   time_scenario = "twenty-five_years",
-  plan = "status quo",
+  plan = "historical survey-year bootstrap",
   nsim_predict = 100,
   predict_seed = 123
 ) {
@@ -300,26 +301,60 @@ relative_index_single_survey <- function(
   fits_single <- load_cached_species(species, fit_dir = fit_dir)
   fit_single <- fits_single[[fit_survey_lu$fit_name[fit_survey_lu$survey_abbrev == survey_abbrev]]]
 
-  # Load sampled data for that survey region + scenario.
-  plan_slug <- gsub("[^a-zA-Z0-9]", "-", plan) |>
-    gsub("-+", "-", x = _) |>
-    tolower()
-  mpa_slug <- paste0("mpa", round(mpa_trend, digits = 3))
-
-  # Build filename pattern for the specific replicate
-  sampled_filename <- paste0(
-    sp_to_hyphens(survey_abbrev), "_",
-    mpa_slug, "_",
-    ar1_scenario, "_",
-    time_scenario, "_",
-    plan_slug,
-    "_rep", sprintf("%03d", replicate_id), ".rds"
+  canonical_plan <- dplyr::case_match(
+    plan,
+    "MPAs at 5 year intervals" ~ "MPAs every 4 years",
+    "MPAs at 4 year intervals" ~ "MPAs every 4 years",
+    .default = plan
   )
 
-  sampled_path <- file.path(sample_dir, sp_to_hyphens(species), sampled_filename)
+  sampling_summary_path <- file.path(sample_dir, "sampling-summary.rds")
+  if (!file.exists(sampling_summary_path)) {
+    stop("Sampling summary not found: ", sampling_summary_path)
+  }
+
+  sampling_summary <- readRDS(sampling_summary_path)
+
+  selected_file <- sampling_summary |>
+    filter(
+      species == .env$species,
+      survey_abbrev == .env$survey_abbrev,
+      mpa_trend == round(.env$mpa_trend, digits = 3),
+      ar1_scenario == .env$ar1_scenario,
+      time_scenario == .env$time_scenario,
+      plan == .env$canonical_plan,
+      replicate == .env$replicate_id
+    )
+
+  if (nrow(selected_file) == 0) {
+    available_scenarios <- sampling_summary |>
+      filter(
+        species == .env$species,
+        survey_abbrev == .env$survey_abbrev,
+        ar1_scenario == .env$ar1_scenario,
+        time_scenario == .env$time_scenario
+      ) |>
+      distinct(plan, mpa_trend) |>
+      arrange(plan, mpa_trend)
+
+    stop(
+      "No sampled file found for species=", species,
+      ", survey_abbrev=", survey_abbrev,
+      ", mpa_trend=", round(mpa_trend, digits = 3),
+      ", ar1_scenario=", ar1_scenario,
+      ", time_scenario=", time_scenario,
+      ", plan=", canonical_plan,
+      ", replicate=", replicate_id,
+      "\nAvailable plan/trend combinations:\n",
+      paste0("  - ", available_scenarios$plan, " (", available_scenarios$mpa_trend, ")", collapse = "\n")
+    )
+  }
+
+  sampled_path <- file.path(sample_dir, selected_file$file[[1]])
   if (!file.exists(sampled_path)) {
     stop("Sampled data not found: ", sampled_path)
   }
+
   sampled_dat_single <- readRDS(sampled_path)
 
   first_sim_year <- min(sampled_dat_single$year)
@@ -401,14 +436,17 @@ relative_index_single_survey <- function(
   )
 }
 
+example_species <- "yelloweye rockfish"
+example_survey <- "HBLL OUT N"
+
 test <- relative_index_single_survey(
-  species = "yelloweye rockfish",
-  survey_abbrev = "HBLL OUT N",
-  replicate_id = 5,
-  mpa_trend = 1.021,
+  species = example_species,
+  survey_abbrev = example_survey,
+  replicate_id = 4,
+  mpa_trend = 1.009,
   ar1_scenario = "fitted_AR1",
   time_scenario = "twenty-five_years",
-  plan = "status quo"
+  plan = "historical survey-year bootstrap"
 )
 
 ggplot(data = test) +
@@ -422,7 +460,7 @@ ggplot(data = test) +
                "Inside MPA" = "#D55E00",
                "Outside MPA" = "#0072B2")
   ) +
-  labs(title = paste(stringr::str_to_title(sp), " - ", survey_single),
+  labs(title = paste(stringr::str_to_title(example_species), " - ", example_survey),
         y = "Relative index",
         x = "Year",
         colour = NULL) +
@@ -487,107 +525,19 @@ ggsave(file.path(fig_dir, "relative-index-single-survey.png"), width = 7.2, heig
 #     )
 
 
-# === Single survey example: Yelloweye Rockfish HBLL OUT S only ===
-sp <- "yelloweye rockfish"
-survey_single <- "HBLL OUT N"
-fit_survey_lu <- tribble(
-  ~survey_abbrev, ~fit_name,
-  "HBLL OUT N", "fit_ON",
-  "HBLL OUT S", "fit_OS",
-  "HBLL INS N", "fit_IN"
+example_survey <- "HBLL OUT S"
+all_indices_single <- relative_index_single_survey(
+  species = example_species,
+  survey_abbrev = example_survey,
+  replicate_id = 6,
+  mpa_trend = 1.009,
+  ar1_scenario = "fitted_AR1",
+  time_scenario = "twenty-five_years",
+  plan = "historical survey-year bootstrap"
 )
 
-# Load fit
-fits_single <- load_cached_species(species_single, fit_dir = fit_dir)
-fit_single <- fits_single[[fit_survey_lu$fit_name[fit_survey_lu$survey_abbrev == survey_single]]]
-
-# Load sampled data for OUT S only
-f <- file.path(
-  sample_dir,
-  "yelloweye-rockfish",
-  paste0(
-    sp_to_hyphens(survey_single),
-    "_mpa1.018_fitted_AR1_twenty-five_years_status-quo.rds"
-  )
-)
-sampled_dat_single <- readRDS(f)
-
-# === Historical index for OUT S ===
-pred_grid_single <- sampled_dat_single |>
-  filter(replicate == 10, year == min(year)) |>
-  distinct(survey_abbrev, X, Y, block_id, restricted)
-
-hist_years_single <- sort(unique(fit_single$data$year))
-
-nd_single <- pred_grid_single |>
-  expand_grid(year = hist_years_single) |>
-  mutate(fyear = as.factor(year))
-
-set.seed(123)
-pred_matrix_single <- predict(fit_single, newdata = nd_single, nsim = 100, type = "response")
-nd_single$mu <- apply(pred_matrix_single, 1, median)
-
-hist_index_single <- nd_single |>
-  select(year, mu) |>
-  group_by(year) |>
-  summarise(index = sum(mu), .groups = "drop") |>
-  mutate(period = "historical")
-
-# === Simulated index for OUT S ===
-sim_index_single <- sampled_dat_single |>
-  group_by(year, restricted, replicate) |>
-  summarise(index = sum(mu), .groups = "drop") |>
-  group_by(year, restricted) |>
-  summarise(index = mean(index), .groups = "drop") |>
-  mutate(period = "simulated")
-
-# === Scale by last historical year ===
-last_hist_year_single <- max(hist_index_single$year)
-
-# Get baseline for each restricted group from last historical year
-# (from predictions, not from data, since historical wasn't split)
-baseline_single_by_restricted <- nd_single |>
-  filter(year == last_hist_year_single) |>
-  group_by(restricted) |>
-  summarise(baseline = sum(mu), .groups = "drop")
-
-# Total baseline (sum of both groups)
-total_baseline_single <- sum(baseline_single_by_restricted$baseline)
-
-# Scale historical (single combined line)
-hist_scaled_single <- hist_index_single |>
-  mutate(relative_index = index / total_baseline_single) |>
-  select(year, relative_index, period) |>
-  mutate(area = "Historical (combined)")
-
-# Scale simulated (split by restricted, each relative to its own baseline)
-sim_scaled_single <- sim_index_single |>
-  left_join(baseline_single_by_restricted, by = "restricted") |>
-  mutate(relative_index = index / baseline) |>
-  select(year, restricted, relative_index, period) |>
-  mutate(area = ifelse(restricted == 1, "Inside MPA", "Outside MPA"))
-
-# Add connection point: last historical year split by restricted
-connection_point <- baseline_single_by_restricted |>
-  mutate(
-    year = last_hist_year_single,
-    relative_index = baseline / baseline,  # = 1.0
-    period = "historical",
-    area = ifelse(restricted == 1, "Inside MPA", "Outside MPA")
-  ) |>
-  select(year, restricted, relative_index, period, area)
-
-# Combine for plotting
-all_indices_single <- bind_rows(
-  hist_scaled_single,
-  connection_point,
-  sim_scaled_single
-)
-
-# Plot single survey
-ggplot(all_indices_single, aes(x = year, y = relative_index, colour = area)) +
+ggplot(all_indices_single, aes(x = year, y = relative_index, colour = area, group = area)) +
   geom_line(linewidth = 1) +
-  geom_vline(xintercept = last_hist_year_single + 0.5, linetype = "dashed", alpha = 0.5) +
   geom_hline(yintercept = 1, linetype = "dotted", alpha = 0.5) +
   geom_vline(xintercept = c(2030, 2034, 2038, 2042, 2046), linetype = "dashed", alpha = 0.2) +
   scale_colour_manual(
@@ -595,7 +545,7 @@ ggplot(all_indices_single, aes(x = year, y = relative_index, colour = area)) +
                "Inside MPA" = "#D55E00",
                "Outside MPA" = "#0072B2")
   ) +
-  labs(title = paste(stringr::str_to_title(sp), " - ", survey_single),
+  labs(title = paste(stringr::str_to_title(example_species), " - ", example_survey),
         y = "Relative index",
         x = "Year",
         colour = NULL) +
