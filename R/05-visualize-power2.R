@@ -173,7 +173,8 @@ power_df <- power_df0 |>
 # ------------------------------------------------------------------------------
 # filter_species <- "lingcod"
 filter_species <- c("yelloweye rockfish", "lingcod", "quillback rockfish")
-filter_species <- c("lingcod")
+filter_species <- c("yelloweye rockfish")
+filter_species <- c("quillback rockfish")
 filter_survey <- "HBLL"
 filter_ar1 <- "fitted_AR1"
 
@@ -194,12 +195,12 @@ power_df0 |>
   mutate(id = row_number()) |>
   mutate(combo = paste(!!!syms(combo), collapse = " - ")) |>
   filter(replicate <= max(replicate)) |>
-  ggplot(data = ) +
+  ggplot() +
   geom_point(aes(x = id, y = estimate)) +
   geom_hline(aes(yintercept = true_effect), colour = "red") +
   # geom_point(aes(x = id, y = ratio_to_true)) +
   # geom_hline(aes(yintercept = 1), colour = "red") +
-  facet_grid(rows = vars(sampling_plan, sim_mpa_trend), cols = vars(eval_year)) +
+  facet_grid(rows = vars(sim_mpa_trend), cols = vars(eval_year)) +
   ggtitle(paste(filter_species, filter_survey, filter_ar1, sep = " - "))
 # ggsave(file.path(supp_dir, "bias-check-on-estimate-lingcod.pdf"), width = 9, height = 6.5)
 # ggsave(file.path(supp_dir, "bias-check-on-estimate-lingcod.png"), width = 9, height = 6.5)
@@ -219,19 +220,19 @@ samples <- map_dfr(1:max(power_df$n_reps), \(x) {
 })
 samples |>
   filter(
-    survey_abbrev == filter_survey &
-      sampling_plan == "status quo" #&
+    survey_abbrev == filter_survey
+      # sampling_plan == "status quo" #&
     # species %in% filter_species &
     # sim_ar1_scenario == filter_ar1
   ) |>
   mutate(species = factor(species, levels = spp_levels)) |>
   ggplot(data = _) +
-  aes(x = n_samps, y = power, colour = factor(mpa_effect_pct)) +
-  geom_point() +
+  aes(x = n_samps, y = power, colour = factor(mpa_effect_label)) +
+  # geom_point() +
   geom_line(aes(group = mpa_effect_pct)) +
   geom_hline(yintercept = 0.8, linetype = "dashed", colour = "grey50") +
   # geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
-  facet_wrap(sampling_plan ~ interaction(eval_year, species), ncol = 5)
+  facet_wrap( ~ interaction(eval_year, species), ncol = 5)
 # ggsave(file.path(supp_dir, "cumulative-power-plot-all-species.pdf"), width = 15, height = 13)
 # ggsave(file.path(supp_dir, "cumulative-power-plot-all-species.png"), width = 15, height = 13)
 
@@ -327,9 +328,10 @@ saveRDS(dat, here::here("data-generated", "power-results-df.rds"))
 # Power plot ------
 g <- dat |>
   ggplot() +
-  aes(x = eval_year, y = power_signed, colour = mpa_effect_label,
+  aes(x = eval_year, y = power_signed, colour = factor(mpa_effect_label),
     group = interaction(mpa_effect_label, sim_ar1_scenario, sampling_plan)) +
-  geom_line(aes(linetype = sampling_plan)) +
+  # geom_line(aes(linetype = sampling_plan)) +
+  geom_line() +
   geom_point() +
   geom_hline(yintercept = 0.8, linetype = "dashed", colour = "grey50") +
   # geom_label(data = dat |> filter(eval_year == 2048), aes(label = (mpa_effect_label)), x = 2048) +
@@ -356,8 +358,10 @@ if (presentation) {
 dat |>
   ggplot() +
   aes(x = eval_year, y = type_m_error, colour = mpa_effect_label,
-    group = interaction(mpa_effect_pct, sim_ar1_scenario, sampling_plan)) +
-  geom_line(aes(linetype = sampling_plan)) +
+    # group = interaction(mpa_effect_label, sim_ar1_scenario, sampling_plan)) +
+    group = mpa_effect_label) +
+  # geom_line(aes(linetype = sampling_plan)) +
+  geom_line() +
   geom_point() +
   geom_hline(yintercept = 1, linetype = "dashed", colour = "grey50") +
   scale_colour_manual(values = trend_colours) +
