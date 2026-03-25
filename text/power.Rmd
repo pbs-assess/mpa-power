@@ -221,6 +221,28 @@ How well can we recover the trend --- example: Figure \@ref(fig:historical-simul
 
 ## POWER ANALYSIS RESULTS
 
+Figures to include:
+- Maps of the MPA overlap
+- Fitted distribution maps
+- Turing-style maps
+- Turing-style time series with true indexes
+- Turing-style time series with observations
+- Observation error posterior prediction plots
+- Correlation plots of power against covariates
+- Main power vs. evaluation year plot
+- M error plot
+- S error plot
+
+Extensions:
+- AR1 on year effects, but made little difference
+- reduced sampling scenario
+- could do by survey - would very likely be weaker still
+
+Discussion:
+- what are reasonable rates of recovery?
+- will depend on movement too
+
+
 The species distributions estimated using the conditioning models showed substantial variation (Figure \@ref(fig:spp-distribution)) in the spatial patterns of the X species considered in the power analysis. 
 
 ```{r spp-distribution, fig.cap="Spatial distributions of five groundfish species across the British Columbia coast. Predicted relative abundance (mean catch per 100 hooks) from the most recent survey year for each region, as estimated from the spatiotemporal models used to inform the simulation.", fig.asp=get_asp(here::here("figures/predicted-distributions.png")), out.width="100%"}
