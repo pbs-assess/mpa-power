@@ -728,7 +728,7 @@ execute_parallel_fitting <- function(task_grid, results_dir,
       },
       .options = furrr::furrr_options(
         seed = TRUE,
-        scheduling = Inf,
+        # scheduling = Inf,
         globals = c("fit_single_replicate", "get_hist_data",
                    "fit_simulation", "extract_trend_estimate", "extract_re_pars",
                    "combine_hist_sim_data", "create_error_row",
