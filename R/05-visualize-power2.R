@@ -175,6 +175,7 @@ power_df <- power_df0 |>
 filter_species <- c("yelloweye rockfish", "lingcod", "quillback rockfish")
 filter_species <- c("yelloweye rockfish")
 filter_species <- c("quillback rockfish")
+# filter_species <- c("pacific halibut")
 filter_survey <- "HBLL"
 filter_ar1 <- "fitted_AR1"
 

@@ -19,8 +19,8 @@ results_dir <- here::here("data-generated", "power-results")
 dir.create(results_dir, showWarnings = FALSE, recursive = TRUE)
 
 USE_PARALLEL <- TRUE
-N_WORKERS <- 10 #NULL
-N_REPLICATES <- 10
+N_WORKERS <- 8L #NULL
+N_REPLICATES <- 25
 
 if (Sys.info()['user'] %in% c("dunic", "anderson")) {
   USE_PARALLEL <- TRUE
@@ -280,7 +280,15 @@ sampling_summary <- readRDS(file.path(sample_dir, "sampling-summary.rds"))
 # Task grid filtering (set to NULL to use all available)
 # =============================================================================
 # FILTER_SPECIES <- "pacific halibut" #"silvergray rockfish"         # NULL = all species
-FILTER_SPECIES <- "yelloweye rockfish" #"silvergray rockfish"         # NULL = all species
+FILTER_SPECIES <- c(
+  "yelloweye rockfish",
+   "north pacific spiny dogfish",
+   "lingcod",
+  "quillback rockfish",
+  # "pacific halibut",
+   "canary rockfish",
+   "silvergray rockfish"
+)
 FILTER_SURVEY <- NULL          # NULL = all surveys
 FILTER_MPA_TREND <- NULL #1.018       # NULL = all MPA trends
 # FILTER_MPA_TREND <- 1.088 #1.018       # NULL = all MPA trends

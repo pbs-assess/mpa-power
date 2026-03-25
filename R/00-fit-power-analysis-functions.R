@@ -226,6 +226,7 @@ fit_simulation <- function(dat,
   # table(dat$year, dat$future_year_covariate)
   # table(dat$year, dat$year_covariate)
 
+  # browser()
   fit <-
     tryCatch({
       do.call(sdmTMB, params)
@@ -728,7 +729,7 @@ execute_parallel_fitting <- function(task_grid, results_dir,
       },
       .options = furrr::furrr_options(
         seed = TRUE,
-        # scheduling = Inf,
+        # scheduling = if grepl("darwin", R.version$os, ignore.case = TRUE) 1 else Inf,
         globals = c("fit_single_replicate", "get_hist_data",
                    "fit_simulation", "extract_trend_estimate", "extract_re_pars",
                    "combine_hist_sim_data", "create_error_row",

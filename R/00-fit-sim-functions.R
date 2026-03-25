@@ -571,6 +571,10 @@ simulate_hbll <- function(fit,
 
   message("Cache missing. Running simulation for: ", fname)
 
+  # browser()
+
+  # ggplot(filter(input_dat, year == 1), aes(X, Y, colour = factor(restricted))) + geom_point()
+
   # Simulate data --------------------------------------------------------------
   sim_dat <- sdmTMB::simulate_new(
     formula = formula,
@@ -594,6 +598,10 @@ simulate_hbll <- function(fit,
     ...
   ) |>
     as_tibble()
+
+
+  # ggplot(filter(sim_dat, year == 1), aes(X, Y, colour = factor(restricted))) + geom_point()
+
 # browser()
   # to test --> try to match simulate.sdmTMB
   # - start with the sampling data locations
@@ -687,6 +695,12 @@ sample_by_plan <- function(
     sampling_effort,
     grouping_vars = NULL,
     seed = NULL) {
+
+  # ggplot(sim_dat, aes(X, Y, colour = mu)) + geom_point() + facet_wrap(~year) +
+  #   scale_colour_viridis_c()
+  #
+  ggplot(filter(sim_dat, year == 2026), aes(X, Y, observed, colour = factor(restricted))) +
+   geom_point() + facet_wrap(~restricted)
 
   if (!is.null(seed)) set.seed(seed)
 

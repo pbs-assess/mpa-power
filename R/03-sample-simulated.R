@@ -415,6 +415,7 @@ run_sampling <- function(sim_dat, species) {
     seed = rep
   ) |>
     mutate(plan = "status quo", replicate = rep)
+  # ggplot(sampled_status_quo, aes(X, Y, colour = factor(restricted))) + geom_point() + facet_wrap(~year)
 
   # Case 2: MPA sampling every 5 years; Status quo reallocated outside MPAs in off years
   sampled_mpas_5_years <- sample_by_plan(
@@ -606,8 +607,8 @@ load_sampled_data <- function(species, survey_abbrev, mpa_trend, ar1_scenario,
 # Main execution
 # =============================================================================
 
-USE_PARALLEL <- F
-N_WORKERS <- 9L
+USE_PARALLEL <- TRUE
+N_WORKERS <- 6L
 
 # Setup parallel processing
 if (USE_PARALLEL) {
@@ -660,12 +661,20 @@ if (USE_PARALLEL) {
 #   FILTER_REPLICATES: Integer vector of replicate numbers
 
 ### SETTINGS
-FILTER_SPECIES <- "yelloweye rockfish" #c("silvergray rockfish", "yelloweye rockfish")
+FILTER_SPECIES <- c(
+  "yelloweye rockfish",
+   "north pacific spiny dogfish",
+   "lingcod",
+  "quillback rockfish",
+  # "pacific halibut",
+   "canary rockfish",
+   "silvergray rockfish"
+)
 FILTER_SURVEY <- NULL
 FILTER_MPA_TREND <- NULL
 FILTER_AR1_SCENARIO <- NULL#"fitted_AR1"
 FILTER_TIME_SCENARIO <- NULL
-FILTER_REPLICATES <- 1:3
+FILTER_REPLICATES <- 1:20
 
 # Apply filters to simulation summary
 filter_config <- list(

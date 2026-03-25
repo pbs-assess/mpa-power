@@ -17,8 +17,8 @@ library(tidyr)
 # =============================================================================
 # Configuration
 # =============================================================================
-USE_PARALLEL <- TRUE
-N_WORKERS <- 10
+USE_PARALLEL <- T
+N_WORKERS <- 8
 
 if (Sys.info()['user'] %in% c("dunic", "anderson")) {
   USE_PARALLEL <- TRUE
@@ -663,17 +663,15 @@ if (length(fit_files) > 0) {
 ### SETTINGS
 # Define species list
 sp_list <- c(
-  "yelloweye rockfish"
-  # "north pacific spiny dogfish",
-  # "lingcod",
-  # "quillback rockfish",
+  "yelloweye rockfish",
+   "north pacific spiny dogfish",
+   "lingcod",
+  "quillback rockfish",
   # "pacific halibut",
-  # "canary rockfish",
-  # "silvergray rockfish"
+   "canary rockfish",
+   "silvergray rockfish"
 )
-nreps <- 120
-nreps <- 3
-
+nreps <- 20
 
 # Filter to species with recovery rates
 missing_rates <- setdiff(sp_list, unique(recovery_rates$species))
