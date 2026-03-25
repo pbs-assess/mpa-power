@@ -137,11 +137,15 @@ if (presentation) {
 # (1) Plot predicted distributions each species (last year sampled)
 sp_fits <- purrr::map(spp, load_cached_species, fit_dir = fit_dir)
 
+hbll_restricted <- readRDS(file.path("data-generated", "hbll-restricted-sf.rds")) |>
+  st_drop_geometry() |>
+  select(survey_abbrev, block_id, X, Y, restricted)
+
 spp_preds <- sp_fits |>
   purrr::flatten() |>
   purrr::imap(\(fit, name) {
     species <- fit$data$species_common_name |> unique()
-    pred <- predict_hbll(fit, hbll_grid)
+    pred <- predict_hbll(fit, hbll_restricted)
     mutate(pred, species = species)
   })
 
