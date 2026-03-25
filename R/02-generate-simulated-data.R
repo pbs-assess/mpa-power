@@ -88,7 +88,7 @@ create_sim_param_grid <- function(mpa_trend,
     left_join(ar1_scenarios, by = "ar1_scenario") |>
     left_join(time_scenarios, by = "time_scenario") |>
     left_join(formula_scenarios, by = "formula_scenario") |>
-    mutate(seed = start_seed + row_number() - 1)
+    mutate(seed = replicate * 82718)
 
   message("Created parameter grid with ", nrow(param_grid), " rows")
   message("  - ", length(unique(param_grid$mpa_trend)), " MPA trends")
