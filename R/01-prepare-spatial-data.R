@@ -88,6 +88,10 @@ mpa_100 <- simple_analytical |>
   st_simplify(dTolerance = 100)
 saveRDS(mpa_100, file.path("data-generated", "spatial", "simple-mpa-100m.rds"))
 
+mpa_500 <- simple_analytical |>
+  st_simplify(dTolerance = 500)
+saveRDS(mpa_500, file.path("data-generated", "spatial", "simple-mpa-500m.rds"))
+
 # ggplot() +
 #   geom_sf(data = mpa_100) +
 #   geom_sf(data = subregion_masks |> st_simplify(dTolerance = 100), aes(fill = subregion_name), alpha = 0.5) +
