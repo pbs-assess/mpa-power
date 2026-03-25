@@ -109,7 +109,7 @@ saveRDS(hbll_grid_subregion_df, file.path("data-generated", "spatial", "hbll-gri
 #   geom_sf(data = hbll_grid_subregion_lu, aes(fill = subregion_name, colour = subregion_name)) +
 #   gfplot::coord_sf_auto(simple_mpa)
 
-comm_ll_activity_status <- public_mpa |>
+comm_ll_activity_status <- public_mpa0 |>
   select(uid, hu_commercial_harvest_bottom_longline_demersal_hookand_line,
     category_detailed, category_simple) |>
   left_join(activity_status_lu,
