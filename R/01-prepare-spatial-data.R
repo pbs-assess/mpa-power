@@ -2,6 +2,8 @@ library(dplyr)
 library(ggplot2)
 library(sf)
 library(stringr)
+library(purrr)
+library(tidyr)
 
 # source(here::here("R", "00-setup.R"))
 
