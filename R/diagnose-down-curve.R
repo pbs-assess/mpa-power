@@ -10,21 +10,23 @@ sample_dir <- here::here("data-generated", "sampled-data")
 sampling_summary <- readRDS(file.path(sample_dir, "sampling-summary.rds"))
 
 USE_PARALLEL <- TRUE
-N_WORKERS <- 5L
+N_WORKERS <- 6L
 
 map_fn <- setup_parallel(USE_PARALLEL, N_WORKERS)
 
 # Match one scenario from 04-fit-simulation.R as closely as possible.
-species <- "yelloweye rockfish"
+species <- "lingcod"
 survey_abbrev <- "HBLL" # use "HBLL" for the combined-survey fit
 exp(log(c(1.05, 1.1, 1.25, 1.5)) / 25)
 log(c(1.05, 1.1, 1.25, 1.5)) / 25
 mpa_trend <- 1.016
 ar1_scenario <- "fitted_AR1"
 time_scenario <- "twenty-five_years"
-plan <- "status quo"
+plan <- "historical survey-year bootstrap"
 replicate <- 1
 eval_years <- c(2030, 2034, 2038, 2042, 2046)
+eval_years <- c(2030, 2034, 2038, 2042)
+# eval_years <- c(2038)
 SIMULATED_LOCATION_MODE <- "all_sampled"
 # SIMULATED_LOCATION_MODE <- "historical_locations_only"
 # MODEL_MODE <- "baseline"
@@ -35,7 +37,6 @@ if (MODEL_MODE == "baseline") {
   TARGET_TERMS <- "restricted:year_covariate"
 } else if (MODEL_MODE == "future_step") {
   FORMULA <- catch_prop ~ 0 + fyear + restricted +
-    # restricted:future_step +
     restricted:future_year_covariate
   TARGET_TERMS <- c(
     "restricted:future_step",
@@ -131,11 +132,11 @@ fit_one_year <- function(eval_year) {
     cutoff = 20,
     control = sdmTMBcontrol(
       collapse_spatial_variance = TRUE,
-      multiphase = FALSE,
+      multiphase = TRUE,
       profile = FALSE,
       newton_loops = 1L
     ),
-    silent = TRUE
+    silent = FALSE
     # time_varying = ~1,
     # extra_time = seq(min(combined_data$year), max(combined_data$year)),
     # time_varying_type = "ar1"
@@ -191,10 +192,10 @@ down_curve |> filter(term == "restricted:future_year_covariate")
 combined_plot_data <- combine_hist_sim_data(sampled_data, hist_data, max(eval_years))
 combined_plot_data <- prepare_fit_data(combined_plot_data, MODEL_MODE)
 
-d <- fits_by_year[[3]]$data
-glimpse(d)
-table(d$year, d$future_step)
-table(d$year, d$fyear)
+# d <- fits_by_year[[3]]$data
+# glimpse(d)
+# table(d$year, d$future_step)
+# table(d$year, d$fyear)
 
 combined_plot_data |>
   group_by(year, restricted) |>
