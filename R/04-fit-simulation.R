@@ -299,7 +299,7 @@ FILTER_TIME_SCENARIO <- NULL   # NULL = all time scenarios
 # FILTER_PLAN <- "status quo" #c("status quo", "MPAs every 4 years")  # NULL = all plans
 FILTER_PLAN <- c("historical survey-year bootstrap") #c("status quo", "MPAs every 4 years")  # NULL = all plans
 FILTER_TIME_SCENARIO <- "twenty-five_years"   # NULL = all time scenarios
-FILTER_REPLICATES <- 1:20    # NULL = all available replicates, e.g., 1:50
+FILTER_REPLICATES <- 200:219    # NULL = all available replicates, e.g., 1:50
 FILTER_EVALUATION_YEARS <- NULL #c(2046)  # NULL = all evaluation years
 
 results_dir <- here::here("data-generated", "power-results")

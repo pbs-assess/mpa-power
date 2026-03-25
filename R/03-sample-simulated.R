@@ -674,7 +674,7 @@ FILTER_SURVEY <- NULL
 FILTER_MPA_TREND <- NULL
 FILTER_AR1_SCENARIO <- NULL#"fitted_AR1"
 FILTER_TIME_SCENARIO <- NULL
-FILTER_REPLICATES <- 1:20
+FILTER_REPLICATES <- 200:219
 
 # Apply filters to simulation summary
 filter_config <- list(
