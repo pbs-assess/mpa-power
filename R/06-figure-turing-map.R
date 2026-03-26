@@ -2,6 +2,8 @@ library(dplyr)
 library(sdmTMB)
 library(ggplot2)
 
+source(here::here("R", "00-utils.R"))
+
 fit <- readRDS("data-generated/fits/north-pacific-spiny-dogfish-HBLL-OUT-N-betabinomial-on-iid-e40c7b759e26ff69.rds")
 fit <- readRDS("data-generated/fits/lingcod-HBLL-OUT-N-betabinomial-on-iid-2a49c4ed06e10dc5.rds")
 fit
@@ -59,11 +61,15 @@ out2 <- bind_rows(out,
   mutate(lastdat, iteration = "0") |> select(observed = catch_count, X, Y, iteration)
   )
 
-ggplot(out2, aes(X, Y, size = observed, colour = observed)) +
-  geom_point(alpha = 0.8) +
-  coord_equal() +
+out_sf <- XY_to_sf(out2)
+
+ggplot() +
+  geom_sf(data = pacea::bc_coast, fill = "grey90", colour = "grey90") +
+  geom_sf(data = out_sf,aes(size = observed, colour = observed), alpha = 0.8) +
+  gfplot::coord_sf_auto(out_sf) +
   scale_colour_viridis_c() +
   gfplot::theme_pbs() +
   facet_wrap(~iteration) +
   theme(axis.title = element_blank())
+ggsave(paste0("figures/turing-map-", unique(out$species), "-", unique(out$survey_abbrev), ".png"), width = 10, height = 8)
 

@@ -223,16 +223,19 @@ How well can we recover the trend --- example: Figure \@ref(fig:historical-simul
 
 Figures to include:
 - [x] Fitted distribution maps - last year - panel per species
-- [ ] Observation error posterior prediction plots - Jillian
-- [ ] Main power vs. evaluation year plot - collapse rows
+- [x] Observation error posterior prediction plots - Jillian
+- [x] Main power vs. evaluation year plot - collapse rows
 - [x] M error plot - clean up - Jillian
 - [x] S error plot - clean up - Jillian
-- [x] Maps of the MPA overlap - with historical data - zoom to HBLL OUT N and maybe even more zoomed - 2-4 replicates + real data - pick a replicate with a similar mean... Jillian
+- [x] Maps of the MPA overlap - with historical data - zoom to HBLL OUT N and maybe even more zoomed - 2-4 replicates + real data - pick a replicate with a similar mean... Sean
+
+- [x] Bias plot - Jillian
+- [x] Cumulative power plot - Jillian
 
 - [ ] Turing-style time series with observations - flesh out by panel - Sean - pick 25%, 4-5 replicates per species (columns)
 - [x] Correlation plots of power against covariates - Sean
 - [ ] SigmaE, SigmaO, phi, rhoV, sigma_V, restricted param - coef plot - Sean
-- [ ] New version of turing observation map figure... take a model... grab same sampling locations, shove the params into simulate_new(), plot zoomed in versions. do it for a couple?
+- [x] New version of turing observation map figure... take a model... grab same sampling locations, shove the params into simulate_new(), plot zoomed in versions. do it for a couple?
 
 Extensions:
 - AR1 on year effects, but made little difference

@@ -27,7 +27,7 @@ if (Sys.info()['user'] %in% c("dunic", "anderson")) {
 
 if (Sys.info()['user'] %in% c("jillian", "jilliandunic")) {
   USE_PARALLEL <- TRUE
-  N_WORKERS <- ifelse(Sys.info()['user'] == "jillian", 10, 5)
+  N_WORKERS <- ifelse(Sys.info()['user'] == "jillian", 10, 8)
 }
 
 # Output directory
