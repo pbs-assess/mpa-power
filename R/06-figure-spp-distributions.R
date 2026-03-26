@@ -50,39 +50,82 @@ mpa_500 <- readRDS(file.path("data-generated", "spatial", "simple-mpa-500m.rds")
   st_transform(crs = st_crs(hbll_sf))
 ylim <- c(st_bbox(mpa_500 |> rotate_sf())['ymin'], st_bbox(hbll_sf |> rotate_sf())['ymax'])
 
+
+# spp_levels <- c(
+#   "canary rockfish", "silvergray rockfish", "north pacific spiny dogfish",
+#   "quillback rockfish", "lingcod", "yelloweye rockfish")
 # Easier to use sf object for mapping
 preds_sf <- spp_preds |>
   left_join(hbll_sf, by = c("survey_abbrev", "block_id")) |>
-  st_as_sf()
+  st_as_sf() |>
+  mutate(species = gsub("north ", "", species))
+  # mutate(species = factor(species, levels = spp_levels)) |> # change if we order by something like max power
+  # mutate(species = forcats::fct_recode(species, "pacific spiny dogfish" = "north pacific spiny dogfish"))
 
-dev.new(width = 9, height = 5.)
-preds_sf |> rotate_sf() |>
-  mutate(species = factor(species, levels = spp_levels)) |> # change if we order by something like max power
-  mutate(species = forcats::fct_recode(species, "pacific spiny dogfish" = "north pacific spiny dogfish")) |>
-  ggplot() +
-  geom_sf(data = pacea::bc_coast |> rotate_sf(), fill = "grey90", linewidth = 0.1) +
-  geom_sf(aes(fill = exp(est) * 100, colour = exp(est) * 100)) +
-  scale_fill_viridis_c(trans = "fourth_root_power",
-    breaks = c(1, 5, 20, 80)) +
-  scale_colour_viridis_c(trans = "fourth_root_power",
-    breaks = c(1, 5, 20, 80)) +
-  gfplot::coord_sf_auto(sf_obj = hbll_sf |> rotate_sf(), ylim = ylim) +
-  facet_wrap(~ species, ncol = 6,
-    labeller = labeller(species = function(x) tools::toTitleCase(tolower(x)))) +
-  theme(legend.position = "bottom",
-        strip.text = element_text(size = 8)) +
-  guides(fill = guide_colorbar(
-    title.position = "left",
-    title.vjust = 0.8        # 0.5 centres it vertically alongside the bar
-  )) +
-  labs(
-    fill = "Mean expected count per 100 hooks",
-    colour = "Mean expected count per 100 hooks"
+# Species-specific colour scale breaks
+species_breaks <- list(
+  "canary rockfish" = c(0.1, 1, 3),
+  "silvergray rockfish" = c(0.1, 1, 5, 10),
+  "pacific spiny dogfish" = c(1, 5, 20, 70),
+  "quillback rockfish" = c(0.1, 2, 5, 15),
+  "lingcod" = c(0.1, 2, 5, 10),
+  "yelloweye rockfish" = c(1, 5, 20, 50)
+)
+
+plot_dists <- function(p_spp_sf) {
+  # Get species name
+  species_name <- unique(p_spp_sf$species)
+
+  # Get species-specific breaks
+  breaks_custom <- species_breaks[[species_name]]
+
+  # Create labels that match the breaks exactly (no unnecessary decimals)
+  labels_custom <- as.character(breaks_custom)
+
+  p_spp_sf |> rotate_sf() |>
+    ggplot() +
+    geom_sf(data = pacea::bc_coast |> rotate_sf(), fill = "grey90", linewidth = 0.1) +
+    geom_sf(aes(fill = exp(est) * 100, colour = exp(est) * 100)) +
+    scale_fill_viridis_c(trans = "fourth_root_power",
+      breaks = breaks_custom,
+      labels = labels_custom) +
+    scale_colour_viridis_c(trans = "fourth_root_power",
+      breaks = breaks_custom,
+      labels = labels_custom) +
+    gfplot::coord_sf_auto(sf_obj = hbll_sf |> rotate_sf(), ylim = ylim) +
+    facet_wrap(~ species, ncol = 6,
+      labeller = labeller(species = function(x) tools::toTitleCase(tolower(x)))) +
+    theme(legend.position = "bottom",
+      strip.text = element_text(size = 10),
+      axis.ticks = element_blank(),
+      axis.text = element_blank(),
+      legend.text = element_text(size = 9)) +
+    guides(fill = guide_colorbar(title.position = "top", barwidth = 5, title = NULL)) +
+    labs(fill = NULL, colour = NULL)
+}
+
+# preds_sf |> filter(species == "lingcod") |>
+#   group_by(species) |>
+#   group_split()  |>
+#   purrr::map(plot_dists)
+
+# dev.new(width = 9, height = 5.5)
+dist_plots <- preds_sf |>
+  group_by(species) |>
+  group_split()  |>
+  purrr::map(plot_dists)
+
+p_grid <- patchwork::wrap_plots(dist_plots, ncol = 6) &
+  theme(plot.margin = margin(2, 2, 2, 2))
+
+p_grid <- p_grid +
+  patchwork::plot_annotation(
+    caption = "Expected mean catch per 100 hooks",
+    theme = theme(
+      plot.caption = element_text(hjust = 0.5, size = 10, margin = margin(t = 5))
+    )
   )
 
+p_grid
+
 ggsave(file.path(fig_dir, "predicted-distributions.png"), width = 9, height = 5.5)
-
-
-# TODO: plot each species separate so they can have their own colour scale
-
-# Sigma E and Sigma V plots and Encounters
