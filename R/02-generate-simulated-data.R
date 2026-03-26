@@ -820,7 +820,7 @@ message("  Species: ", length(unique(task_grid$species)))
 message("  Average tasks per species: ", round(nrow(task_grid) / length(unique(task_grid$species)), 1))
 
 task_grid_filtered <- task_grid |>
-  mutate(param_grid = map(param_grid, ~ filter(.x, replicate %in% replicates)))
+  mutate(param_grid = purrr::map(param_grid, ~ filter(.x, replicate %in% replicates)))
 
 # Setup parallel processing
 tictoc::tic("Starting micro-task simulations")
