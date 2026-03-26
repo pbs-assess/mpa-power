@@ -1,11 +1,13 @@
 # Main power plots
 
 # - [x] Main power vs. evaluation year plot - collapse rows
-# - [ ] M error plot - clean up - Jillian
-# - [ ] S error plot - clean up - Jillian
+# - [x] M error plot - clean up - Jillian
+# - [x] S error plot - clean up - Jillian
 
 # - [x] Bias plot - Jillian
 # - [x] Cumulative power plot - Jillian
+
+# TODO: make plots smaller
 
 library(dplyr)
 library(ggplot2)
@@ -63,8 +65,6 @@ all_fitted_results <- all_fitted_results0 |>
   mutate(converged = ifelse(sanity == "ok", TRUE, FALSE)) |>
   left_join(rates_lu)
 
-
-
 all_fitted_results |> glimpse()
 filter(all_fitted_results, !converged) |>
   distinct(sanity, error_msg, converged) |>
@@ -119,7 +119,8 @@ power_df |>
   scale_colour_viridis_d(option = "plasma", end = 0.85) +
   scale_x_continuous(breaks = unique(power_df$eval_year)) +
   labs(colour = "MPA trend") +
-  theme(legend.position = "top") +
+  theme(legend.position = "top",
+        panel.spacing = unit(1, "lines")) +
   labs(x = "Evaluation year", y = "Correctly signed power") +
   scale_y_continuous(limits = c(-0.005, 1.005), expand = expansion(mult = c(0, 00)))
 ggsave(file.path(fig_dir, "main-power-plot.png"), width = 8, height = 5.8)
@@ -183,11 +184,11 @@ power_df0 |>
   ggplot() +
   geom_point(aes(x = id, y = estimate)) +
   geom_hline(aes(yintercept = true_effect), colour = "red") +
-  facet_grid(rows = vars(mpa_effect_label), cols = vars(eval_year)) +
+  facet_grid(rows = vars(species), cols = vars(eval_year)) +
   labs(x = "Replicate", y = "Estimate") +
-  ggtitle(stringr::str_to_title(filter_species))
+  ggtitle(paste0("25% MPA trend"))
 ggsave(file.path(fig_dir, paste0("bias-check-on-estimate-", sp_to_hyphens(filter_species), ".png")),
-  width = 6.7, height = 7.6)
+  width = 6.2, height = 4.6)
 # ggsave(file.path(supp_dir, "bias-check-on-estimate-lingcod.png"), width = 9, height = 6.5)
 
 # Cumulative power plot - to check stability of power analysis results ---------

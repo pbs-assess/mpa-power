@@ -81,3 +81,8 @@ preds_sf |> rotate_sf() |>
   )
 
 ggsave(file.path(fig_dir, "predicted-distributions.png"), width = 9, height = 5.5)
+
+
+# TODO: plot each species separate so they can have their own colour scale
+
+# Sigma E and Sigma V plots and Encounters

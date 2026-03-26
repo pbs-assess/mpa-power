@@ -9,7 +9,10 @@ fig_dir <- here::here("figures")
 fit <- readRDS("data-generated/fits/north-pacific-spiny-dogfish-HBLL-OUT-N-betabinomial-on-iid-e40c7b759e26ff69.rds")
 fit <- readRDS("data-generated/fits/lingcod-HBLL-OUT-N-betabinomial-on-iid-2a49c4ed06e10dc5.rds")
 fit <- readRDS("data-generated/fits/yelloweye-rockfish-HBLL-OUT-N-betabinomial-on-iid-144f4b8c390be8df.rds")
+fit <- readRDS("data-generated/fits/yelloweye-rockfish-HBLL-OUT-N-betabinomial-on-iid-144f4b8c390be8df.rds")
 fit
+
+# TODO: add yelloweye, quillback, lingcod
 
 one_sample_posterior <- function(object, use_names = TRUE) {
   tmp <- object$tmb_obj$env$MC(n = 1L, keep = TRUE, antithetic = FALSE)

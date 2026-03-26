@@ -608,7 +608,7 @@ load_sampled_data <- function(species, survey_abbrev, mpa_trend, ar1_scenario,
 # =============================================================================
 
 USE_PARALLEL <- TRUE
-N_WORKERS <- 6L
+N_WORKERS <- 8L
 
 # Setup parallel processing
 if (USE_PARALLEL) {
@@ -969,3 +969,4 @@ meep()
 #   gfplot::coord_sf_auto(test2)
 
 # ggsave(here::here("figures", "test2.png"), test2, width = 10, height = 10)
+

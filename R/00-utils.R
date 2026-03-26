@@ -132,6 +132,15 @@ meep <- function(user = "jilliandunic", ...) {
   }
 }
 
+halt <- function(user = "jilliandunic", ...) {
+  current_user <- Sys.info()['user']
+
+  if (current_user == user) {
+    stop("stop here", call. = FALSE)
+  }
+}
+
+
 sp_to_hyphens <- function(sp) {
   sp |>
     gsub(" ", "-", x = _) |>

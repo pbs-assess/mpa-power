@@ -307,7 +307,7 @@ dir.create(results_dir, showWarnings = FALSE, recursive = TRUE)
 
 # Apply task grid filters
 message("\n=== Applying Task Grid Filters ===")
-sampling_summary_filtered <- apply_filters_to_sampling_summary(
+sampling_summary_filtered<- apply_filters_to_sampling_summary(
   sampling_summary,
   species_filter = FILTER_SPECIES,
   survey_filter = FILTER_SURVEY,
