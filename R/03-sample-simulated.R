@@ -56,6 +56,11 @@ historical_locations <- readRDS(file.path("data-generated", "historical-location
   tidyr::drop_na(block_id) # needed because there are lat/lon locations that were surveyed
   # but that are not in the simulation grid.
 
+fit_characteristics <- readRDS(here::here("data-generated", "fit_characteristics.rds")) |>
+  rename(survey_abbrev = survey) |>
+  select(species, survey_abbrev, phi) |>
+  distinct()
+
 
 # =============================================================================
 # Helper Functions
@@ -297,7 +302,52 @@ filter_hbll_survey_years <- function(sim_dat) {
   )
 }
 
-bootstrap_historical_survey_years <- function(sim_dat, species, hist_clean_dir, seed = NULL) {
+draw_betabinomial_observed <- function(mu, hook_count, phi) {
+  mu <- pmin(pmax(mu, .Machine$double.eps), 1 - .Machine$double.eps)
+  p <- stats::rbeta(length(mu), shape1 = mu * phi, shape2 = (1 - mu) * phi)
+  stats::rbinom(length(mu), size = hook_count, prob = p)
+}
+
+reallocate_bootstrap_locations_outside_mpa <- function(bootstrap_locations, sim_grid,
+                                                       reallocation_years) {
+  locations_to_keep <- bootstrap_locations |>
+    anti_join(reallocation_years, by = c("survey_abbrev", "year")) |>
+    mutate(replacement_draw = FALSE)
+
+  bootstrap_locations_outside <- bootstrap_locations |>
+    semi_join(reallocation_years, by = c("survey_abbrev", "year")) |>
+    filter(restricted == 0) |>
+    mutate(replacement_draw = FALSE)
+
+  replacement_locations <- bootstrap_locations |>
+    semi_join(reallocation_years, by = c("survey_abbrev", "year")) |>
+    group_by(survey_abbrev, year) |>
+    summarise(n_restricted = sum(restricted == 1), .groups = "drop") |>
+    filter(n_restricted > 0) |>
+    purrr::pmap_dfr(function(survey_abbrev, year, n_restricted) {
+      available_outside_locations <- bootstrap_locations_outside |>
+        filter(survey_abbrev == .env$survey_abbrev, year == .env$year)
+
+      if (nrow(available_outside_locations) == 0) {
+        available_outside_locations <- sim_grid |>
+          filter(survey_abbrev == .env$survey_abbrev, restricted == 0) |>
+          transmute(survey_abbrev, year = .env$year, X, Y, grouping_code, restricted)
+      }
+
+      available_outside_locations |>
+        slice_sample(n = n_restricted, replace = TRUE) |>
+        mutate(replacement_draw = TRUE)
+    })
+
+  bind_rows(
+    locations_to_keep,
+    bootstrap_locations_outside,
+    replacement_locations
+  )
+}
+
+bootstrap_historical_survey_years <- function(sim_dat, species, hist_clean_dir,
+                                              seed = NULL, drop_restricted = FALSE) {
   if (!is.null(seed)) set.seed(seed)
 
   future_survey_years <- filter_hbll_survey_years(sim_dat) |>
@@ -371,8 +421,48 @@ bootstrap_historical_survey_years <- function(sim_dat, species, hist_clean_dir, 
       transmute(survey_abbrev, year = year, X, Y, grouping_code, restricted)
   })
 
-  sim_dat |>
-    semi_join(bootstrap_locations, by = c("survey_abbrev", "year", "X", "Y", "grouping_code", "restricted"))
+  if (drop_restricted) {
+    reallocation_years <- future_survey_years |>
+      group_by(survey_abbrev) |>
+      mutate(first_year = min(year)) |>
+      filter((year - first_year) %% 4 != 0) |>
+      ungroup() |>
+      select(survey_abbrev, year)
+
+    bootstrap_locations <- reallocate_bootstrap_locations_outside_mpa(
+      bootstrap_locations = bootstrap_locations,
+      sim_grid = sim_grid,
+      reallocation_years = reallocation_years
+    )
+  } else {
+    bootstrap_locations <- bootstrap_locations |>
+      mutate(replacement_draw = FALSE)
+  }
+
+  sampled_dat <- sim_dat |>
+    inner_join(bootstrap_locations, by = c("survey_abbrev", "year", "X", "Y", "grouping_code", "restricted")) |>
+    left_join(
+      fit_characteristics |>
+        filter(species == .env$species) |>
+        select(survey_abbrev, phi),
+      by = "survey_abbrev"
+    )
+
+  replacement_idx <- which(sampled_dat$replacement_draw)
+  if (length(replacement_idx) > 0) {
+    if (anyNA(sampled_dat$phi[replacement_idx])) {
+      stop("Missing phi value for replacement draws in species=", species, call. = FALSE)
+    }
+
+    sampled_dat$observed[replacement_idx] <- draw_betabinomial_observed(
+      mu = sampled_dat$mu[replacement_idx],
+      hook_count = sampled_dat$hook_count[replacement_idx],
+      phi = sampled_dat$phi[replacement_idx]
+    )
+  }
+
+  sampled_dat |>
+    select(-replacement_draw, -phi)
 }
 
 run_sampling <- function(sim_dat, species) {
@@ -400,36 +490,41 @@ run_sampling <- function(sim_dat, species) {
   # ) |>
   #   mutate(plan = "historical locations only")
 
-  # Case 1: Status quo sampling plan ------------------------
-  sample_effort_status_quo <- sim_dat |>
-    mutate(n_samps = allocation) |>
-    select(survey_series_id, survey_abbrev,
-      year, X, Y, block_id, grouping_code, pfma, strata_depth,
-      restricted, allocation, n_samps) |>
-    filter_hbll_survey_years()
+  if (RUN_NON_BOOTSTRAP_PLANS) {
+    # Case 1: Status quo sampling plan ------------------------
+    sample_effort_status_quo <- sim_dat |>
+      mutate(n_samps = allocation) |>
+      select(survey_series_id, survey_abbrev,
+        year, X, Y, block_id, grouping_code, pfma, strata_depth,
+        restricted, allocation, n_samps) |>
+      filter_hbll_survey_years()
 
-  sampled_status_quo <- sample_by_plan(
-    sim_dat = sim_dat,
-    sampling_effort = sample_effort_status_quo,
-    grouping_vars = c("survey_abbrev", "year", "grouping_code"),
-    seed = rep
-  ) |>
-    mutate(plan = "status quo", replicate = rep)
-  # ggplot(sampled_status_quo, aes(X, Y, colour = factor(restricted))) + geom_point() + facet_wrap(~year)
+    sampled_status_quo <- sample_by_plan(
+      sim_dat = sim_dat,
+      sampling_effort = sample_effort_status_quo,
+      grouping_vars = c("survey_abbrev", "year", "grouping_code"),
+      seed = rep
+    ) |>
+      mutate(plan = "status quo", replicate = rep)
+    # ggplot(sampled_status_quo, aes(X, Y, colour = factor(restricted))) + geom_point() + facet_wrap(~year)
 
-  # Case 2: MPA sampling every 5 years; Status quo reallocated outside MPAs in off years
-  sampled_mpas_5_years <- sample_by_plan(
-    sim_dat = sim_dat,
-    sampling_effort = sample_effort_status_quo |>
-      group_by(survey_abbrev) |>
-      mutate(first_year = min(year)) |>
-      filter(restricted == 0 | (year - first_year) %% 4 == 0) |>
-      select(-first_year) |>
-      ungroup(),
-    grouping_vars = c("survey_abbrev", "year", "grouping_code"),
-    seed = rep + 6000
-  ) |>
-    mutate(plan = "MPAs every 4 years", replicate = rep)
+    # Case 2: MPA sampling every 5 years; Status quo reallocated outside MPAs in off years
+    sampled_mpas_5_years <- sample_by_plan(
+      sim_dat = sim_dat,
+      sampling_effort = sample_effort_status_quo |>
+        group_by(survey_abbrev) |>
+        mutate(first_year = min(year)) |>
+        filter(restricted == 0 | (year - first_year) %% 4 == 0) |>
+        select(-first_year) |>
+        ungroup(),
+      grouping_vars = c("survey_abbrev", "year", "grouping_code"),
+      seed = rep + 6000
+    ) |>
+      mutate(plan = "MPAs every 4 years", replicate = rep)
+  } else {
+    sampled_status_quo <- tibble()
+    sampled_mpas_5_years <- tibble()
+  }
 
   sampled_historical_bootstrap <- bootstrap_historical_survey_years(
     sim_dat = sim_dat,
@@ -438,6 +533,15 @@ run_sampling <- function(sim_dat, species) {
     seed = rep + 12000
   ) |>
     mutate(plan = "historical survey-year bootstrap", replicate = rep)
+
+  sampled_historical_bootstrap_outside_only <- bootstrap_historical_survey_years(
+    sim_dat = sim_dat,
+    species = species,
+    hist_clean_dir = hist_clean_dir,
+    seed = rep + 13000,
+    drop_restricted = TRUE
+  ) |>
+    mutate(plan = "historical survey-year bootstrap - no MPA every 2nd survey", replicate = rep)
 
   # Case 3: Status quo + 20% effort ------------------------
   # For low power species, does increasing sampling make a difference to power?
@@ -493,7 +597,8 @@ run_sampling <- function(sim_dat, species) {
     # sampled_status_quo_1.4,
     # sampled_status_quo_5_year,
     sampled_mpas_5_years,
-    sampled_historical_bootstrap
+    sampled_historical_bootstrap,
+    sampled_historical_bootstrap_outside_only
   )
 }
 
@@ -661,20 +766,21 @@ if (USE_PARALLEL) {
 #   FILTER_REPLICATES: Integer vector of replicate numbers
 
 ### SETTINGS
+RUN_NON_BOOTSTRAP_PLANS <- FALSE
 FILTER_SPECIES <- c(
-  "yelloweye rockfish",
-   "north pacific spiny dogfish",
-   "lingcod",
-  "quillback rockfish",
-  # "pacific halibut",
-   "canary rockfish",
-   "silvergray rockfish"
+  "yelloweye rockfish"
+  #  "north pacific spiny dogfish",
+  #  "lingcod",
+  # "quillback rockfish",
+  # # "pacific halibut",
+  #  "canary rockfish",
+  #  "silvergray rockfish"
 )
 FILTER_SURVEY <- NULL
 FILTER_MPA_TREND <- NULL
 FILTER_AR1_SCENARIO <- NULL#"fitted_AR1"
 FILTER_TIME_SCENARIO <- NULL
-FILTER_REPLICATES <- 200:219
+FILTER_REPLICATES <-  1:20
 
 # Apply filters to simulation summary
 filter_config <- list(
@@ -780,10 +886,13 @@ sampling_summary <- purrr::map_dfr(species_list, function(sp) {
 
     # Define sampling plan names
     plan_names <- c(
-      # "historical locations only",
-      "status quo",
-      "MPAs every 4 years",
-      "historical survey-year bootstrap"#,
+      if (RUN_NON_BOOTSTRAP_PLANS) c(
+        # "historical locations only",
+        "status quo",
+        "MPAs every 4 years"
+      ),
+      "historical survey-year bootstrap",
+      "historical survey-year bootstrap - no MPA every 2nd survey"
       # "status quo + 20% effort"
       # "status quo - no sampling in MPAs"
     )
