@@ -35,7 +35,7 @@ summarise_power <- function(power_df,
       power_allreps = n_significant / n_reps,
       type_s_error = sum(!sign_correct & significant & converged) / n_significant,
       type_m_error = mean(ratio_to_true[significant & converged & sign_correct], na.rm = TRUE),
-      mean_estimate = mean(estimate[converged], na.rm = TRUE),
+      mean_estimate = mean(estimate[significant & converged & sign_correct], na.rm = TRUE),
       true_effect = first(true_effect),
       mean_bias = mean(estimate[converged] - true_effect),
       .groups = "drop"
@@ -78,8 +78,9 @@ power_df0 <- all_fitted_results |>
     significant = !(ci_lower < 0 & ci_upper > 0), # Significance: CI doesn't include 0
     sign_correct = estimate * true_effect > 0, # more robust than assuming positive effect (e.g., lingcod)
     # ratio_to_true = exp(estimate * 25) - exp(true_effect * 25)
-    ratio_to_true = exp(estimate * 25) / exp(true_effect * 25)
+    ratio_to_true = (exp(estimate * 25) - 1) / (exp(true_effect * 25) - 1)
   )
+
 # power_df0 |> glimpse()
 
 # Calculate scenario-level metrics
@@ -87,6 +88,30 @@ power_df0 <- all_fitted_results |>
 combo <- c("species", "mpa_effect_label", "eval_year")
 
 power_df <- summarise_power(power_df0, by = combo)
+
+d <- filter(power_df, species == "yelloweye rockfish", mpa_effect_label == "10%", eval_year == "2030")
+# names(d)
+
+# exp(d$mean_estimate * 25) * 100 - exp(d$true_effect * 25) * 100
+
+exp(d$mean_estimate * 25)
+exp(d$true_effect * 25)
+exp(d$mean_estimate * 25) / exp(d$true_effect * 25)
+(exp(d$mean_estimate * 25) *100) / (exp(d$true_effect * 25) * 100)
+
+(exp(d$mean_estimate * 25) *100) / (exp(d$true_effect * 25) * 100)
+
+((exp(d$mean_estimate * 25) * 100) - 100) / 
+((exp(d$true_effect * 25) * 100) - 100)
+
+((exp(d$mean_estimate * 25)) - 1) / ((exp(d$true_effect * 25)) - 1)
+
+10 * 24
+
+
+# exp(d$mean_estimate * 25) - exp(d$true_effect * 25)
+#
+
 
 # ------------------------------------------------------------------------------
 # Main power plot
@@ -123,8 +148,7 @@ power_df |>
         panel.spacing = unit(1, "lines")) +
   labs(x = "Evaluation year", y = "Correctly signed power") +
   scale_y_continuous(limits = c(-0.005, 1.005), expand = expansion(mult = c(0, 00)))
-ggsave(file.path(fig_dir, "main-power-plot.png"), width = 8, height = 5.8)
-
+ggsave(file.path(fig_dir, "main-power-plot.png"), width = 6.2, height = 5)
 
 # Type M error plot ------------------------------------------------------------
 power_df |>
@@ -136,11 +160,13 @@ power_df |>
     nrow = 2) +
   scale_colour_viridis_d(option = "plasma", end = 0.85) +
   scale_x_continuous(breaks = unique(power_df$eval_year)) +
+  geom_hline(yintercept = 1) + 
   labs(colour = "MPA trend") +
+  
   theme(legend.position = "top") +
-  labs(x = "Evaluation year", y = "Type M error") #+
-  # scale_y_continuous(limits = c(-0.005, ), expand = expansion(mult = c(0, 00)))
-ggsave(file.path(fig_dir, "type-m-error-plot.png"), width = 7.5, height = 5)
+  scale_y_log10(limits = c(1, NA), expand = expansion(mult = c(0, 0.05)), breaks = c(1, 2, 5, 10, 30)) +
+  labs(x = "Evaluation year", y = "Multiplicative magnitude error\non the 25-year percent increase")
+ggsave(file.path(fig_dir, "type-m-error-plot.png"), width = 6.2, height = 5)
 
 # Type S error plot ------------------------------------------------------------
 # Current option
