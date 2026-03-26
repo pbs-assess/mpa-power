@@ -32,7 +32,7 @@ summarise_power <- function(power_df,
       power_signed = n_significant_signed / n_converged,
       power_allreps = n_significant / n_reps,
       type_s_error = sum(!sign_correct & significant & converged) / n_significant,
-      type_m_error = mean(ratio_to_true[significant & converged], na.rm = TRUE),
+      type_m_error = mean(ratio_to_true[significant & converged & sign_correct], na.rm = TRUE),
       mean_estimate = mean(estimate[converged], na.rm = TRUE),
       true_effect = first(true_effect),
       mean_bias = mean(estimate[converged] - true_effect),
@@ -54,7 +54,8 @@ rates <- unique(all_fitted_results0$sim_mpa_trend)
 rate_percents <- c("5%", "10%", "25%", "50%")
 rates_lu <- data.frame(
   mpa_effect_label = factor(rate_percents, levels = rate_percents),
-  sim_mpa_trend = round(c(exp(log(c(1.05, 1.10, 1.25, 1.5)) / 25)), 3)
+  sim_mpa_trend = round(c(exp(log(c(1.05, 1.10, 1.25, 1.5)) / 25)), 3),
+  true_effect = log(c(1.05, 1.10, 1.25, 1.5)) / 25
 )
 
 all_fitted_results <- all_fitted_results0 |>
@@ -74,10 +75,10 @@ table(all_fitted_results$sanity)
 # ----------------------------------
 power_df0 <- all_fitted_results |>
   mutate(
-    true_effect = log(sim_mpa_trend),
     significant = !(ci_lower < 0 & ci_upper > 0), # Significance: CI doesn't include 0
     sign_correct = estimate * true_effect > 0, # more robust than assuming positive effect (e.g., lingcod)
-    ratio_to_true = abs(estimate) / abs(true_effect)
+    # ratio_to_true = exp(estimate * 25) - exp(true_effect * 25)
+    ratio_to_true = exp(estimate * 25) / exp(true_effect * 25)
   )
 # power_df0 |> glimpse()
 
@@ -136,9 +137,9 @@ power_df |>
   scale_x_continuous(breaks = unique(power_df$eval_year)) +
   labs(colour = "MPA trend") +
   theme(legend.position = "top") +
-  labs(x = "Evaluation year", y = "Type M error") +
-  scale_y_continuous(limits = c(-0.005, 37), expand = expansion(mult = c(0, 00)))
-ggsave(file.path(fig_dir, "type-m-error-plot.png"), width = 8, height = 5.8)
+  labs(x = "Evaluation year", y = "Type M error") #+
+  # scale_y_continuous(limits = c(-0.005, ), expand = expansion(mult = c(0, 00)))
+ggsave(file.path(fig_dir, "type-m-error-plot.png"), width = 7.5, height = 5)
 
 # Type S error plot ------------------------------------------------------------
 # Current option
@@ -173,7 +174,8 @@ filter_species <- c("lingcod")
 
 # Bias check on estimate -------------------------------------------------------
 power_df0 |>
-  filter(species %in% filter_species) |>
+  # filter(species %in% filter_species) |>
+  filter(mpa_effect_label == "25%") |>
   group_by(!!!syms(combo)) |>
   mutate(id = row_number()) |>
   mutate(combo = paste(!!!syms(combo), collapse = " - ")) |>
