@@ -57,7 +57,9 @@ power-sigmaV-correlation.png
 Extensions:
 - AR1 on year effects, but made little difference
 - reduced sampling scenario
+- increased sampling scenario
 - could do by survey - would very likely be weaker still
+- could combine with other surveys such as the synoptic trawl - more power!
 
 Discussion:
 - what are reasonable rates of recovery by stock ... lingcod at B0... yelloweye, quillback - well below B0 but late age at maturity long generation time... expect slower recovery
@@ -71,7 +73,8 @@ growth
 biomass will be faster
 HBLL is abundance - reference the Perkins et al. paper
 
-sets expectations
+sets expectations...
+
 
 
 
