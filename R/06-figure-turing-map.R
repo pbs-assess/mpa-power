@@ -71,4 +71,5 @@ ggplot() +
   gfplot::theme_pbs() +
   facet_wrap(~iteration) +
   theme(axis.title = element_blank())
+ggsave(paste0("figures/turing-map-", unique(out$species), "-", unique(out$survey_abbrev), ".png"), width = 10, height = 8)
 
