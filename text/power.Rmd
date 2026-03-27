@@ -3,9 +3,9 @@
 Nothing here but this must remain.
 
 #### TODO
-[ ] update power analysis glossary
-[ ] add appendix figures
-[ ] edit or cut reference sites text
+- [ ] update power analysis glossary
+- [ ] add appendix figures
+- [ ] edit or cut reference sites text
 
 
 \newpage
@@ -179,7 +179,7 @@ How well can we recover the trend --- example: Figure \@ref(fig:mean-observed-ts
 [ ] hbll-mpa-historical-overlay.png (`hbll-mpa-historical-overlay`)
 [ ] predicted-distributions.png (`predicted-distributions`)
 [ ] mean-observed-ts-eg.png (`mean-observed-ts-eg`)
-[ ] main-power-plot.png (`power-plot`)
+[x] main-power-plot.png (`power-plot`)
 [ ] type-m-error-plot.png (`type-m-plot`)
 [ ] power-correlations-25pct.png (`power-correlation-plot`)
 [ ] yelloweye-power-bootstrap-vs-no-mpa-every-2nd-survey.png (`sampling-scenario-power-comparison`)
@@ -201,6 +201,12 @@ How well can we recover the trend --- example: Figure \@ref(fig:mean-observed-ts
 [ ] power-sigmaV-correlation.png (`power-sigma-v-correlation`)
 -->
 
+**HBLL - MPAN coverage**
+Almost 31\% of HBLL survey sets have occurred within the MPAN boundaries since 2003. 
+The most sets in the MPAN are from the HBLL OUT N and HBLL OUT S regions.
+Due to the existing RCA sites that are not sampled by the HBLL survey, relative coverage of the MPAN by the HBLL INS N is much lower.
+
+
 - reference how the MPAN covers the HBLL for map figure?
 
 - conditioning models fit without problems... predicted blah blah map + coef plot
@@ -211,15 +217,19 @@ How well can we recover the trend --- example: Figure \@ref(fig:mean-observed-ts
 
 - models were not biased in fitting to sims - bias plot
 
-- power increase at larger trends and with more evaluation years
+**Power analysis results**
 
-- describe power plot - took 50% increase and 2038 to approach 80% power for the best sampled species (lingcod, quillback, yelloweye)
+Power to detect recovery of abundance inside MPAs increased with longer timeframes of evalution. 
+However, he target power of 80\% was not achieved for any species at any evaluation year when 5 or 10\% increases in abundance were assumed over 25 years \@ref(fig:main-power-plot).
+Target power was almost achieved after 20 years for three species: Quillback Rockfish, Lingcod, and Yelloweye Rockfish for recoveries of 25\%; 
+and was achieved for all species after 20 years for the largest recoveries of 50\% increases in abundance.
+For Quillback, Lingcod, and Yelloweye with a 50\% recovery in abundance, target power was reached four years earlier (2042) than the other three species species. 
+
+Importantly, when power is low, the exageration rates are very high \@ref(fig:type-m-plot). 
+
+Canary Rockfish and Silvergray Rockfish are the two species with the lowest encounter rates.
 
 - lower for silvergray and canary that are encountered less frequently
-
-- at 5-10% none of the cases achieved 80% by 2046
-
-- at 25% only in quillback lingcod yelloweye almost at 80% by 2046
 
 - expect fairly large magntitude errors unless 50% true increase and long evaluation times (M error plot), for example, quilback 2038 25% over 25 years - if signficant expect to actually estimate 50%!
 
