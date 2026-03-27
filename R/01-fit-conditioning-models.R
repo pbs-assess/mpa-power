@@ -11,6 +11,7 @@ source(here::here("R", "00-fit-sim-functions.R"))
 library(tidyr)
 library(patchwork)
 library(digest)
+library(purrr)
 
 # =============================================================================
 # Configuration
