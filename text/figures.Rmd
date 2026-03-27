@@ -14,40 +14,40 @@
 knitr::include_graphics(here::here("figures/hbll-mpa-historical-overlay.png"))
 ```
 
-(ref:pred-dist-caption) Predicted distributions of expected mean catch per 100 hooks for six groundfish species. Predictions are estimated from the conditioning models used to inform the simulation and are shown for the most recent sampling year. Each species has its own colour scale (purple = low, yellow = high) and is fourth-root power transformed to improve visualisation of low values.
+(ref:pred-dist-caption) Predicted distributions of expected mean catch per 100 hooks for six groundfish species. Predictions are estimated from the conditioning models used to inform the simulation and are shown for the most recent sampling year. Each species has its own colour scale (blue = low, yellow = high) and is fourth-root power transformed to improve visualization of both low and high values.
 
 ```{r predicted-distributions, fig.cap='(ref:pred-dist-caption)', fig.asp=get_asp(here::here("figures/predicted-distributions.png")), out.width="100%"}
 knitr::include_graphics(here::here("figures/predicted-distributions.png"))
 ```
 
-(ref:example-ts-caption) Time series of mean observed count per 100 hooks across sampling locations outside (grey) and inside (orange) MPAs in each sampling year for the HBLL OUT N for six species (Canary Rockfish, Lingcod, Pacific Spiny Dogfish, Quillback Rockfish, Silvergray Rockfish, Yelloweye Rockfish). Three replicate simulation outputs are shown (columns) to illustrate the ability of the operating model to generate plausible data. The historical data are shown to the left of the solid, vertical grey line (2003 - 2023) and were estimated from the conditioning models. Simulated data (2024 - 2046) were generated from the simulation model that assumed a 25% increase in abundance over 25 years across the MPAs. Vertical dashed lines show the years when the monitoring model is fitted (2030, 2034, 2038, 2042, 2046).
+(ref:example-ts-caption) Example time series of mean observed count per 100 hooks across sampling locations outside (grey) and inside (orange) MPAs in each sampling year for the HBLL OUT N for six species (Canary Rockfish, Lingcod, Pacific Spiny Dogfish, Quillback Rockfish, Silvergray Rockfish, Yelloweye Rockfish). Three replicate simulation outputs are shown (columns) to illustrate the ability of the operating model to generate plausible data. The historical data are shown to the left of the solid, vertical grey line (2003--2023) and were estimated from the conditioning models. Simulated data (2024--2046) were generated from the simulation model that assumed a 25% increase in abundance over 25 years across the MPAs. Vertical dashed lines show the years when the monitoring model is fitted (2030, 2034, 2038, 2042, 2046).
 
 ```{r mean-observed-ts-eg, fig.cap='(ref:example-ts-caption)', fig.asp=get_asp(here::here("figures/mean-observed-ts-eg.png")), out.width="100%"}
 knitr::include_graphics(here::here("figures/mean-observed-ts-eg.png"))
 ```
 
-(ref:power-plot-caption) Probability of correctly detecting an MPA recovery effect across six species using four recovery scenarios: 5%, 10%, 25%, 50% increases in abundance over 25 years. Power was evaluated at four year intervals starting 6 years post implementation. The dashed horizontal line indicates 80% target power.
+(ref:power-plot-caption) Probability of correctly detecting an MPA recovery effect across six species using four recovery scenarios: 5%, 10%, 25%, 50% increases in abundance over 25 years. Power was evaluated at four-year intervals starting six years post implementation. The dashed horizontal line indicates 80% target power.
 
 ```{r power-plot, fig.cap='(ref:power-plot-caption)', fig.asp=get_asp(here::here("figures/main-power-plot.png")), out.width="100%"}
 knitr::include_graphics(here::here("figures/main-power-plot.png"))
 ```
 
-(ref:type-m-plot-caption) Expected exaggeration of detected MPA recovery effects relative to the true effect size by evaluation year, species, and MPA recovery effect size. Values show the multiplicative factor by which significant, correctly-signed (positive) estimates overestimate the true increase in abundance over 25 years For example, for Quillback Rockfish with a true 25% recovery, if an significant positive effect is detected in 2038, it will overestimate the recovery by a factor of \$sim$ 2 (i.e., estimated as a 50\% recovery).
+(ref:type-m-plot-caption) Expected exaggeration of detected MPA recovery effects relative to the true effect size by evaluation year, species, and MPA recovery effect size. Values show the multiplicative factor by which significant, correctly signed (positive) estimates overestimate the true increase in abundance over 25 years. For example, for Quillback Rockfish with a true 25% recovery, if a significant positive effect is detected in 2038, on average it can be expected to have overestimated the recovery by a factor of about two (i.e., estimated as about a 50\% recovery).
 
 ```{r type-m-plot, fig.cap='(ref:type-m-plot-caption)', fig.asp=get_asp(here::here("figures/type-m-error-plot.png")), out.width="100%"}
 knitr::include_graphics(here::here("figures/type-m-error-plot.png"))
 ```
 
-(ref:power-correlation-plot-caption) Correlation between the power to correctly detect a 25\% increase in abundance over 25 years and three species-specific parameters: encounter rate within the MPA network (left); mean interannual variability standard deviation (SD, center); and mean spatiotemporal random field SD (right). Encounter rate was calculated as the proportion of sets that caught at least one individual of the species. Interannual variability SD was estimated from AR(1) models fit to year effects from conditioning models. Spatiotemporal random field SD was estimated in the conditioning models  and represents additional noise in where catch rates are higher or lower from year to year. These three parameters were estimated for each species-region and then averaged before testing the correlation. Pearson correlation coefficients are shown in the top left of each panel.
+(ref:power-correlation-plot-caption) Correlation between the power to correctly detect a 25\% increase in abundance over 25 years and three species-specific parameters: encounter rate within the MPA network (left); mean interannual variability standard deviation (SD, center); and mean spatiotemporal random field SD (right). Encounter rate was calculated as the proportion of sets that caught at least one individual of the species. Interannual variability SD was estimated from AR(1) models fit to year effects from conditioning models. Spatiotemporal random field SD was estimated in the conditioning models the magnitude of variation in spatiotemporal patterning (spatial correlation that varies from year to year driven by latent or missing variables such as temperature, movement, and predator or prey distribution). These three parameters were estimated for each species-region and then averaged before testing the correlation. Pearson correlation coefficients are shown in the top left of each panel.
 
-```{r power-correlation-plot, fig.cap='(ref:power-correlation-plot-caption)', fig.asp=get_asp(here::here("figures/power-correlations-25pct.png")), out.width="100%"}
+```{r power-correlation-plot, fig.cap='(ref:power-correlation-plot-caption)', fig.asp=get_asp(here::here("figures/power-correlations-25pct.png")), out.width="80%"}
 knitr::include_graphics(here::here("figures/power-correlations-25pct.png"))
 ```
 
-(ref:sampling-scenario-power-comparison-caption) Comparison of power to detect a 25% increase in abundance over 25 years between two sampling scenarios:  status quo sampling (solid line) and  within MPAs every 4 years (dashed line). Power was evaluated at four year intervals starting 6 years post implementation. The dashed horizontal line indicates 80% target power.
+(ref:sampling-scenario-power-comparison-caption) Comparison of power to detect a 50% increase in abundance over 25 years between two sampling scenarios: status quo sampling (solid line) and  within MPAs every four years (dashed line). Power was evaluated at four-year intervals starting six years post implementation. The dashed horizontal line indicates 80% target power.
 
-```{r sampling-scenario-power-comparison, fig.cap='(ref:sampling-scenario-power-comparison-caption)', fig.asp=get_asp(here::here("figures/power-correlations-25pct.png")), out.width="100%"}
-knitr::include_graphics(here::here("figures/yelloweye-power-bootstrap-vs-no-mpa-every-2nd-survey.png"))
+```{r sampling-scenario-power-comparison, fig.cap='(ref:sampling-scenario-power-comparison-caption)', fig.asp=get_asp(here::here("figures/power-correlations-25pct.png")), out.width="60%"}
+knitr::include_graphics(here::here("figures/quillback-power-bootstrap-vs-no-mpa-every-2nd-survey.png"))
 ```
 
 
