@@ -175,6 +175,12 @@ These were parameterized as coefficients in the linear predictor of the log-link
 Sites outside the MPA network followed a flat trajectory over time on average.
 Both the inside and outside sites were given additional noise around the mean trajectories from the AR1 time series noted above.
 
+We chose sampling locations for the future data by bootstrapping survey sites from the historical years.
+After sampling years with replacement, we assigned all samples from a given historical year to a future year.
+Our main experiment maintained this status quo sampling design, in which survey effort was unchanged.
+We also explored, for one species as an example, an alternative reduced-sampling scheme in which inside-MPA sites were sampled only on every second survey (that is, every four years for these biennial surveys).
+In that scenario, we resampled site locations from the existing outside-MPA sites in the corresponding year to redistribute the same survey effort.
+
 We verified that our simulation models were able to generate observations that reflected the properties of our historical data through a sequence of visualizations.
 First, to assess whether the interannual variation in the simulated data reflected the historical data, we visualized average observed catch rates per year inside and outside the MPA network in both time periods (Figure \@ref(fig:mean-observed-ts-eg)).
 This also allows us to calibrate expectations for how challenging it may be to recover the underlying trends given the noise in the system.
@@ -191,7 +197,28 @@ We generally found that it would be difficult to distinguish the real data from 
 
 **Step 4: Refit combined historical and simulated data to calculate (1) Power, (2) Exaggeration rates, (3) Sign error**
 
-How well can we recover the trend --- example: Figure \@ref(fig:mean-observed-ts-eg).
+Finally, we fit estimation models to our simulated data with the goal of estimating the recovery rate inside the MPAs, using the outside sites and the historical time period as baseline references.
+Our estimation model matched the conditioning model, with some exceptions to account for our inference goal.
+We fit the historical years with the same independent (factor) year effects used in the conditioning model.
+To estimate recovery, we added a predictor and associated coefficient that modelled a linear trend in log space over time for the inside-MPA sites across all future years.
+We also included an intercept for this future time period.
+Functionally, we did this by giving all future years a single "future year" factor level.
+We explored an alternative estimation model with a first-order autoregressive time-varying year effect across the full historical and future data span and avoiding the historical and future year factors.
+We found that this autoregressive model gave similar results (not shown), and so we focus on the simpler model described above.
+Our inference is drawn from whether the two-tailed 95% confidence interval for the parameter representing the inside-outside-MPA and future year interaction crossed zero.
+
+From the interaction coefficient, we calculated several metrics related to statistical power.
+First, we calculated correctly signed power.
+Ordinarily, power is defined as the proportion of replicates with a significant effect in either direction when a true effect is present.
+To avoid confusion, we define it here as the proportion of replicates in which abundance is assessed as significantly *increasing*.
+The proportion of times that significant results have the wrong sign is often called a "sign" or "Type S" error (REF).
+We found relatively strong sign errors in the early evaluation years, but do not focus on them here.
+We also calculated magnitude, or exaggeration ratio, errors ("Type M" errors) (REF).
+These represent the expected overestimate of the effect size when an effect is assessed as significant.
+We calculated this by taking the average significant effect size and comparing it with the true effect size.
+At low levels of power, these errors can be substantial (REF).
+Specifically, we expressed these magnitude errors as a multiplicative factor on the estimated increase over 25 years.
+For example, a magnitude error of two would mean that, if we detected a significant recovery estimated at 20%, the true underlying recovery would on average be only 10%.
 
 ## POWER ANALYSIS RESULTS
 
