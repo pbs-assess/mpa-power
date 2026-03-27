@@ -108,7 +108,7 @@ Our approach consisted of four steps: (1) fit conditioning models to historical 
 Using a spatiotemporal modelling approach, we applied this power analysis to five conservation priority species that are well sampled by the HBLL survey: Yelloweye Rockfish, Quillback Rockfish, Lingcod, Canary Rockfish, Silvergray Rockfish, and Pacific Spiny Dogfish. 
 This approach allows us to test different scenarios, such as varying recovery rates within MPAs or evaluation time frames, while incorporating some ecological complexity and variability.
 
-### Step 1: Fitting conditioning models
+### Fitting conditioning models
 
 For each of the three HBLL survey regions and each species, we fit separate spatiotemporal models with the sdmTMB R package [@sdmTMB] of the form:
 
@@ -151,7 +151,7 @@ If models failed to converge or if spatial and/or spatiotemporal variance estima
 Models were considered to have converged if the Hessian matrix was positive definite and the absolute gradient of the marginal log-likelihood with respect to each fixed effect was $<$ 0.001.
 
 The spatial patterns predicted by the conditioning model varied by species (Figure \@ref(fig:predicted-distributions)).
-Pacific Spiny Dogfish had the most patchy distribution, with strong hotspots masking patterns along the rest of the coast in the colour scale.
+Pacific Spiny Dogfish had the patchiest distribution, with strong hotspots masking patterns along the rest of the coast in the colour scale.
 Parameter estimates from the conditioning models were relatively similar across surveys within a given species (Figure \@ref(fig:conditioning-coefs)).
 The spatial range (distance at which two observations are effectively independent) ranged from about 50 km to about 100 km.
 Interannual mean variation was positively correlated for Lingcod, Pacific Spiny Dogfish, and Quillback and was close to zero or negative in other cases.
@@ -159,7 +159,7 @@ Interannual mean variation and spatiotemporal variation were highest for Pacific
 Spatial variation was strongest for Quillback Rockfish.
 The inside vs. outside MPA parameter generally had a 95% confidence interval that crossed zero and would need to be interpreted alongside the spatial random field values, which are competing to explain the same variance.
 
-### Step 2: Simulate data
+### Simulating new observations
 
 We then used the conditioning models to simulate future data with properties matching the historical data, but with a known underlying true recovery rate within the MPAs relative to the outside survey sites.
 From the conditioning models we extracted the following parameters: the estimated spatial random field values, the spatial and spatiotemporal range, the betabinomial precision parameter, the spatiotemporal random field standard deviation, the inside vs. outside MPA effect, and the annual mean estimates (year effects).
@@ -188,14 +188,14 @@ We found that the two time periods looked similar in their time series propertie
 Although the increase inside the MPAs is noticeable in some replicates, it is often obscured by temporal, spatiotemporal, and observation noise in the system.
 
 Next, we evaluated whether the distribution of the observations was similar in the future versus historical time periods by plotting all observations separated by year.
-We found that our simulation models were generally able to simulate data with a similar spread to the historical data (Figure \@ref(fig:sim-posterior-yelloweye-caption), \@ref(fig:sim-posterior-lingcod-caption), \@ref(fig:sim-posterior-quillback-caption)).
+We found that our simulation models were generally able to simulate data with a similar spread to the historical data (Figure \@ref(fig:sim-posterior-yelloweye), \@ref(fig:sim-posterior-lingcod), \@ref(fig:sim-posterior-quillback)).
 This was not the case when we previously attempted other observation distributions such as the negative binomial, lognormal Poisson, or binomial.
 
 Finally, we evaluated whether our simulation models could generate spatial observations with similar properties to the historical observed data.
 Here, we asked whether one would be able to distinguish which panel was the "real" data and which were the simulation replicates if the panels were not labelled.
 We generally found that it would be difficult to distinguish the real data from the simulated data when plotted spatially and therefore concluded that our simulation models could faithfully represent important properties of the historical data (Figure \@ref(fig:turing-map-quillback), \@ref(fig:turing-map-yelloweye), \@ref(fig:turing-map-lingcod)).
 
-**Step 4: Refit combined historical and simulated data to calculate (1) Power, (2) Exaggeration rates, (3) Sign error**
+### Fitting estimation models to the simulated data
 
 Finally, we fit estimation models to our simulated data with the goal of estimating the recovery rate inside the MPAs, using the outside sites and the historical time period as baseline references.
 Our estimation model matched the conditioning model, with some exceptions to account for our inference goal.
@@ -206,6 +206,8 @@ Functionally, we did this by giving all future years a single "future year" fact
 We explored an alternative estimation model with a first-order autoregressive time-varying year effect across the full historical and future data span and avoiding the historical and future year factors.
 We found that this autoregressive model gave similar results (not shown), and so we focus on the simpler model described above.
 Our inference is drawn from whether the two-tailed 95% confidence interval for the parameter representing the inside-outside-MPA and future year interaction crossed zero.
+
+### Calculating power and magnitude error
 
 From the interaction coefficient, we calculated several metrics related to statistical power.
 First, we calculated correctly signed power.
