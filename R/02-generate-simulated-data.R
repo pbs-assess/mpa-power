@@ -663,20 +663,20 @@ if (length(fit_files) > 0) {
 ### SETTINGS
 # Define species list
 sp_list <- c(
-  "yelloweye rockfish",
-   "north pacific spiny dogfish",
-   "lingcod",
-  "quillback rockfish",
+#  "yelloweye rockfish",
+   # "north pacific spiny dogfish",
+   # "lingcod",
+  "quillback rockfish"
   # "pacific halibut",
-   "canary rockfish",
-   "silvergray rockfish"
+   # "canary rockfish",
+   # "silvergray rockfish"
 )
-nreps <- 20
+nreps <- 100
 
 # Change what number value of replicates to run
 nreps <- 220 # this is dumb but I didn't want to change the create_sim_param_grid function now
 # Filter task_grid to only include replicates 200-219
-replicates <- 200:219
+replicates <- 1:100
 
 # Filter to species with recovery rates
 missing_rates <- setdiff(sp_list, unique(recovery_rates$species))

@@ -298,6 +298,7 @@ FILTER_AR1_SCENARIO <- "fitted_AR1"    # NULL = all AR1 scenarios
 FILTER_TIME_SCENARIO <- NULL   # NULL = all time scenarios
 # FILTER_PLAN <- "status quo" #c("status quo", "MPAs every 4 years")  # NULL = all plans
 FILTER_PLAN <- c("historical survey-year bootstrap") #c("status quo", "MPAs every 4 years")  # NULL = all plans
+# FILTER_PLAN <- c("historical survey-year bootstrap - no MPA every 2nd survey")
 FILTER_TIME_SCENARIO <- "twenty-five_years"   # NULL = all time scenarios
 FILTER_REPLICATES <- 200:219    # NULL = all available replicates, e.g., 1:50
 FILTER_EVALUATION_YEARS <- NULL #c(2046)  # NULL = all evaluation years
