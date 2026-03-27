@@ -1,14 +1,3 @@
-# Main power plots
-
-# - [x] Main power vs. evaluation year plot - collapse rows
-# - [x] M error plot - clean up - Jillian
-# - [x] S error plot - clean up - Jillian
-
-# - [x] Bias plot - Jillian
-# - [x] Cumulative power plot - Jillian
-
-# TODO: make plots smaller
-
 library(dplyr)
 library(ggplot2)
 
@@ -94,7 +83,7 @@ spp_levels <- power_df |>
   slice(which.max(power_signed)) |>
   arrange(power_signed) |>
   pull(species)
-# Order species by increasing max power at 25% MPA trend
+# Order species by increasing max power at 25% MPA effect size
 power_df <- power_df |> mutate(species = factor(species, levels = spp_levels))
 
 # d <- filter(power_df, species == "yelloweye rockfish", mpa_effect_label == "10%", eval_year == "2030")
@@ -141,7 +130,7 @@ power_df |>
     nrow = 2) +
   scale_colour_viridis_d(option = "plasma", end = 0.85) +
   scale_x_continuous(breaks = unique(power_df$eval_year)) +
-  labs(colour = "MPA trend") +
+  labs(colour = "MPA effect size") +
   theme(legend.position = "top",
         panel.spacing = unit(1, "lines")) +
   labs(x = "Evaluation year", y = "Correctly signed power") +
@@ -159,7 +148,7 @@ power_df |>
   scale_colour_viridis_d(option = "plasma", end = 0.85) +
   scale_x_continuous(breaks = unique(power_df$eval_year)) +
   geom_hline(yintercept = 1) +
-  labs(colour = "MPA trend") +
+  labs(colour = "MPA effect size") +
   theme(legend.position = "top",
         panel.spacing = unit(1, "lines")) +
   scale_y_log10(limits = c(1, NA), expand = expansion(mult = c(0, 0.05)), breaks = c(1, 2, 5, 10, 30)) +
@@ -210,7 +199,7 @@ power_df0 |>
   geom_hline(aes(yintercept = true_effect), colour = "red") +
   facet_grid(rows = vars(species), cols = vars(eval_year)) +
   labs(x = "Replicate", y = "Estimate") +
-  ggtitle(paste0("25% MPA trend"))
+  ggtitle(paste0("25% MPA effect size"))
 ggsave(file.path(fig_dir, paste0("bias-check-on-estimate-", sp_to_hyphens(filter_species), ".png")),
   width = 6.2, height = 4.6)
 # ggsave(file.path(supp_dir, "bias-check-on-estimate-lingcod.png"), width = 9, height = 6.5)
@@ -239,6 +228,6 @@ samples |>
   geom_hline(yintercept = 0.8, linetype = "dashed", colour = "grey50") +
    scale_colour_viridis_d(option = "plasma", end = 0.85) +
   facet_grid(cols = vars(eval_year), rows = vars(species), labeller = as_labeller(stringr::str_to_title)) +
-  labs(x = "Number of replicates", y = "Power", colour = "MPA trend") +
+  labs(x = "Number of replicates", y = "Power", colour = "MPA effect size") +
   theme(legend.position = "top")
 ggsave(file.path(fig_dir, "cumulative-power-plot-all-species.png"), width = 8, height = 9.5)
