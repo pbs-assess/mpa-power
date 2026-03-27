@@ -43,18 +43,6 @@ hbll_sites |>
 knitr::include_graphics(here::here("figures/conditioning-coefs.png"))
 ```
 
-(ref:bias-check-lingcod-caption) TODO caption.
-
-```{r bias-check-lingcod, fig.cap='(ref:bias-check-lingcod-caption)', fig.asp=get_asp(here::here("figures/bias-check-on-estimate-lingcod.png")), out.width="100%"}
-knitr::include_graphics(here::here("figures/bias-check-on-estimate-lingcod.png"))
-```
-
-(ref:cumulative-power-caption) TODO caption.
-
-```{r cumulative-power, fig.cap='(ref:cumulative-power-caption)', fig.asp=get_asp(here::here("figures/cumulative-power-plot-all-species.png")), out.width="100%"}
-knitr::include_graphics(here::here("figures/cumulative-power-plot-all-species.png"))
-```
-
 (ref:sim-posterior-yelloweye-caption) TODO caption.
 
 ```{r sim-posterior-yelloweye, fig.cap='(ref:sim-posterior-yelloweye-caption)', fig.asp=get_asp(here::here("figures/sim-posterior-yelloweye rockfish-HBLL OUT N.png")), out.width="100%"}
@@ -91,6 +79,18 @@ knitr::include_graphics(here::here("figures/turing-map-yelloweye rockfish-HBLL-O
 knitr::include_graphics(here::here("figures/turing-map-lingcod-HBLL-OUT-N.png"))
 ```
 
+(ref:bias-check-lingcod-caption) TODO caption.
+
+```{r bias-check-lingcod, fig.cap='(ref:bias-check-lingcod-caption)', fig.asp=get_asp(here::here("figures/bias-check-on-estimate-lingcod.png")), out.width="100%"}
+knitr::include_graphics(here::here("figures/bias-check-on-estimate-lingcod.png"))
+```
+
+(ref:cumulative-power-caption) TODO caption.
+
+```{r cumulative-power, fig.cap='(ref:cumulative-power-caption)', fig.asp=get_asp(here::here("figures/cumulative-power-plot-all-species.png")), out.width="100%"}
+knitr::include_graphics(here::here("figures/cumulative-power-plot-all-species.png"))
+```
+
 (ref:power-phi-correlation-caption) TODO caption.
 
 ```{r power-phi-correlation, fig.cap='(ref:power-phi-correlation-caption)', fig.asp=get_asp(here::here("figures/power-phi-correlation.png")), out.width="100%"}
@@ -109,7 +109,7 @@ knitr::include_graphics(here::here("figures/power-encounter-rate-correlation.png
 knitr::include_graphics(here::here("figures/power-sigmaE-correlation.png"))
 ```
 
-(ref:power-sigmav-correlation-caption) TODO caption.
+(ref:power-sigma-v-correlation-caption) TODO caption.
 
 ```{r power-sigma-v-correlation, fig.cap='(ref:power-sigma-v-correlation-caption)', fig.asp=get_asp(here::here("figures/power-sigmaV-correlation.png")), out.width="100%"}
 knitr::include_graphics(here::here("figures/power-sigmaV-correlation.png"))
