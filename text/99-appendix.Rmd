@@ -21,14 +21,96 @@ hbll_sites |>
 
 ## A SUBHEADING HERE
 
-```{r spatial-fields, fig.cap="Spatial random field for each species drawn from conditioning models. Negative values (red) indicate areas with consistently lower catch rates relative to the mean catch rates while positive values (blue) indicate lower catch rates. The outline of the hard bottom longline survey gridis shown in grey.", fig.asp=get_asp(here::here("figures/spatial-random-field.png")), out.width="90%"}
-knitr::include_graphics(here::here("figures/spatial-random-field.png"))
+- [ ] conditioning-coefs.png (`conditioning-coefs`)
+- [ ] bias-check-on-estimate-lingcod.png (`bias-check-lingcod`)
+- [ ] cumulative-power-plot-all-species.png (`cumulative-power-all`)
+- [ ] sim-posterior-yelloweye rockfish-HBLL OUT N.png (`sim-posterior-ye-out-n`)
+- [ ] sim-posterior-lingcod-HBLL OUT N.png (`sim-posterior-lingcod-out-n`)
+- [ ] sim-posterior-quillback rockfish-HBLL OUT N.png (`sim-posterior-qb-out-n`)
+- [ ] turing-map-quillback rockfish-HBLL-OUT-N.png (`turing-map-qb-out-n`)
+- [ ] turing-map-yelloweye rockfish-HBLL-OUT-N.png (`turing-map-ye-out-n`)
+- [ ] turing-map-lingcod-HBLL-OUT-N.png (`turing-map-lingcod-out-n`)
+
+- [ ] power-phi-correlation.png (`power-phi-correlation`)
+- [ ] power-encounter-rate-correlation.png (`power-encounter-rate-correlation`)
+- [ ] power-sigmaE-correlation.png (`power-sigma-e-correlation`)
+- [ ] power-sigmaV-correlation.png (`power-sigma-v-correlation`)
+
+
+(ref:conditioning-coefs-caption) TODO caption.
+
+```{r conditioning-coefs, fig.cap='(ref:conditioning-coefs-caption)', fig.asp=get_asp(here::here("figures/conditioning-coefs.png")), out.width="100%"}
+knitr::include_graphics(here::here("figures/conditioning-coefs.png"))
 ```
 
-```{r bias-check-lingcod, fig.cap="Power bias check caption here.", fig.asp=get_asp(here::here("figures/supplementary/bias-check-on-estimate-lingcod.png")), out.width="100%"}
-knitr::include_graphics(here::here("figures/supplementary/bias-check-on-estimate-lingcod.png"))
+(ref:bias-check-lingcod-caption) TODO caption.
+
+```{r bias-check-lingcod, fig.cap='(ref:bias-check-lingcod-caption)', fig.asp=get_asp(here::here("figures/bias-check-on-estimate-lingcod.png")), out.width="100%"}
+knitr::include_graphics(here::here("figures/bias-check-on-estimate-lingcod.png"))
 ```
 
-```{r cumulative-power, fig.cap="Comulative power TODO.", fig.asp=get_asp(here::here("figures/supplementary/cumulative-power-plot-all-species.png")), out.width="100%"}
-knitr::include_graphics(here::here("figures/supplementary/cumulative-power-plot-all-species.png"))
+(ref:cumulative-power-caption) TODO caption.
+
+```{r cumulative-power, fig.cap='(ref:cumulative-power-caption)', fig.asp=get_asp(here::here("figures/cumulative-power-plot-all-species.png")), out.width="100%"}
+knitr::include_graphics(here::here("figures/cumulative-power-plot-all-species.png"))
+```
+
+(ref:sim-posterior-yelloweye-caption) TODO caption.
+
+```{r sim-posterior-yelloweye, fig.cap='(ref:sim-posterior-yelloweye-caption)', fig.asp=get_asp(here::here("figures/sim-posterior-yelloweye rockfish-HBLL OUT N.png")), out.width="100%"}
+knitr::include_graphics(here::here("figures/sim-posterior-yelloweye rockfish-HBLL OUT N.png"))
+```
+
+(ref:sim-posterior-lingcod-caption) TODO caption.
+
+```{r sim-posterior-lingcod, fig.cap='(ref:sim-posterior-lingcod-caption)', fig.asp=get_asp(here::here("figures/sim-posterior-lingcod-HBLL OUT N.png")), out.width="100%"}
+knitr::include_graphics(here::here("figures/sim-posterior-lingcod-HBLL OUT N.png"))
+```
+
+(ref:sim-posterior-quillback-caption) TODO caption.
+
+```{r sim-posterior-quillback, fig.cap='(ref:sim-posterior-quillback-caption)', fig.asp=get_asp(here::here("figures/sim-posterior-quillback rockfish-HBLL OUT N.png")), out.width="100%"}
+knitr::include_graphics(here::here("figures/sim-posterior-quillback rockfish-HBLL OUT N.png"))
+```
+
+(ref:turing-map-quillback-caption) TODO caption.
+
+```{r turing-map-quillback, fig.cap='(ref:turing-map-quillback-caption)', fig.asp=get_asp(here::here("figures/turing-map-quillback rockfish-HBLL-OUT-N.png")), out.width="100%"}
+knitr::include_graphics(here::here("figures/turing-map-quillback rockfish-HBLL-OUT-N.png"))
+```
+
+(ref:turing-map-yelloweye-caption) TODO caption.
+
+```{r turing-map-yelloweye, fig.cap='(ref:turing-map-yelloweye-caption)', fig.asp=get_asp(here::here("figures/turing-map-yelloweye rockfish-HBLL-OUT-N.png")), out.width="100%"}
+knitr::include_graphics(here::here("figures/turing-map-yelloweye rockfish-HBLL-OUT-N.png"))
+```
+
+(ref:turing-map-lingcod-caption) TODO caption.
+
+```{r turing-map-lingcod, fig.cap='(ref:turing-map-lingcod-caption)', fig.asp=get_asp(here::here("figures/turing-map-lingcod-HBLL-OUT-N.png")), out.width="100%"}
+knitr::include_graphics(here::here("figures/turing-map-lingcod-HBLL-OUT-N.png"))
+```
+
+(ref:power-phi-correlation-caption) TODO caption.
+
+```{r power-phi-correlation, fig.cap='(ref:power-phi-correlation-caption)', fig.asp=get_asp(here::here("figures/power-phi-correlation.png")), out.width="100%"}
+knitr::include_graphics(here::here("figures/power-phi-correlation.png"))
+```
+
+(ref:power-encounter-rate-correlation-caption) TODO caption.
+
+```{r power-encounter-rate-correlation, fig.cap='(ref:power-encounter-rate-correlation-caption)', fig.asp=get_asp(here::here("figures/power-encounter-rate-correlation.png")), out.width="100%"}
+knitr::include_graphics(here::here("figures/power-encounter-rate-correlation.png"))
+```
+
+(ref:power-sigma-e-correlation-caption) TODO caption.
+
+```{r power-sigma-e-correlation, fig.cap='(ref:power-sigma-e-correlation-caption)', fig.asp=get_asp(here::here("figures/power-sigmaE-correlation.png")), out.width="100%"}
+knitr::include_graphics(here::here("figures/power-sigmaE-correlation.png"))
+```
+
+(ref:power-sigmav-correlation-caption) TODO caption.
+
+```{r power-sigma-v-correlation, fig.cap='(ref:power-sigma-v-correlation-caption)', fig.asp=get_asp(here::here("figures/power-sigmaV-correlation.png")), out.width="100%"}
+knitr::include_graphics(here::here("figures/power-sigmaV-correlation.png"))
 ```

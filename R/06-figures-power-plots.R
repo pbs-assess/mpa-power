@@ -1,12 +1,3 @@
-# Main power plots
-
-# - [x] Main power vs. evaluation year plot - collapse rows
-# - [ ] M error plot - clean up - Jillian
-# - [ ] S error plot - clean up - Jillian
-
-# - [x] Bias plot - Jillian
-# - [x] Cumulative power plot - Jillian
-
 library(dplyr)
 library(ggplot2)
 
@@ -63,8 +54,6 @@ all_fitted_results <- all_fitted_results0 |>
   mutate(converged = ifelse(sanity == "ok", TRUE, FALSE)) |>
   left_join(rates_lu)
 
-
-
 all_fitted_results |> glimpse()
 filter(all_fitted_results, !converged) |>
   distinct(sanity, error_msg, converged) |>
@@ -88,25 +77,33 @@ power_df0 <- all_fitted_results |>
 combo <- c("species", "mpa_effect_label", "eval_year")
 
 power_df <- summarise_power(power_df0, by = combo)
+spp_levels <- power_df |>
+  filter(mpa_effect_label == "25%") |>
+  group_by(species) |>
+  slice(which.max(power_signed)) |>
+  arrange(power_signed) |>
+  pull(species)
+# Order species by increasing max power at 25% MPA effect size
+power_df <- power_df |> mutate(species = factor(species, levels = spp_levels))
 
-d <- filter(power_df, species == "yelloweye rockfish", mpa_effect_label == "10%", eval_year == "2030")
-# names(d)
+# d <- filter(power_df, species == "yelloweye rockfish", mpa_effect_label == "10%", eval_year == "2030")
+# # names(d)
 
-# exp(d$mean_estimate * 25) * 100 - exp(d$true_effect * 25) * 100
+# # exp(d$mean_estimate * 25) * 100 - exp(d$true_effect * 25) * 100
 
-exp(d$mean_estimate * 25)
-exp(d$true_effect * 25)
-exp(d$mean_estimate * 25) / exp(d$true_effect * 25)
-(exp(d$mean_estimate * 25) *100) / (exp(d$true_effect * 25) * 100)
+# exp(d$mean_estimate * 25)
+# exp(d$true_effect * 25)
+# exp(d$mean_estimate * 25) / exp(d$true_effect * 25)
+# (exp(d$mean_estimate * 25) *100) / (exp(d$true_effect * 25) * 100)
 
-(exp(d$mean_estimate * 25) *100) / (exp(d$true_effect * 25) * 100)
+# (exp(d$mean_estimate * 25) *100) / (exp(d$true_effect * 25) * 100)
 
-((exp(d$mean_estimate * 25) * 100) - 100) / 
-((exp(d$true_effect * 25) * 100) - 100)
+# ((exp(d$mean_estimate * 25) * 100) - 100) /
+# ((exp(d$true_effect * 25) * 100) - 100)
 
-((exp(d$mean_estimate * 25)) - 1) / ((exp(d$true_effect * 25)) - 1)
+# ((exp(d$mean_estimate * 25)) - 1) / ((exp(d$true_effect * 25)) - 1)
 
-10 * 24
+# 10 * 24
 
 
 # exp(d$mean_estimate * 25) - exp(d$true_effect * 25)
@@ -115,15 +112,6 @@ exp(d$mean_estimate * 25) / exp(d$true_effect * 25)
 
 # ------------------------------------------------------------------------------
 # Main power plot
-
-# Order species by increasing max power at 25% MPA trend
-spp_levels <- power_df |>
-  filter(mpa_effect_label == "25%") |>
-  group_by(species) |>
-  slice(which.max(power_signed)) |>
-  arrange(power_signed) |>
-  pull(species)
-
 year_threshold <- power_df |>
   filter(power >= 0.8) |>
   group_by(species, eval_year, mpa_effect_label) |>
@@ -133,7 +121,6 @@ year_threshold <- power_df |>
 
 # Power plot ------
 power_df |>
-  mutate(species = factor(species, levels = spp_levels)) |>
   ggplot() +
   aes(x = eval_year, y = power_signed, colour = mpa_effect_label) +
   geom_line() +
@@ -143,8 +130,9 @@ power_df |>
     nrow = 2) +
   scale_colour_viridis_d(option = "plasma", end = 0.85) +
   scale_x_continuous(breaks = unique(power_df$eval_year)) +
-  labs(colour = "MPA trend") +
-  theme(legend.position = "top") +
+  labs(colour = "Recovery over 25 years") +
+  theme(legend.position = "top",
+        panel.spacing = unit(1, "lines")) +
   labs(x = "Evaluation year", y = "Correctly signed power") +
   scale_y_continuous(limits = c(-0.005, 1.005), expand = expansion(mult = c(0, 00)))
 ggsave(file.path(fig_dir, "main-power-plot.png"), width = 6.2, height = 5)
@@ -159,10 +147,10 @@ power_df |>
     nrow = 2) +
   scale_colour_viridis_d(option = "plasma", end = 0.85) +
   scale_x_continuous(breaks = unique(power_df$eval_year)) +
-  geom_hline(yintercept = 1) + 
-  labs(colour = "MPA trend") +
-  
-  theme(legend.position = "top") +
+  geom_hline(yintercept = 1) +
+  labs(colour = "Recovery over 25 years") +
+  theme(legend.position = "top",
+        panel.spacing = unit(1, "lines")) +
   scale_y_log10(limits = c(1, NA), expand = expansion(mult = c(0, 0.05)), breaks = c(1, 2, 5, 10, 30)) +
   labs(x = "Evaluation year", y = "Multiplicative magnitude error\non the 25-year percent increase")
 ggsave(file.path(fig_dir, "type-m-error-plot.png"), width = 6.2, height = 5)
@@ -188,7 +176,7 @@ power_df |>
       axis.text.x = element_text(angle = 45, hjust = 1, size = 7),
       panel.spacing = unit(0.5, "lines")
     )
-ggsave(file.path(fig_dir, "type-s-error-plot.png"), width = 8, height = 5.8)
+ggsave(file.path(fig_dir, "type-s-error-plot.png"), width = 6.2, height = 5)
 
 
 # ------------------------------------------------------------------------------
@@ -209,11 +197,11 @@ power_df0 |>
   ggplot() +
   geom_point(aes(x = id, y = estimate)) +
   geom_hline(aes(yintercept = true_effect), colour = "red") +
-  facet_grid(rows = vars(mpa_effect_label), cols = vars(eval_year)) +
+  facet_grid(rows = vars(species), cols = vars(eval_year)) +
   labs(x = "Replicate", y = "Estimate") +
-  ggtitle(stringr::str_to_title(filter_species))
+  ggtitle(paste0("25% recovery over 25 years"))
 ggsave(file.path(fig_dir, paste0("bias-check-on-estimate-", sp_to_hyphens(filter_species), ".png")),
-  width = 6.7, height = 7.6)
+  width = 6.2, height = 4.6)
 # ggsave(file.path(supp_dir, "bias-check-on-estimate-lingcod.png"), width = 9, height = 6.5)
 
 # Cumulative power plot - to check stability of power analysis results ---------
@@ -240,6 +228,6 @@ samples |>
   geom_hline(yintercept = 0.8, linetype = "dashed", colour = "grey50") +
    scale_colour_viridis_d(option = "plasma", end = 0.85) +
   facet_grid(cols = vars(eval_year), rows = vars(species), labeller = as_labeller(stringr::str_to_title)) +
-  labs(x = "Number of replicates", y = "Power", colour = "MPA trend") +
+  labs(x = "Number of replicates", y = "Power", colour = "Recovery over 25 years") +
   theme(legend.position = "top")
 ggsave(file.path(fig_dir, "cumulative-power-plot-all-species.png"), width = 8, height = 9.5)

@@ -116,3 +116,5 @@ hbll_allocations <- bind_rows(
 
 # Save the allocations
 saveRDS(hbll_allocations, file.path("data-generated", "hbll-allocations.rds"))
+
+readRDS( "hbll-last-sampled-years.rds")
