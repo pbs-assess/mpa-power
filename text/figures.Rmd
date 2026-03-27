@@ -1,12 +1,39 @@
 
 # Main figures
+- [x] hbll-mpa-historical-overlay.png
+- [x] predicted-distributions.png
+- [x] mean-observed-ts-eg.png
+- [ ] main-power-plot.png
+- [ ] type-m-error-plot.png
+- [ ] correlation 3 x 3 sigmaV.E.enc 2038 onwards at 25%
 
-hbll-mpa-historical-overlay.png
-predicted-distributions.png
-mean-observed-ts-eg.png
-main-power-plot.png
-type-m-error-plot.png
-correlation 3 x 3 sigmaV.E.enc 2038 onwards at 25%
+(ref:hbll-mpa-overlay-caption) Distribution of historical survey sets (a) outside and (b) inside the MPAs (grey polygons). Sampling locations are shown as points, with the hard bottom longline survey grid shown by region HBLL OUT N (blue), HBLL OUT S (orange), and HBLL INS N (green). The region has been cropped to the extent of the MPA Network.
+
+```{r hbll-mpa-historical-overlay, fig.cap='(ref:hbll-mpa-overlay-caption)', fig.asp=get_asp(here::here("figures/hbll-mpa-historical-overlay.png")), out.width="100%"}
+knitr::include_graphics(here::here("figures/hbll-mpa-historical-overlay.png"))
+```
+
+(ref:pred-dist-caption) Predicted distributions of expected mean catch per 100 hooks for six groundfish species. Predictions are estimated from the conditioning models used to inform the simulation and are shown for the most recent sampling year. Each species has its own colour scale (purple = low, yellow = high) and is fourth-root power transformed to improve visualisation of low values.
+
+```{r predicted-distributions, fig.cap='(ref:pred-dist-caption)', fig.asp=get_asp(here::here("figures/predicted-distributions.png")), out.width="100%"}
+knitr::include_graphics(here::here("figures/predicted-distributions.png"))
+```
+
+(ref:example-ts-caption) Time series of mean observed count per 100 hooks across sampling locations outside (grey) and inside (orange) MPAs in each sampling year for the HBLL OUT N for six species (Canary Rockfish, Lingcod, Pacific Spiny Dogfish, Quillback Rockfish, Silvergray Rockfish, Yelloweye Rockfish). Three replicate simulation outputs are shown (columns) to illustrate the ability of the operating model to generate plausible data. The historical data are shown to the left of the solid, vertical grey line (2003 - 2023) and were estimated from the conditioning models. Simulated data (2024 - 2046) were generated from the simulation model that assumed a 25% increase in abundance over 25 years across the MPAs. Vertical dashed lines show the years when the monitoring model is fitted (2030, 2034, 2038, 2042, 2046).
+
+```{r mean-observed-ts-eg, fig.cap='(ref:example-ts-caption)', fig.asp=get_asp(here::here("figures/mean-observed-ts-eg.png")), out.width="100%"}
+knitr::include_graphics(here::here("figures/mean-observed-ts-eg.png"))
+```
+
+(ref:power-plot-caption) Probability of detecting a significant MPA recovery effect (correctly signed power) across six groundfish species and four recovery scenarios. 
+```{r power-plot, fig.cap='(ref:power-plot-caption)', fig.asp=get_asp(here::here("figures/main-power-plot.png")), out.width="100%"}
+knitr::include_graphics(here::here("figures/main-power-plot.png"))
+```
+
+* Probability of detecting a significant MPA recovery effect (correctly signed power) across species, MPA effect sizes, and evaluation year.  
+
+
+
 
 # Appendix
 
