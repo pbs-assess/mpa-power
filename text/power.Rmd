@@ -2,6 +2,12 @@
 
 Nothing here but this must remain.
 
+#### TODO
+[ ] update power analysis glossary
+[ ] add appendix figures
+[ ] edit or cut reference sites text
+
+
 \newpage
 
 ```{r}
@@ -92,29 +98,15 @@ readr::read_csv(here::here("text/data/power-definitions.csv")) |>
 
 The HBLL survey consists of two survey series: inside (HBLL INS, referring to waters between Vancouver Island and the mainland) and the outside (HBLL OUT, all other BC waters). 
 North and south areas within each series are surveyed biennially. 
-Three of the four regions (HBLL OUT N, HBLL OUT S, and HBLL INS N) overlap with the GBS MPA Network (Figure \@ref(fig:hbll-mpa-historical-overlay)).
+Three of the four regions (HBLL OUT N, HBLL OUT S, and HBLL INS N) overlap with the GBS MPA Network (Figure \@ref(fig:hbll-mpa-overlay)).
 The surveys use a depth-stratified random sampling design, with a target allocation of 189 sets (HBLL OUT N), 252 (HBLL OUT S), and 70 (HBLL INS N).
-
-```{r hbll-mpa-historical-overlay, fig.cap="HBLL-MPA historical overlay.", fig.asp=get_asp(here::here("figures/hbll-mpa-historical-overlay.png")), out.width="90%"}
-knitr::include_graphics(here::here("figures/hbll-mpa-historical-overlay.png"))
-```
 
 We used a simulation-based power analysis to assess the ability of the HBLL survey to detect changes in population indices of groundfish across the MPA Network. 
 Our approach consisted of four steps: (1) fit conditioning models to historical data to parameterise the operating model, (2) used the operating model to simulate population recovery trends inside the MPAs under the assumption of fishing cessation (3) apply different sampling strategies to the simulated population, and (4) fit monitoring models to the combined historical and simulated data to evaluate the power of these sampling strategies to detect trends across the MPA Network.
 
 
-Using a spatiotemporal modelling approach, we applied this power analysis to five conservation priority species that are well sampled by the HBLL survey: Yelloweye Rockfish, Quillback Rockfish, Lingcod, Pacific Halibut, and Pacific Spiny Dogfish. 
-This approach allows us to test different scenarios, such as varying recovery rates within MPAs or evaluation time frames, while incorporating some ecological complexity and variability (Table \@ref(tab:scenario-summary)). 
-Power increases with larger MPA effect sizes (e.g., faster recovery), higher abundances, wider spatial distribution, more frequent sampling, and longer evaluation times. 
-Conversely, species with slower recovery rates, patchy distributions, and/or lower abundance will require more intensive sampling and longer evaluation time frames to detect population changes.
-
-
-```{r scenario-summary}
-readr::read_csv(here::here("text/data/power-scenarios.csv")) |> 
-  flextable() |>
-  set_table_properties(layout = "autofit") |> 
-  set_caption("Scenarios evaluated in the simulation-based power analysis.")
-```
+Using a spatiotemporal modelling approach, we applied this power analysis to five conservation priority species that are well sampled by the HBLL survey: Yelloweye Rockfish, Quillback Rockfish, Lingcod, Canary Rockfish, Silvergray Rockfish, and Pacific Spiny Dogfish. 
+This approach allows us to test different scenarios, such as varying recovery rates within MPAs or evaluation time frames, while incorporating some ecological complexity and variability.
 
 ### Step 1: Fitting conditioning models
 
@@ -173,59 +165,106 @@ Dimensions included here: species, mpa effect (recovery rates from No Fishing sc
 Output: known truth, example of simulated time series shown in Figure \@ref(fig:historical-simulated-index-example).
 Full grid for each species of values (possible additional figure -- or in supplement)
 
-### Step 3: Two different sampling scenarios
-
-```{r sampling-scenarios, fig.cap="Example of one replicate of sampled, simulated data from yelloweye rockfish (one replicate) by sampling plan and year. (top) The status quo sampling uses the same allocations and excludes MPA locations. (bottom) MPAs are only sampled every 4 years within each region and in the 'non-MPA' years survey effort is redistributed outside the MPAs following the same depth-stratified random allocations. Closed points indicate sites within the MPAs.", fig.asp=get_asp(here::here("figures/sampling-scenario-comparison.png")), out.width="100%"}
-knitr::include_graphics(here::here("figures/sampling-scenario-comparison.png"))
-```
-
-```{r historical-simulated-index-example, fig.cap="Example of a simulated timeseries used in the power analysis for Yelloweye Rockfish in HBLL OUT S. The historical index (dark grey) shows the relative abundance estimated from the conditioning model, capturing temporal variation from 2004 -- 2024. Simulated projections diverge after 2024 (first vertical dashed line), with abundance increasing inside the MPA (orange), and no trend outside of the MPA (blue). Indices are scaled to align at 2024 for visualization; values represent relative trends, ot absolute abundance. Power to detect the MPA effect is evaluated at subsequent years indicated by vertical dashed lines (2030, 2034, 2038, 2042, 2046) by fitting analysis models to historical data combined with the simulated data up to each evaluation year.", fig.asp=get_asp(here::here("figures/relative-index-single-survey.png")), out.width="80%"}
-```
 
 **Step 4: Refit combined historical and simulated data to calculate (1) Power, (2) Exaggeration rates, (3) Sign error**
 
-How well can we recover the trend --- example: Figure \@ref(fig:historical-simulated-index-example).
+How well can we recover the trend --- example: Figure \@ref(fig:mean-observed-ts-eg).
 
 ## POWER ANALYSIS RESULTS
 
-Figures to include:
-- [x] Fitted distribution maps - last year - panel per species
-- [x] Observation error posterior prediction plots - Jillian
-- [x] Main power vs. evaluation year plot - collapse rows
-- [x] M error plot - clean up - Jillian
-- [x] S error plot - clean up - Jillian
-- [x] Maps of the MPA overlap - with historical data - zoom to HBLL OUT N and maybe even more zoomed - 2-4 replicates + real data - pick a replicate with a similar mean... Sean
 
-- [x] Bias plot - Jillian
-- [x] Cumulative power plot - Jillian
+# Results
 
-- [ ] Turing-style time series with observations - flesh out by panel - Sean - pick 25%, 4-5 replicates per species (columns)
-- [x] Correlation plots of power against covariates - Sean
-- [ ] SigmaE, SigmaO, phi, rhoV, sigma_V, restricted param - coef plot - Sean
-- [x] New version of turing observation map figure... take a model... grab same sampling locations, shove the params into simulate_new(), plot zoomed in versions. do it for a couple?
+<!-- --- figure reference checklist to make sure all figures are referenced in the text
+[ ] hbll-mpa-historical-overlay.png (`hbll-mpa-historical-overlay`)
+[ ] predicted-distributions.png (`predicted-distributions`)
+[ ] mean-observed-ts-eg.png (`mean-observed-ts-eg`)
+[ ] main-power-plot.png (`power-plot`)
+[ ] type-m-error-plot.png (`type-m-plot`)
+[ ] power-correlations-25pct.png (`power-correlation-plot`)
+[ ] yelloweye-power-bootstrap-vs-no-mpa-every-2nd-survey.png (`sampling-scenario-power-comparison`)
 
-Extensions:
-- AR1 on year effects, but made little difference
+--- list of appendix figures:
+[ ] conditioning-coefs.png (`conditioning-coefs`)
+[ ] bias-check-on-estimate-lingcod.png (`bias-check-lingcod`)
+[ ] cumulative-power-plot-all-species.png (`cumulative-power-all`)
+[ ] sim-posterior-yelloweye rockfish-HBLL OUT N.png (`sim-posterior-ye-out-n`)
+[ ] sim-posterior-lingcod-HBLL OUT N.png (`sim-posterior-lingcod-out-n`)
+[ ] sim-posterior-quillback rockfish-HBLL OUT N.png (`sim-posterior-qb-out-n`)
+[ ] turing-map-quillback rockfish-HBLL-OUT-N.png (`turing-map-qb-out-n`)
+[ ] turing-map-yelloweye rockfish-HBLL-OUT-N.png (`turing-map-ye-out-n`)
+[ ] turing-map-lingcod-HBLL-OUT-N.png (`turing-map-lingcod-out-n`)
+
+[ ] power-phi-correlation.png (`power-phi-correlation`)
+[ ] power-encounter-rate-correlation.png (`power-encounter-rate-correlation`)
+[ ] power-sigmaE-correlation.png (`power-sigma-e-correlation`)
+[ ] power-sigmaV-correlation.png (`power-sigma-v-correlation`)
+-->
+
+- reference how the MPAN covers the HBLL for map figure?
+
+- conditioning models fit without problems... predicted blah blah map + coef plot
+
+- build faith in the simulation: simulations worked as expected ... reference all the posterior predictive plots - simulations reflected the system maps and time series 
+
+- power calculations - how many to converge....  cumulative 
+
+- models were not biased in fitting to sims - bias plot
+
+- power increase at larger trends and with more evaluation years
+
+- describe power plot - took 50% increase and 2038 to approach 80% power for the best sampled species (lingcod, quillback, yelloweye)
+
+- lower for silvergray and canary that are encountered less frequently
+
+- at 5-10% none of the cases achieved 80% by 2046
+
+- at 25% only in quillback lingcod yelloweye almost at 80% by 2046
+
+- expect fairly large magntitude errors unless 50% true increase and long evaluation times (M error plot), for example, quilback 2038 25% over 25 years - if signficant expect to actually estimate 50%!
+
+- correlations - positively correlated wiht encoutner rates (inside or whole coast - very colleated - we show in side), negatively with sigma E and sigma V. precision on observation error less so....
+
 - reduced sampling scenario
-- could do by survey - would very likely be weaker still
 
-Discussion:
-- what are reasonable rates of recovery?
-- will depend on movement too
-
-
-The species distributions estimated using the conditioning models showed substantial variation (Figure \@ref(fig:spp-distribution)) in the spatial patterns of the X species considered in the power analysis. 
-
-```{r spp-distribution, fig.cap="Spatial distributions of five groundfish species across the British Columbia coast. Predicted relative abundance (mean catch per 100 hooks) from the most recent survey year for each region, as estimated from the spatiotemporal models used to inform the simulation.", fig.asp=get_asp(here::here("figures/predicted-distributions.png")), out.width="100%"}
-knitr::include_graphics(here::here("figures/predicted-distributions.png"))
-```
-
-This spatial variation was incorporated into the simulated populations using the spatial random field (Figure \@ref(fig:spp-distribution) spatial-field)
-
+# Discussion
 
 Statistical power to detect MPA recovery trends varied across species and effect sizes.
 For species with faster recovery rates, ≥80% power could be reached within the first 10--15 years of MPA implementation using status quo sampling, while for species with slower recovery it may take 20--25 years of monitoring.
-Reducing MPA sampling frequency generally delayed when ≥80% power was reached.
+Reducing MPA sampling frequency generally delayed when ≥80% power was reached by approximately four years (sampling cycle).
+
+
+Extensions:
+
+- AR1 on year effects, but made little difference
+
+- increased sampling scenario
+
+- could do by survey - would very likely be weaker still
+
+- could combine with other surveys such as the synoptic trawl - more power!
+
+
+- what are reasonable rates of recovery by stock ... lingcod at B0... yelloweye, quillback - well below B0 but late age at maturity long generation time... expect slower recovery
+
+- and we did a exponential growth recovery trend - would actually level off towards B0 *and* rockfish often have spasmodic recruitment... so for numbers, very little in most years, occasionally large recruitment events - we did a continuous linear effect - probably easier to detect what we did!
+
+* We assumed a constant linear rate of increase over the 25 years. Although the recovery rates calculated from the stock assessments reflect current levels of depletion and density dependent effects. 
+
+- dogfish - slow recovery + movement may disperse them
+
+- will depend on movement too
+
+* This analysis assumed no species movement.
+Any potential spillover effects or capturing of fishes that move outside of the MPA boundaries would reduce recovery rates and our ability to detect MPA effects.
+
+- body size may be faster - reference Kyle's preprint
+  - growth
+  - biomass will be faster
+  - HBLL is abundance - reference the Perkins et al. paper
+
+* Recent analyses have shown that body size rather than abundance is more sensitive to detection. [@wilson2025groundfish; @perkins2021quantifying]
+
 
 Helps us set expectations:
 
@@ -243,20 +282,4 @@ Detection of significant effects before 10 years is likely to lead to over estim
 
 Stock assessment "no fishing" scenarios and life histories can help to inform expectations of recovery rates
 
-```{r power-plot, fig.cap="Probability of detecting a significant MPA effect increases with larger effect sizes. Rates of change for each species.", fig.asp=get_asp(here::here("figures/power.png")), out.width="100%"}
-knitr::include_graphics(here::here("figures/power.png"))
-```
-
-
-```{r type-M-plot, fig.cap="Early detection is associated with overestimates of MPA effects. Within the first 10 years post implementation these effects are likely exaggerated by 2--8 times true rates.", fig.asp=get_asp(here::here("figures/type-m-error-rate.png")), out.width="100%"}
-knitr::include_graphics(here::here("figures/type-m-error-rate.png"))
-```
-
-#### Caveats/Limitations
-
-* This analysis assumed no species movement.
-Any potential spillover effects or capturing of fishes that move outside of the MPA boundaries would reduce recovery rates and our ability to detect MPA effects. 
-
-* We assumed a constant linear rate of increase over the 25 years. Although the recovery rates calculated from the stock assessments reflect current levels of depletion and density dependent effects. 
-
-* Recent analyses have shown that body size rather than abundance is more sensitive to detection. [wilson][perkins]
+ 

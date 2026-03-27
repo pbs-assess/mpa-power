@@ -46,91 +46,9 @@ knitr::include_graphics(here::here("figures/power-correlations-25pct.png"))
 
 (ref:sampling-scenario-power-comparison-caption) Comparison of power to detect a 25% increase in abundance over 25 years between two sampling scenarios:  status quo sampling (solid line) and  within MPAs every 4 years (dashed line). Power was evaluated at four year intervals starting 6 years post implementation. The dashed horizontal line indicates 80% target power.
 
-
-# Appendix
-
-power-phi-correlation.png
-
-conditioning-coefs.png
-
-bias-check-on-estimate-lingcod.png
-
-cumulative-power-plot-all-species.png
-
-sim-posterior-yelloweye rockfish-HBLL OUT N.png
-sim-posterior-lingcod-HBLL OUT N.png
-sim-posterior-quillback rockfish-HBLL OUT N.png
-
-turing-map-quillback rockfish-HBLL-OUT-N.png
-turing-map-yelloweye rockfish-HBLL-OUT-N.png
-turing-map-lingcod-HBLL-OUT-N.png
-
-power-encounter-rate-correlation.png
-power-sigmaE-correlation.png
-power-sigmaV-correlation.png
-
-# misc todo
-- [ ] update power analysis glossary
-
-# Results
-
-- reference how the MPAN covers the HBLL for map figure?
-
-- conditioning models fit without problems... predicted blah blah map + coef plot
-
-- build faith in the simulation: simulations worked as expected ... reference all the posterior predictive plots - simulations reflected the system maps and time series 
-
-- power calculations - how many to converge....  cumulative 
-
-- models were not biased in fitting to sims - bias plot
-
-- power increase at larger trends and with more evaluation years
-
-- describe power plot - took 50% increase and 2038 to approach 80% power for the best sampled species (lingcod, quillback, yelloweye)
-
-- lower for silvergray and canary that are encountered less frequently
-
-- at 5-10% none of the cases achieved 80% by 2046
-
-- at 25% only in quillback lingcod yelloweye almost at 80% by 2046
-
-- expect fairly large magntitude errors unless 50% true increase and long evaluation times (M error plot), for example, quilback 2038 25% over 25 years - if signficant expect to actually estimate 50%!
-
-- correlations - positively correlated wiht encoutner rates (inside or whole coast - very colleated - we show in side), negatively with sigma E and sigma V. precision on observation error less so....
-
-# Discussion
-
-Extensions:
-
-- AR1 on year effects, but made little difference
-
-- reduced sampling scenario
-
-- increased sampling scenario
-
-- could do by survey - would very likely be weaker still
-
-- could combine with other surveys such as the synoptic trawl - more power!
-
-Discussion:
-
-- what are reasonable rates of recovery by stock ... lingcod at B0... yelloweye, quillback - well below B0 but late age at maturity long generation time... expect slower recovery
-
-- and we did a exponential growth recovery trend - would actually level off towards B0 *and* rockfish often have spasmodic recruitment... so for numbers, very little in most years, occasionally large recruitment events - we did a continuous linear effect - probably easier to detect what we did!
-
-- dogfish - slow recovery + movement may disperse them
-
-- will depend on movement too
-
-- body size may be faster - reference Kyle's preprint
-  - growth
-  - biomass will be faster
-  - HBLL is abundance - reference the Perkins et al. paper
-
-sets expectations...
-
-
-
+```{r sampling-scenario-power-comparison, fig.cap='(ref:sampling-scenario-power-comparison-caption)', fig.asp=get_asp(here::here("figures/power-correlations-25pct.png")), out.width="100%"}
+knitr::include_graphics(here::here("figures/yelloweye-power-bootstrap-vs-no-mpa-every-2nd-survey.png"))
+```
 
 
 

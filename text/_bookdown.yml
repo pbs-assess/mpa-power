@@ -2,7 +2,7 @@ book_filename: "resdoc"
 rmd_files: [
             "index.Rmd",
             #"overlay-tables.Rmd",
-            # "power.Rmd",
+            "power.Rmd",
             "figures.Rmd",
             "98-references.Rmd",
             "99-appendix.Rmd"
