@@ -17,99 +17,81 @@ hbll_sites |>
 
 \newpage
 
-# APPENDIX `r new_appendix()`. POWER ANAYLSIS SUPPORTING INFORMATION {#app:power}
+# APPENDIX `r new_appendix()`. POWER ANALYSIS SUPPORTING INFORMATION {#app:power}
 
-## A SUBHEADING HERE
-
-- [ ] conditioning-coefs.png (`conditioning-coefs`)
-- [ ] bias-check-on-estimate-lingcod.png (`bias-check-lingcod`)
-- [ ] cumulative-power-plot-all-species.png (`cumulative-power-all`)
-- [ ] sim-posterior-yelloweye rockfish-HBLL OUT N.png (`sim-posterior-ye-out-n`)
-- [ ] sim-posterior-lingcod-HBLL OUT N.png (`sim-posterior-lingcod-out-n`)
-- [ ] sim-posterior-quillback rockfish-HBLL OUT N.png (`sim-posterior-qb-out-n`)
-- [ ] turing-map-quillback rockfish-HBLL-OUT-N.png (`turing-map-qb-out-n`)
-- [ ] turing-map-yelloweye rockfish-HBLL-OUT-N.png (`turing-map-ye-out-n`)
-- [ ] turing-map-lingcod-HBLL-OUT-N.png (`turing-map-lingcod-out-n`)
-
-- [ ] power-phi-correlation.png (`power-phi-correlation`)
-- [ ] power-encounter-rate-correlation.png (`power-encounter-rate-correlation`)
-- [ ] power-sigmaE-correlation.png (`power-sigma-e-correlation`)
-- [ ] power-sigmaV-correlation.png (`power-sigma-v-correlation`)
-
-
-(ref:conditioning-coefs-caption) TODO caption.
+(ref:conditioning-coefs-caption) Coefficient estimates from the conditioning models. Mean estimates are shown with dots and line segments indicate 95% confidence intervals. Missing coefficients indicate either that the model was not fit because of a lack of encounters (Canary Rockfish and Silvergray Rockfish for HBLL INS N) or because the spatiotemporal random field had collapsed to zero and was omitted from the final model. We do not show uncertainty on the interannual correlation and standard deviation (SD)---they were estimated from the independent year coefficient estimates outside of the sdmTMB model.
 
 ```{r conditioning-coefs, fig.cap='(ref:conditioning-coefs-caption)', fig.asp=get_asp(here::here("figures/conditioning-coefs.png")), out.width="100%"}
 knitr::include_graphics(here::here("figures/conditioning-coefs.png"))
 ```
 
-(ref:sim-posterior-yelloweye-caption) TODO caption.
+(ref:sim-posterior-yelloweye-caption) Example simulation replicates illustrating the distribution of real observed historical values (blue) and simulated observations in future years (orange). This shows whether there are obvious systematic differences between the fitted real data and the data simulated from the conditioning model.
 
 ```{r sim-posterior-yelloweye, fig.cap='(ref:sim-posterior-yelloweye-caption)', fig.asp=get_asp(here::here("figures/sim-posterior-yelloweye rockfish-HBLL OUT N.png")), out.width="100%"}
 knitr::include_graphics(here::here("figures/sim-posterior-yelloweye rockfish-HBLL OUT N.png"))
 ```
 
-(ref:sim-posterior-lingcod-caption) TODO caption.
+(ref:sim-posterior-lingcod-caption) Same as Figure \@ref(fig:sim-posterior-yelloweye) but for Lingcod.
 
 ```{r sim-posterior-lingcod, fig.cap='(ref:sim-posterior-lingcod-caption)', fig.asp=get_asp(here::here("figures/sim-posterior-lingcod-HBLL OUT N.png")), out.width="100%"}
 knitr::include_graphics(here::here("figures/sim-posterior-lingcod-HBLL OUT N.png"))
 ```
 
-(ref:sim-posterior-quillback-caption) TODO caption.
+(ref:sim-posterior-quillback-caption) Same as Figure \@ref(fig:sim-posterior-yelloweye) but for Quillback Rockfish.
 
 ```{r sim-posterior-quillback, fig.cap='(ref:sim-posterior-quillback-caption)', fig.asp=get_asp(here::here("figures/sim-posterior-quillback rockfish-HBLL OUT N.png")), out.width="100%"}
 knitr::include_graphics(here::here("figures/sim-posterior-quillback rockfish-HBLL OUT N.png"))
 ```
 
-(ref:turing-map-quillback-caption) TODO caption.
+(ref:turing-map-quillback-caption) Example real and simulated observations for Quillback Rockfish and the HBLL OUT N survey. The first panel shows the real observations. The other five panels show example replicate simulations. If the conditioning model can represent the spatial patterning of the fitted data, then it should not be obvious which panel contains the real observations.
 
 ```{r turing-map-quillback, fig.cap='(ref:turing-map-quillback-caption)', fig.asp=get_asp(here::here("figures/turing-map-quillback rockfish-HBLL-OUT-N.png")), out.width="100%"}
 knitr::include_graphics(here::here("figures/turing-map-quillback rockfish-HBLL-OUT-N.png"))
 ```
 
-(ref:turing-map-yelloweye-caption) TODO caption.
+(ref:turing-map-yelloweye-caption) Same as Figure \@ref(fig:turing-map-quillback) but for Yelloweye Rockfish.
 
 ```{r turing-map-yelloweye, fig.cap='(ref:turing-map-yelloweye-caption)', fig.asp=get_asp(here::here("figures/turing-map-yelloweye rockfish-HBLL-OUT-N.png")), out.width="100%"}
 knitr::include_graphics(here::here("figures/turing-map-yelloweye rockfish-HBLL-OUT-N.png"))
 ```
 
-(ref:turing-map-lingcod-caption) TODO caption.
+(ref:turing-map-lingcod-caption) Same as Figure \@ref(fig:turing-map-quillback) but for Lingcod.
 
 ```{r turing-map-lingcod, fig.cap='(ref:turing-map-lingcod-caption)', fig.asp=get_asp(here::here("figures/turing-map-lingcod-HBLL-OUT-N.png")), out.width="100%"}
 knitr::include_graphics(here::here("figures/turing-map-lingcod-HBLL-OUT-N.png"))
 ```
 
-(ref:bias-check-lingcod-caption) TODO caption.
+(ref:bias-check-lingcod-caption) Example check of whether the estimation model is able to recover the true simulated recovery rate inside the MPA network without bias. In some cases there is minimal bias at 2030, likely driven by however the real time series ended. By 2034 and beyond, the estimates appear centered on the true value but become increasingly precise over time. This illustration is just for the 25% increase over 25 years scenario.
 
 ```{r bias-check-lingcod, fig.cap='(ref:bias-check-lingcod-caption)', fig.asp=get_asp(here::here("figures/bias-check-on-estimate-lingcod.png")), out.width="100%"}
 knitr::include_graphics(here::here("figures/bias-check-on-estimate-lingcod.png"))
 ```
 
-(ref:cumulative-power-caption) TODO caption.
+(ref:cumulative-power-caption) Cumulative calculation of statistical power. This is to determine whether sufficient simulation replicates have been run for stable results. For each additional replicate, power is calculated with all replicates up to that replicate and the results become increasingly stable.
 
 ```{r cumulative-power, fig.cap='(ref:cumulative-power-caption)', fig.asp=get_asp(here::here("figures/cumulative-power-plot-all-species.png")), out.width="100%"}
 knitr::include_graphics(here::here("figures/cumulative-power-plot-all-species.png"))
 ```
 
-(ref:power-phi-correlation-caption) TODO caption.
+(ref:power-phi-correlation-caption) Correlation plots of correctly signed power against observation error precision from the beta-binomial distribution. Higher precision leads to lower variance. Pearson's correlation coefficients are shown in the top left corner of each panel. Columns show the evaluation year and rows show the percent increase for the inside-MPA sites relative to the outside MPA sites over 25 years.
 
 ```{r power-phi-correlation, fig.cap='(ref:power-phi-correlation-caption)', fig.asp=get_asp(here::here("figures/power-phi-correlation.png")), out.width="100%"}
 knitr::include_graphics(here::here("figures/power-phi-correlation.png"))
 ```
 
-(ref:power-encounter-rate-correlation-caption) TODO caption.
+(ref:power-encounter-rate-correlation-caption) Same as Figure \@ref(fig:power-phi-correlation) but with mean encounter rate within the MPA network on the x-axis.
 
 ```{r power-encounter-rate-correlation, fig.cap='(ref:power-encounter-rate-correlation-caption)', fig.asp=get_asp(here::here("figures/power-encounter-rate-correlation.png")), out.width="100%"}
 knitr::include_graphics(here::here("figures/power-encounter-rate-correlation.png"))
 ```
 
-(ref:power-sigma-e-correlation-caption) TODO caption.
+(ref:power-sigma-e-correlation-caption) Same as Figure \@ref(fig:power-phi-correlation) but with spatiotemporal random field standard deviation on the x-axis.
 
 ```{r power-sigma-e-correlation, fig.cap='(ref:power-sigma-e-correlation-caption)', fig.asp=get_asp(here::here("figures/power-sigmaE-correlation.png")), out.width="100%"}
 knitr::include_graphics(here::here("figures/power-sigmaE-correlation.png"))
 ```
 
-(ref:power-sigma-v-correlation-caption) TODO caption.
+(ref:power-sigma-v-correlation-caption) Same as Figure \@ref(fig:power-phi-correlation) but with the standard deviation of the interannual mean (year coefficients) on the x-axis.
 
 ```{r power-sigma-v-correlation, fig.cap='(ref:power-sigma-v-correlation-caption)', fig.asp=get_asp(here::here("figures/power-sigmaV-correlation.png")), out.width="100%"}
 knitr::include_graphics(here::here("figures/power-sigmaV-correlation.png"))
