@@ -143,51 +143,51 @@ We used this adjusted hook count as the weighting in our beta-binomial model [@a
 \text{adjusted hook count} = \frac{\text{hook count}}{\text{hook adjustment factor}}
 \]
 
-Our linear predictor included annual independent year effects ($\beta_t$), a inside vs. outside MPA effect ($\beta_\mathrm{MPA}$), 
+Our linear predictor included annual independent year effects ($\beta_t$), an inside-vs.-outside MPA effect ($\beta_\mathrm{MPA}$), 
 spatial random effects ($\omega_\mathbf{s}$), and spatiotemporal random effects ($\epsilon_{\mathbf{s},t}$).
 These random effects were structured as Gaussian Markov random fields (GMRFs) that were mean zero with precision matrices ($\mathbf{Q}_\omega$ and $\mathbf{Q}_\epsilon$; inverse covariance matrices) based on a Matérn spatial correlation function.
-The spatial random fields account for constant spatial patterning or correlation in distribution while the spatiotemporal random fields account for spatial patterning that is unique each year.
+The spatial random fields account for persistent spatial patterning or correlation in distribution, while the spatiotemporal random fields account for spatial patterning that is unique to each year.
 If models failed to converge or if spatial and/or spatiotemporal variance estimates collapsed to near zero ($<$ 0.01), the models were refit with the collapsed random fields set to zero.
 Models were considered to have converged if the Hessian matrix was positive definite and the absolute gradient of the marginal log-likelihood with respect to each fixed effect was $<$ 0.001.
 
 The spatial patterns predicted by the conditioning model varied by species (Figure \@ref(fig:predicted-distributions)).
-Pacific Spiny Dogfish had the most patchy distribution with strong hotpots masking patterns along the rest of the coast in the colour scale.
+Pacific Spiny Dogfish had the most patchy distribution, with strong hotspots masking patterns along the rest of the coast in the colour scale.
 Parameter estimates from the conditioning models were relatively similar across surveys within a given species (Figure \@ref(fig:conditioning-coefs)).
 The spatial range (distance at which two observations are effectively independent) ranged from about 50 km to about 100 km.
 Interannual mean variation was positively correlated for Lingcod, Pacific Spiny Dogfish, and Quillback and was close to zero or negative in other cases.
-Interannual mean variation and spatiotemporal variation was highest for Pacific Spiny Dogfish.
+Interannual mean variation and spatiotemporal variation were highest for Pacific Spiny Dogfish.
 Spatial variation was strongest for Quillback Rockfish.
 The inside vs. outside MPA parameter generally had a 95% confidence interval that crossed zero and would need to be interpreted alongside the spatial random field values, which are competing to explain the same variance.
 
 ### Step 2: Simulate data
 
-We then used the conditioning models to simulate future data with properties matching the historical data but with an underlying known true recovery rate within the MPAs compared to the outside survey sites.
-From the conditioning models we extracted the following parameters: the estimated spatial random field values, the spatial and spatiotemporal range, the betabinomial precision parameter, spatiotemporal random field standard deviation, the inside vs. outside MPA effect, and the annual mean estimates (year effects).
-We fit a first-order autoregressive (AR1) model to the independent year effects estimated for each conditioning model (species-region combination), to estimate the temporal autocorrelation coefficient, $\rho_v$, and the marginal standard deviation, $\sigma_v$.
+We then used the conditioning models to simulate future data with properties matching the historical data, but with a known underlying true recovery rate within the MPAs relative to the outside survey sites.
+From the conditioning models we extracted the following parameters: the estimated spatial random field values, the spatial and spatiotemporal range, the betabinomial precision parameter, the spatiotemporal random field standard deviation, the inside vs. outside MPA effect, and the annual mean estimates (year effects).
+We fit a first-order autoregressive (AR1) model to the independent year effects estimated for each conditioning model (species-region combination) to estimate the temporal autocorrelation coefficient, $\rho_v$, and the marginal standard deviation, $\sigma_v$.
 
 We then used these parameters to simulate future data with known recovery trends.
-Our model matched our conditioning model in structure with the following differences. 
-First, future year mean values were randomly drawn from an AR1 time series with match $\rho_v$ and $\sigma_v$ values.
-This created mean annual year values with similar variability and autocorrelation to the historical time period.
+Our model matched the conditioning model in structure, with the following differences. 
+First, future year mean values were randomly drawn from an AR1 time series with matching $\rho_v$ and $\sigma_v$ values.
+This created annual mean values with similar variability and autocorrelation to the historical time period.
 Second, a true known trend was imposed on the recovery for sites within the MPA network.
-We chose a sequence of possible recoveries over a 25-year time span ranging from small recoveries to optimistic recoveries: 5%, 10%, 25%, and 50%.
-These were parameterized as coefficients in the linear predictor of the log-linked model, so these correspond to coefficient values of, for example, log(10)/25 = 0.0921 for a 10% recovery over 25 years.
-Sites outside the the MPA network followed a flat trajectory overtime on average.
+We chose a sequence of possible recoveries over a 25-year time span, ranging from small recoveries to optimistic recoveries: 5%, 10%, 25%, and 50%.
+These were parameterized as coefficients in the linear predictor of the log-linked model, corresponding to coefficient values of, for example, log(1.10)/25 = 0.0038 for a 10% recovery over 25 years.
+Sites outside the MPA network followed a flat trajectory over time on average.
 Both the inside and outside sites were given additional noise around the mean trajectories from the AR1 time series noted above.
 
 We verified that our simulation models were able to generate observations that reflected the properties of our historical data through a sequence of visualizations.
-First, to assess whether to the interannual variation in the stimulated data reflected the historical data, we visualized average observed catch rates per year inside and outside the MPA network in both time periods (Figure \@ref(fig:mean-observed-ts-eg)).
+First, to assess whether the interannual variation in the simulated data reflected the historical data, we visualized average observed catch rates per year inside and outside the MPA network in both time periods (Figure \@ref(fig:mean-observed-ts-eg)).
 This also allows us to calibrate expectations for how challenging it may be to recover the underlying trends given the noise in the system.
-We found that the two time periods to look similar in their time series properties.
-Although the increase inside the MPAs is noticible in some replicates, it is often obscured by temporal and spatiotemporal and observation noise in the system.
+We found that the two time periods looked similar in their time series properties.
+Although the increase inside the MPAs is noticeable in some replicates, it is often obscured by temporal, spatiotemporal, and observation noise in the system.
 
-Next, we evaluated whether the distribution of the observations it was similar in the future vs. historical time periods by plotting all observations separated by year.
-We found that our simulation models were generally able to simulate data with the same data spread as the historical data (Figure \@ref(fig:sim-posterior-yelloweye-caption), \@ref(fig:sim-posterior-lingcod-caption), \@ref(fig:sim-posterior-quillback-caption).
-This was not the case when we previously attemped other observation distributions such as the negative binomial, lognormal Poisson, or binomial.
+Next, we evaluated whether the distribution of the observations was similar in the future versus historical time periods by plotting all observations separated by year.
+We found that our simulation models were generally able to simulate data with a similar spread to the historical data (Figure \@ref(fig:sim-posterior-yelloweye-caption), \@ref(fig:sim-posterior-lingcod-caption), \@ref(fig:sim-posterior-quillback-caption)).
+This was not the case when we previously attempted other observation distributions such as the negative binomial, lognormal Poisson, or binomial.
 
-Finally, we evaluated whether our simulation models could generate special observations with similar properties to the historical observed data.
-Here, we were looking for whether one would be able to distinguish which panel was the "real" data and which were the simulation replicates, if the panels were not labelled.
-We generally found that it would be difficult to distinguish the real data from the simulated data when plotted spatially and therefore concluded that our simulation models could faithfully represent important properties of the historical data (Figure \@ref(fig:turing-map-quillback), \@ref(fig:turing-map-yelloweye), \@ref(fig:turing-map-lingcod).
+Finally, we evaluated whether our simulation models could generate spatial observations with similar properties to the historical observed data.
+Here, we asked whether one would be able to distinguish which panel was the "real" data and which were the simulation replicates if the panels were not labelled.
+We generally found that it would be difficult to distinguish the real data from the simulated data when plotted spatially and therefore concluded that our simulation models could faithfully represent important properties of the historical data (Figure \@ref(fig:turing-map-quillback), \@ref(fig:turing-map-yelloweye), \@ref(fig:turing-map-lingcod)).
 
 **Step 4: Refit combined historical and simulated data to calculate (1) Power, (2) Exaggeration rates, (3) Sign error**
 
