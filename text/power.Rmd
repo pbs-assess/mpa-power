@@ -213,12 +213,12 @@ From the interaction coefficient, we calculated several metrics related to stati
 First, we calculated correctly signed power.
 Ordinarily, power is defined as the proportion of replicates with a significant effect in either direction when a true effect is present.
 To avoid confusion, we define it here as the proportion of replicates in which abundance is assessed as significantly *increasing*.
-The proportion of times that significant results have the wrong sign is often called a "sign" or "Type S" error (REF).
+The proportion of times that significant results have the wrong sign is often called a "sign" or "Type S" error [@gelman2014].
 We found relatively strong sign errors in the early evaluation years, but do not focus on them here.
-We also calculated magnitude, or exaggeration ratio, errors ("Type M" errors) (REF).
+We also calculated magnitude, or exaggeration ratio, errors ("Type M" errors) [@gelman2014].
 These represent the expected overestimate of the effect size when an effect is assessed as significant.
 We calculated this by taking the average significant effect size and comparing it with the true effect size.
-At low levels of power, these errors can be substantial (REF).
+At low levels of power, these errors can be substantial [@gelman2014].
 Specifically, we expressed these magnitude errors as a multiplicative factor on the estimated increase over 25 years.
 For example, a magnitude error of two would mean that, if we detected a significant recovery estimated at 20%, the true underlying recovery would on average be only 10%.
 
