@@ -13,7 +13,7 @@ TARGET_SPECIES <- c("yelloweye rockfish", "lingcod", "quillback rockfish")
 TARGET_SURVEY <- "HBLL"
 TARGET_AR1 <- "fitted_AR1"
 TARGET_MPA_EFFECT_LABEL <- "25%"
-TARGET_EVAL_YEAR <- 2042
+TARGET_EVAL_YEARS <- c(2038, 2042, 2046)
 TARGET_PLANS <- c(
   "historical survey-year bootstrap",
   "historical survey-year bootstrap - no MPA every 2nd survey"
@@ -59,11 +59,12 @@ all_fitted_results <- all_fitted_results0 |>
 
 plot_results <- all_fitted_results |>
   filter(
+    # replicate %in% 1:100,
     species %in% TARGET_SPECIES,
     survey_abbrev == TARGET_SURVEY,
     sim_ar1_scenario == TARGET_AR1,
     mpa_effect_label == TARGET_MPA_EFFECT_LABEL,
-    eval_year == TARGET_EVAL_YEAR,
+    eval_year %in% TARGET_EVAL_YEARS,
     sampling_plan %in% TARGET_PLANS
   )
 
@@ -88,7 +89,8 @@ if (length(missing_species) > 0) {
 power_df0 <- plot_results |>
   mutate(
     significant = !(ci_lower < 0 & ci_upper > 0),
-    sign_correct = estimate * true_effect > 0
+    sign_correct = estimate * true_effect > 0,
+    ratio_to_true = (exp(estimate * 25) - 1) / (exp(true_effect * 25) - 1)
   )
 
 power_df <- summarise_power(power_df0)
@@ -112,32 +114,98 @@ power_plot <- power_df |>
     mpa_effect_label = factor(mpa_effect_label, levels = levels(rates_lu$mpa_effect_label))
   ) |>
   ggplot(aes(
-    x = species_label,
+    x = eval_year,
     y = power_signed,
+    linetype = sampling_plan_label,
     shape = sampling_plan_label,
     group = sampling_plan_label
   )) +
-  geom_point(position = position_dodge(width = 0.4)) +
-  geom_hline(yintercept = 0.8, linetype = "dashed", colour = "grey50") +
-  scale_shape_manual(values = c(
-    "Status quo" = 19,
-    "MPAs every 4 years" = 21
-  )) +
-  scale_y_continuous(limits = c(0, 1.), expand = expansion(mult = c(0, 0))) +
+  geom_line() +
+  geom_point() +
+  geom_hline(yintercept = 0.8, linetype = "dashed", colour = "grey70") +
+  geom_hline(yintercept = 0.6, linetype = "dashed", colour = "grey70") +
+  geom_hline(yintercept = 0.4, linetype = "dashed", colour = "grey70") +
+  geom_hline(yintercept = 0.2, linetype = "dashed", colour = "grey70") +
+  facet_wrap(~species_label) +
+  scale_x_continuous(breaks = TARGET_EVAL_YEARS) +
+  scale_linetype_manual(values = c("Status quo" = "solid", "MPAs every 4 years" = "dashed")) +
+  scale_shape_manual(values = c("Status quo" = 19, "MPAs every 4 years" = 21)) +
+  scale_y_continuous(limits = c(0, 1.), expand = expansion(mult = c(0, 0)), breaks = seq(0, 1, 0.2)) +
   labs(
-    x = "Species",
+    x = "Evaluation year",
     y = "Correctly signed power",
+    linetype = "Sampling plan",
     shape = "Sampling plan",
-    title = "Power at evaluation year 2042",
     subtitle = "25% MPA increase over 25 years"
   ) +
-  theme(legend.position = "inside", legend.position.inside = c(0.8, 0.1), axis.title.x.bottom = element_blank())
+  theme(legend.position = "bottom")
 
-print(power_plot)
+error_df <- power_df0 |>
+  group_by(species, survey_abbrev, sampling_plan, eval_year) |>
+  summarise(
+    type_m = mean(ratio_to_true[significant & converged & sign_correct], na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  mutate(
+    sampling_plan_label = recode(
+      sampling_plan,
+      "historical survey-year bootstrap" = "Status quo",
+      "historical survey-year bootstrap - no MPA every 2nd survey" = "MPAs every 4 years"
+    ),
+    sampling_plan_label = factor(
+      sampling_plan_label,
+      levels = c("Status quo", "MPAs every 4 years")
+    ),
+    species_label = tools::toTitleCase(species),
+    species_label = factor(
+      species_label,
+      levels = tools::toTitleCase(c("yelloweye rockfish", "lingcod", "quillback rockfish"))
+    )
+  )
+
+error_plot <- error_df |>
+  tidyr::pivot_longer(c(type_m), names_to = "error_type", values_to = "value") |>
+  mutate(error_type = recode(error_type, "type_m" = "Type M (exaggeration ratio)")) |>
+  ggplot(aes(
+    x = eval_year,
+    y = value,
+    linetype = sampling_plan_label,
+    shape = sampling_plan_label,
+    group = sampling_plan_label
+  )) +
+  geom_line() +
+  geom_point() +
+  facet_wrap( ~ species_label, scales = "free_y") +
+  scale_x_continuous(breaks = TARGET_EVAL_YEARS) +
+  scale_y_continuous(limits = c(1, NA), expand = expansion(mult = c(0, .1))) +
+  scale_linetype_manual(values = c("Status quo" = "solid", "MPAs every 4 years" = "dashed")) +
+  scale_shape_manual(values = c("Status quo" = 19, "MPAs every 4 years" = 21)) +
+  labs(
+    x = "Evaluation year",
+    y = "Type M (exageration ratio)",
+    linetype = "Sampling plan",
+    shape = "Sampling plan"
+  ) +
+  theme(legend.position = "bottom")
+
+combined_plot <- patchwork::wrap_plots(power_plot, error_plot, ncol = 1)
+print(combined_plot)
 
 ggsave(
-  file.path(fig_dir, "multispecies-power-bootstrap-vs-no-mpa-every-2nd-survey-25pct-2042.png"),
-  plot = power_plot,
-  width = 5,
-  height = 4
+  file.path(fig_dir, "multispecies-power-bootstrap-vs-no-mpa-every-2nd-survey-25pct.png"),
+  plot = combined_plot,
+  width = 7,
+  height = 8
 )
+
+# Convergence diagnostics: check if lower convergence at 2038 inflates power_signed
+power_df |>
+  filter(eval_year == 2038) |>
+  mutate(sampling_plan_label = recode(
+    sampling_plan,
+    "historical survey-year bootstrap" = "Status quo",
+    "historical survey-year bootstrap - no MPA every 2nd survey" = "MPAs every 4 years"
+  )) |>
+  select(species, sampling_plan_label, n_reps, n_converged, convergence_rate, power_signed, power_allreps) |>
+  arrange(species, sampling_plan_label) |>
+  print(n = Inf)

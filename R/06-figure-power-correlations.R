@@ -7,6 +7,8 @@ library(rpart)
 library(ranger)
 theme_set(gfplot::theme_pbs())
 
+source("R/05-make-power-df.R")
+
 power_df <- readRDS("data-generated/power-results-df.rds")
 theta <- readRDS("data-generated/fit_characteristics.rds")
 ar1_theta <- readRDS("data-generated/ar1-parameters.rds") |>
