@@ -14,6 +14,7 @@ TARGET_SURVEY <- "HBLL"
 TARGET_AR1 <- "fitted_AR1"
 TARGET_MPA_EFFECT_LABEL <- "25%"
 TARGET_EVAL_YEARS <- c(2038, 2042, 2046)
+TARGET_EVAL_YEARS <- c(2042, 2046)
 TARGET_PLANS <- c(
   "historical survey-year bootstrap",
   "historical survey-year bootstrap - no MPA every 2nd survey"
@@ -120,12 +121,12 @@ power_plot <- power_df |>
     shape = sampling_plan_label,
     group = sampling_plan_label
   )) +
+  geom_hline(yintercept = 0.8, linetype = "solid", colour = "grey85") +
+  geom_hline(yintercept = 0.6, linetype = "solid", colour = "grey85") +
+  geom_hline(yintercept = 0.4, linetype = "solid", colour = "grey85") +
+  geom_hline(yintercept = 0.2, linetype = "solid", colour = "grey85") +
   geom_line() +
   geom_point() +
-  geom_hline(yintercept = 0.8, linetype = "dashed", colour = "grey70") +
-  geom_hline(yintercept = 0.6, linetype = "dashed", colour = "grey70") +
-  geom_hline(yintercept = 0.4, linetype = "dashed", colour = "grey70") +
-  geom_hline(yintercept = 0.2, linetype = "dashed", colour = "grey70") +
   facet_wrap(~species_label) +
   scale_x_continuous(breaks = TARGET_EVAL_YEARS) +
   scale_linetype_manual(values = c("Status quo" = "solid", "MPAs every 4 years" = "dashed")) +
@@ -138,7 +139,7 @@ power_plot <- power_df |>
     shape = "Sampling plan",
     subtitle = "25% MPA increase over 25 years"
   ) +
-  theme(legend.position = "bottom")
+  theme(legend.position = "top")
 
 error_df <- power_df0 |>
   group_by(species, survey_abbrev, sampling_plan, eval_year) |>
@@ -175,7 +176,7 @@ error_plot <- error_df |>
   )) +
   geom_line() +
   geom_point() +
-  facet_wrap( ~ species_label, scales = "free_y") +
+  facet_wrap( ~ species_label) +
   scale_x_continuous(breaks = TARGET_EVAL_YEARS) +
   scale_y_continuous(limits = c(1, NA), expand = expansion(mult = c(0, .1))) +
   scale_linetype_manual(values = c("Status quo" = "solid", "MPAs every 4 years" = "dashed")) +
@@ -186,16 +187,18 @@ error_plot <- error_df |>
     linetype = "Sampling plan",
     shape = "Sampling plan"
   ) +
-  theme(legend.position = "bottom")
+  theme(legend.position = "top")
 
-combined_plot <- patchwork::wrap_plots(power_plot, error_plot, ncol = 1)
+combined_plot <- patchwork::wrap_plots(power_plot, error_plot, ncol = 1, axes = "collect", guides = "collect", axis_titles = "collect") &
+  theme(legend.position = "top") &
+  theme(panel.spacing.x = unit(1, "lines"), panel.spacing.y = unit(0.2, "lines"))
 print(combined_plot)
 
 ggsave(
   file.path(fig_dir, "multispecies-power-bootstrap-vs-no-mpa-every-2nd-survey-25pct.png"),
   plot = combined_plot,
-  width = 7,
-  height = 8
+  width = 6,
+  height = 5
 )
 
 # Convergence diagnostics: check if lower convergence at 2038 inflates power_signed
