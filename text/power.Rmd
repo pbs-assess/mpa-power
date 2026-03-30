@@ -113,21 +113,21 @@ readr::read_csv(here::here("text/data/power-definitions.csv")) |>
 
 ## POWER ANALYSIS METHODOLOGY
 
-The HBLL survey consists of two survey series: inside (HBLL INS, referring to waters between Vancouver Island and the mainland) and the outside (HBLL OUT, all other BC waters). 
+The HBLL survey consists of two survey series: inside (HBLL INS, referring to waters between Vancouver Island and the mainland) and outside (HBLL OUT, all other BC waters). 
 North and south areas within each series are surveyed biennially. 
 Three of the four regions (HBLL OUT N, HBLL OUT S, and HBLL INS N) overlap with the GBS MPA Network (Figure \@ref(fig:hbll-mpa-overlay)).
 The surveys use a depth-stratified random sampling design, with a target allocation of 189 sets (HBLL OUT N), 252 (HBLL OUT S), and 70 (HBLL INS N).
 
-We used a simulation-based power analysis to assess the ability of the HBLL survey to detect changes in population indices of groundfish across the MPA Network. 
-Our approach consisted of four steps: (1) fit conditioning models to historical data to parameterise the operating model, (2) use the operating model to simulate population recovery trends inside the MPAs under the assumption of fishing cessation (3) apply different sampling strategies to the simulated population, and (4) fit estimation or monitoring models to the combined historical and simulated data to evaluate the power of these sampling strategies to detect trends across the MPAN.
+We used a simulation-based power analysis to assess the ability of the HBLL survey to detect changes in population indices of groundfish across the MPAN. 
+Our approach consisted of four steps: (1) fit conditioning models to historical data to parameterise the operating model, (2) use the operating model to simulate population recovery trends inside the MPAs under the assumption of fishing cessation, (3) apply different sampling strategies to the simulated population, and (4) fit estimation (monitoring) models to the combined historical and simulated data to evaluate the power of these sampling strategies to detect trends across the MPAN.
 This approach allows us to test different scenarios, such as varying recovery rates within MPAs or evaluation time frames, while incorporating some ecological complexity and variability.
 
 Using a spatiotemporal modelling approach, we applied this power analysis to six conservation priority species that are well sampled by the HBLL surveys: Yelloweye Rockfish, Quillback Rockfish, Lingcod, Canary Rockfish, Silvergray Rockfish, and Pacific Spiny Dogfish. 
 The HBLL surveys were designed to monitor Quillback Rockfish and Yelloweye Rockfish.
-Lingcod and Pacific Spiny Dogfish are also well indexed by the HBLL surveys and these surveys are used in their stock assessments.
-Canary Rockfish and Silvergray Rockfish are generally found in deeper waters than Yelloweye or Quillback Rockfish are encountered less frequently in the HBLL surveys than the other species here.
+Lingcod and Pacific Spiny Dogfish are also well indexed by the HBLL surveys, and these surveys are used in their stock assessments.
+Canary Rockfish and Silvergray Rockfish are generally found in deeper waters than Yelloweye or Quillback Rockfish and are encountered less frequently in the HBLL surveys than the other species considered here.
 Their stock assessments use synoptic trawl survey data, not the HBLL survey data.
-Furthermore, Canary and Silvergray Rockfish have not been encountered in the portion of the HBLL INS inside the MPAN.
+Furthermore, Canary and Silvergray Rockfish have not been encountered in the portion of HBLL INS that lies inside the MPAN.
 
 ### Fitting conditioning models
 
@@ -145,14 +145,14 @@ We used a beta-binomial observation model, which is a generalization of the bino
 This allows the model to capture additional variance across trials compared to the binomial distribution.
 The symbol $n_{\mathbf{s},t}$ is the number of ``trials'' (here the number of hooks in a given survey set),
 $\mu_{\mathbf{s},t}$ is the expected probability of a hook catching a fish, and
-$\phi$ is the precisions parameter where smaller values of $\phi$ result in greater variance: $\mathrm{Var}(y) = n\mu(1-\mu)\frac{n+\phi}{1+\phi}$.
+$\phi$ is the precision parameter, where smaller values of $\phi$ result in greater variance: $\mathrm{Var}(y) = n\mu(1-\mu)\frac{n+\phi}{1+\phi}$.
 The function $g^{-1}$ represents the (inverse) complementary log-log ("cloglog") link chosen for its connection to the Poisson sampling process and its use in integrated data modelling.
 
-The beta-binomial distribution was the most parsimonious probability distribution when compared using AIC against Poisson and negative binomial models fitted with fish counts as the response and log hook count as an offset.
+The beta-binomial distribution was the most parsimonious observation model when compared using AIC against Poisson and negative binomial models fit to fish counts with log hook count as an offset.
 Importantly, the beta-binomial constrained the number of fish observed to be within the number of hooks set and therefore produced simulated data that more closely resembled the observed data.
 See supplementary materials for model comparison of hook and line count data simulation diagnostics.
-We accounted for hook competition by scaling catch rates to account for the number of hooks that are removed (by fish) from fishing during the set time. 
-We used this adjusted hook count as the weighting in our beta-binomial model [@anderson2019synopsis]: 
+We accounted for hook competition by scaling catch rates to reflect the number of hooks removed from fishing by fish during the set time. 
+We used this adjusted hook count as the weight in our beta-binomial model [@anderson2019synopsis]: 
 
 \[
 \text{proportion of baited hooks} = \frac{\text{count bait only}}{\text{hook count}}
@@ -166,9 +166,9 @@ We used this adjusted hook count as the weighting in our beta-binomial model [@a
 
 Our linear predictor included annual independent year effects ($\beta_t$), an inside-vs.-outside MPA effect ($\beta_\mathrm{MPA}$), 
 spatial random effects ($\omega_\mathbf{s}$), and spatiotemporal random effects ($\epsilon_{\mathbf{s},t}$).
-These random effects were structured as Gaussian Markov random fields (GMRFs) that were mean zero with precision matrices ($\mathbf{Q}_\omega$ and $\mathbf{Q}_\epsilon$; inverse covariance matrices) based on a Matérn spatial correlation function.
-The spatial random fields account for persistent spatial patterning or correlation in distribution, while the spatiotemporal random fields account for spatial patterning that is unique to each year.
-If models failed to converge or if spatial and/or spatiotemporal variance estimates collapsed to near zero ($<$ 0.01), the models were refit with the collapsed random fields set to zero.
+These random effects were structured as Gaussian Markov random fields (GMRFs) with mean zero and precision matrices ($\mathbf{Q}_\omega$ and $\mathbf{Q}_\epsilon$; inverse covariance matrices) based on a Matérn spatial correlation function.
+The spatial random fields account for persistent spatial patterning in distribution, while the spatiotemporal random fields account for spatial patterning that is unique to each year.
+If models failed to converge or if spatial and/or spatiotemporal variance estimates were near zero ($<$ 0.01), the models were refit with the collapsed random fields set to zero.
 Models were considered to have converged if the Hessian matrix was positive definite and the absolute gradient of the marginal log-likelihood with respect to each fixed effect was $<$ 0.001.
 
 The spatial patterns predicted by the conditioning model varied by species (Figure \@ref(fig:predicted-distributions)).
@@ -183,43 +183,43 @@ The inside vs. outside MPA parameter generally had a 95% confidence interval tha
 ### Simulating new observations
 
 We then used the conditioning models to simulate future data with properties matching the historical data, but with a known underlying true recovery rate within the MPAs relative to the outside survey sites.
-From the conditioning models we extracted the following parameters: the estimated spatial random field values, the spatial and spatiotemporal range, the betabinomial precision parameter, the spatiotemporal random field standard deviation, the inside vs. outside MPA effect, and the annual mean estimates (year effects).
+From the conditioning models we extracted the following parameters: the estimated spatial random field values, the spatial and spatiotemporal range, the beta-binomial precision parameter, the spatiotemporal random field standard deviation, the inside vs. outside MPA effect, and the annual mean estimates (year effects).
 We fit a first-order autoregressive (AR1) model to the independent year effects estimated for each conditioning model (species-region combination) to estimate the temporal autocorrelation coefficient, $\rho_v$, and the marginal standard deviation, $\sigma_v$.
 
 We then used these parameters to simulate future data with known recovery trends.
-Our model matched the conditioning model in structure, with the following differences. 
+Our model matched the conditioning model in structure, with the following differences: 
 First, future year mean values were randomly drawn from an AR1 time series with matching $\rho_v$ and $\sigma_v$ values.
 This created annual mean values with similar variability and autocorrelation to the historical time period.
-Second, a true known trend was imposed on the recovery for sites within the MPA network.
+Second, a known recovery trend was imposed on sites within the MPAN.
 We chose a sequence of possible recoveries over a 25-year time span, ranging from small recoveries to optimistic recoveries: 5%, 10%, 25%, and 50%.
-These were parameterized as coefficients in the linear predictor of the log-linked model, corresponding to coefficient values of, for example, log(1.10)/25 = 0.0038 for a 10% recovery over 25 years.
-Sites outside the MPA network followed a flat trajectory over time on average.
+These were parameterized as coefficients in the linear predictor, corresponding to coefficient values of, for example, log(1.10)/25 = 0.0038 for a 10% recovery over 25 years.
+Sites outside the MPAN followed a flat trajectory over time on average.
 Both the inside and outside sites were given additional noise around the mean trajectories from the AR1 time series noted above.
 
 These true recovery trends were added to our simulation of the underlying spatial, spatiotemporal, and observation error properties.
 In all cases, the historical data remained untouched and were used as they were observed when generating a complete historical and forward simulation dataset.
 For a given simulation replicate of future data, we used the estimated spatial random field values (i.e., assuming a stationary distribution), drew a new set of spatiotemporal random fields for each year given the estimated variance and range, and drew a new set of observation error given the estimated beta-binomial precision.
-We performed sufficient replicates that our power scores stabilized (160) (Figure \@ref(fig:cumulative-power)).
+We performed 160 replicates, which was sufficient for our power estimates to stabilize (Figure \@ref(fig:cumulative-power)).
 
 We chose sampling locations for the future data by bootstrapping survey sites from the historical years.
-After sampling years with replacement, we assigned all samples from a given historical year to a future year.
+After resampling years with replacement, we assigned all samples from a given historical year to a future year.
 Our main experiment maintained this status quo sampling design, in which survey effort was unchanged.
 We also explored, for one species as an example, an alternative reduced-sampling scheme in which inside-MPA sites were sampled only on every second survey (that is, every four years for these biennial surveys).
 In that scenario, we resampled site locations from the existing outside-MPA sites in the corresponding year to redistribute the same survey effort.
 
 We verified that our simulation models were able to generate observations that reflected the properties of our historical data through a sequence of visualizations.
-First, to assess whether the interannual variation in the simulated data reflected the historical data, we visualized average observed catch rates per year inside and outside the MPA network in both time periods (Figure \@ref(fig:mean-observed-ts-eg)).
+First, to assess whether the interannual variation in the simulated data reflected the historical data, we visualized average observed catch rates per year inside and outside the MPAN in both time periods (Figure \@ref(fig:mean-observed-ts-eg)).
 This also allows us to calibrate expectations for how challenging it may be to recover the underlying trends given the noise in the system.
 We found that the two time periods looked similar in their time series properties.
 Although the increase inside the MPAs is noticeable in some replicates, it is often obscured by temporal, spatiotemporal, and observation noise in the system.
 
 Next, we evaluated whether the distribution of the observations was similar in the future versus historical time periods by plotting all observations separated by year.
-We found that our simulation models were generally able to simulate data with a similar spread to the historical data (Figures A\@ref(fig:sim-posterior-yelloweye), A\@ref(fig:sim-posterior-lingcod), A\@ref(fig:sim-posterior-quillback)).
+We found that our simulation models were generally able to simulate data with a similar spread to the historical data (Figures A\@ref(fig:sim-posterior-yelloweye), A\@ref(fig:sim-posterior-lingcod), and A\@ref(fig:sim-posterior-quillback)).
 This was not the case when we previously attempted other observation distributions such as the negative binomial, lognormal Poisson, or binomial.
 
 Finally, we evaluated whether our simulation models could generate spatial observations with similar properties to the historical observed data.
 Here, we asked whether one would be able to distinguish which panel was the "real" data and which were the simulation replicates if the panels were not labelled.
-We generally found that it would be difficult to distinguish the real data from the simulated data when plotted spatially and therefore concluded that our simulation models could faithfully represent important properties of the historical data (Figures A\@ref(fig:turing-map-quillback), A\@ref(fig:turing-map-yelloweye), A\@ref(fig:turing-map-lingcod)).
+We generally found that it would be difficult to distinguish the real data from the simulated data when plotted spatially and therefore concluded that our simulation models could faithfully represent important properties of the historical data (Figures A\@ref(fig:turing-map-quillback), A\@ref(fig:turing-map-yelloweye), and A\@ref(fig:turing-map-lingcod)).
 
 ### Fitting estimation models to the simulated data
 
@@ -229,9 +229,9 @@ We fit the historical years with the same independent (factor) year effects used
 To estimate recovery, we added a predictor and associated coefficient that modelled a linear trend in log space over time for the inside-MPA sites across all future years.
 We also included an intercept for this future time period.
 Functionally, we did this by giving all future years a single "future year" factor level.
-We explored an alternative estimation model with a first-order autoregressive time-varying year effect across the full historical and future data span and avoiding the historical and future year factors.
+We explored an alternative estimation model with a first-order autoregressive, time-varying year effect across the full historical and future data span, thereby avoiding separate historical and future year factors.
 We found that this autoregressive model gave similar results (not shown), and so we focus on the simpler model described above.
-Our inference is drawn from whether the two-tailed 95% confidence interval for the parameter representing the inside-outside-MPA and future year interaction crossed zero.
+Our inference was based on whether the two-tailed 95% confidence interval for the parameter representing the inside-vs.-outside MPA by future year interaction crossed zero.
 
 ### Calculating power and magnitude error
 
@@ -278,7 +278,7 @@ For example, a magnitude error of two would mean that, if we detected a signific
 
 Almost 31\% of HBLL survey sets have occurred within the MPAN boundaries since 2003 (Figure \@ref(fig:hbll-mpa-historical-overlay)). 
 Most sets in the MPAN are from the HBLL OUT N and HBLL OUT S regions.
-Due to the existing RCA sites that are not sampled by the survey, relative coverage of the MPAN by the HBLL INS N is much lower than for the other HBLL surveys.
+Because the survey does not sample the existing RCA sites, relative MPAN coverage in HBLL INS N is much lower than in the other HBLL surveys.
 
 ```{r}
 power_df <- readRDS(here::here('data-generated', 'power-df-historical-sampling.rds'))
@@ -310,22 +310,22 @@ qb_25_type_m <- power_wide |>
 Power to detect recovery of abundance inside MPAs increased with longer evaluation timeframes (Figure \@ref(fig:power-plot)). 
 For the first 13 years (2030, 2034, and 2038), regardless of the recovery effect size, power did not reach the target power of 80% for any species.
 With 5% or 10% increases in abundance over 25 years, 80% power was never achieved for any species.
-I.e., in our simulated system, we would not be able to statistically detect increases of only 5% or 10% for these species with these surveys even after approximately 20 years.
+In our simulated system, we would not be able to statistically detect increases of only 5% or 10% for these species with these surveys, even after approximately 20 years.
 With 25% recoveries in abundance, target power was almost achieved after 20 years for three species: Quillback Rockfish (`r pull(qb_25_power, "2046")`), Lingcod (`r pull(ling_25_power, "2046")`), and Yelloweye Rockfish (`r pull(ye_25_power, "2046")`).
 For 50\% recoveries in abundance, target power was achieved for all species after 20 years (Figure \@ref(fig:power-plot)).
-For Quillback, Lingcod, and Yelloweye with a 50% recovery in abundance, target power was reached four years earlier after 16 years (2042) compared to the other three species. 
+For Quillback Rockfish, Lingcod, and Yelloweye Rockfish, target power for a 50% recovery in abundance was reached four years earlier, after 16 years (2042), than for the other three species. 
 
 When power was low, magnitude errors or exaggeration rates were high (Figure \@ref(fig:type-m-plot)). 
-For instance, if a significant recovery in abundance was detected in 2030, it was on average overestimated by a factor of 5--30 times the true rate.
-By 2042, for the species with the highest power and for true recovery effect sizes of 25% or 50%, the exaggeration rates fell to < 2 times the true rate, with the exception of Lingcod.
-For example, given a true 25% recovery in Quillback Rockfish abundance over 25 years, if a significant positive effect was detected in 2038, this effect is on average expected to overestimate the recovery by a factor of $\sim 2$ (i.e., estimated as a $\sim 50\%$ recovery).  
+For instance, if a significant recovery in abundance was detected in 2030, it was on average overestimated by a factor of 5 to 30 relative to the true rate.
+By 2042, for the species with the highest power and for true recovery effect sizes of 25% or 50%, the exaggeration rates fell to less than twice the true rate, with the exception of Lingcod.
+For example, given a true 25% recovery in Quillback Rockfish abundance over 25 years, if a significant positive effect was detected in 2038, the estimated recovery would on average be exaggerated by a factor of $\sim 2$ (i.e., estimated as a $\sim 50\%$ recovery).  
 
-Power was positively correlated with encounter rates, but negatively correlated with interannual variability and spatiotemporal variability \@ref(fig:power-correlation-plot).
+Power was positively correlated with encounter rates, but negatively correlated with interannual variability and spatiotemporal variability (Figure \@ref(fig:power-correlation-plot)).
 Canary Rockfish and Silvergray Rockfish were the two species with the lowest encounter rates (`r round(canary_encounter * 100, 0)`\% and `r round(silvergray_encounter * 100, 0)`\% respectively).
 <!-- TODO: Double-check that the methods state that Canary and Silvergray did not include HBLL INS N. -->
-Although Pacific Spiny Dogfish had the highest encounter rates (`r round(dogfish_encounter * 100, 0)`\%), its power was similarly low to that of Canary and Silvergray Rockfish, potentially due high interannual variability and spatiotemporal variability along with high observation error (Figure A\@ref(fig:power-phi-correlation)).
+Although Pacific Spiny Dogfish had the highest encounter rates (`r round(dogfish_encounter * 100, 0)`\%), its power was similarly low to that of Canary and Silvergray Rockfish, potentially due to high interannual variability, high spatiotemporal variability (Figure \@ref(fig:power-correlation-plot)), and high observation error (Figure A\@ref(fig:power-phi-correlation)).
 
-When MPA sampling frequency was reduced to every fourth year (compared to the biennial status quo sampling), power was lower for the three species considered (Yelloweye Rockfish, Lingcod, Quillback Rockfish; Figure A\@ref(fig:sampling-scenario-power-comparison)).
+When MPA sampling frequency was reduced to every fourth year, compared to the biennial status quo sampling, power was lower for the three species considered (Yelloweye Rockfish, Lingcod, and Quillback Rockfish; Figure \@ref(fig:sampling-scenario-power-comparison)).
 Reduced sampling delayed when a given power level could be reached by approximately four years. 
 This delay also occurred in the exaggeration ratios, with higher exaggeration ratios when MPA sampling frequency was reduced. 
 
