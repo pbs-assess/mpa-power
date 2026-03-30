@@ -44,11 +44,16 @@ knitr::include_graphics(here::here("figures/type-m-error-plot.png"))
 knitr::include_graphics(here::here("figures/power-correlations-25pct.png"))
 ```
 
-(ref:sampling-scenario-power-comparison-caption) Comparison of power to detect a 50% increase in abundance over 25 years between two sampling scenarios: status quo sampling (solid line) and  within MPAs every four years (dashed line). Power was evaluated at four-year intervals starting six years post implementation. The dashed horizontal line indicates 80% target power.
+<!-- (ref:sampling-scenario-power-comparison-caption) Comparison of power to detect a 50% increase in abundance over 25 years between two sampling scenarios: status quo sampling (solid line) and  within MPAs every four years (dashed line). Power was evaluated at four-year intervals starting six years post implementation. The dashed horizontal line indicates 80% target power.
 
 ```{r sampling-scenario-power-comparison, fig.cap='(ref:sampling-scenario-power-comparison-caption)', fig.asp=get_asp(here::here("figures/power-correlations-25pct.png")), out.width="60%"}
 knitr::include_graphics(here::here("figures/quillback-power-bootstrap-vs-no-mpa-every-2nd-survey.png"))
 ```
+-->
 
+(ref:sampling-scenario-power-comparison-caption) TODO
 
+```{r sampling-scenario-power-comparison, fig.cap='(ref:sampling-scenario-power-comparison-caption)', fig.asp=get_asp(here::here("figures/multispecies-power-bootstrap-vs-no-mpa-every-2nd-survey-25pct.png")), out.width="80%"}
+knitr::include_graphics(here::here("figures/multispecies-power-bootstrap-vs-no-mpa-every-2nd-survey-25pct.png"))
+```
 

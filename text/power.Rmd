@@ -14,6 +14,24 @@ Nothing here but this must remain.
 hbll_sites_all         <- readRDS(here::here("data-generated", "overlays", "hbll-site-summary-table.rds"))
 hbll_n_site_rows       <- nrow(hbll_sites_all)
 hbll_n_sites_unique    <- length(unique(hbll_sites_all$`Common Site Name`))
+
+mean_fit_values <- readRDS(here::here("data-generated", "fit_characteristics.rds")) |>
+  filter((species %in% c("canary rockfish", "silvergray rockfish") & survey %in% c("HBLL OUT N", "HBLL OUT S")) | !(species %in% c("canary rockfish", "silvergray rockfish"))) |>
+  group_by(species) |>
+  summarise(across(encountered_count_per_year:sigma_E, mean))
+
+canary_encounter <- mean_fit_values |> 
+  filter(species == "canary rockfish") |>
+  pull(encountered_rate_restricted)
+
+silvergray_encounter <- mean_fit_values |> 
+  filter(species == "silvergray rockfish") |>
+  pull(encountered_rate_restricted)
+
+dogfish_encounter <- mean_fit_values |> 
+  filter(species == "north pacific spiny dogfish") |>
+  pull(encountered_rate_restricted)
+
 ```
 
 # POWER ANAYLSIS --- RECOMMENDATIONS FOR MONITORING PROGRAM DESIGN/SAMPLING FREQUENCY
@@ -228,12 +246,12 @@ For example, a magnitude error of two would mean that, if we detected a signific
 # Results
 
 <!-- --- figure reference checklist to make sure all figures are referenced in the text
-[ ] hbll-mpa-historical-overlay.png (`hbll-mpa-historical-overlay`)
+[x] hbll-mpa-historical-overlay.png (`hbll-mpa-historical-overlay`)
 [ ] predicted-distributions.png (`predicted-distributions`)
 [ ] mean-observed-ts-eg.png (`mean-observed-ts-eg`)
 [x] main-power-plot.png (`power-plot`)
-[ ] type-m-error-plot.png (`type-m-plot`)
-[ ] power-correlations-25pct.png (`power-correlation-plot`)
+[x] type-m-error-plot.png (`type-m-plot`)
+[x] power-correlations-25pct.png (`power-correlation-plot`)
 [ ] yelloweye-power-bootstrap-vs-no-mpa-every-2nd-survey.png (`sampling-scenario-power-comparison`)
 
 --- list of appendix figures:
@@ -253,41 +271,60 @@ For example, a magnitude error of two would mean that, if we detected a signific
 [ ] power-sigmaV-correlation.png (`power-sigma-v-correlation`)
 -->
 
-**HBLL - MPAN coverage**
-Almost 31\% of HBLL survey sets have occurred within the MPAN boundaries since 2003. 
+**HBLL - MPAN coverage**  
+Almost 31\% of HBLL survey sets have occurred within the MPAN boundaries since 2003 (Figure \@ref(fig:hbll-mpa-historical-overlay)). 
 The most sets in the MPAN are from the HBLL OUT N and HBLL OUT S regions.
 Due to the existing RCA sites that are not sampled by the HBLL survey, relative coverage of the MPAN by the HBLL INS N is much lower.
 
+```{r}
+power_df <- readRDS(here::here('data-generated', 'power-df-historical-sampling.rds'))
+power_wide <- power_df |>
+  select(species, mpa_effect_label, eval_year, power_signed) |>
+  tidyr::pivot_wider(names_from = "eval_year", values_from = "power_signed")
 
-- reference how the MPAN covers the HBLL for map figure?
+qb_25_power <- power_wide |> 
+  filter(species == "quillback rockfish", mpa_effect_label == "25%")
+ling_25_power <- power_wide |> 
+  filter(species == "lingcod", mpa_effect_label == "25%")
+ye_25_power <- power_wide |> 
+  filter(species == "yelloweye rockfish", mpa_effect_label == "25%")
+ye_50_power <- power_wide |> 
+  filter(species == "yelloweye rockfish", mpa_effect_label == "50%")
 
-- conditioning models fit without problems... predicted blah blah map + coef plot
+type_m_wide <- power_wide <- power_df |>
+  select(species, mpa_effect_label, eval_year, type_m_error) |>
+  tidyr::pivot_wider(names_from = "eval_year", values_from = "type_m_error")
 
-- build faith in the simulation: simulations worked as expected ... reference all the posterior predictive plots - simulations reflected the system maps and time series 
+qb_25_type_m <- power_wide |> 
+  filter(species == "quillback rockfish", mpa_effect_label == "25%")
 
-- power calculations - how many to converge....  cumulative 
+```
 
-- models were not biased in fitting to sims - bias plot
 
-**Power analysis results**
+**Power analysis results**  
 
-Power to detect recovery of abundance inside MPAs increased with longer timeframes of evalution. 
-However, he target power of 80\% was not achieved for any species at any evaluation year when 5 or 10\% increases in abundance were assumed over 25 years \@ref(fig:main-power-plot).
-Target power was almost achieved after 20 years for three species: Quillback Rockfish, Lingcod, and Yelloweye Rockfish for recoveries of 25\%; 
-and was achieved for all species after 20 years for the largest recoveries of 50\% increases in abundance.
+Power to detect recovery of abundance inside MPAs increased with longer timeframes of evalution \@ref(fig:main-power-plot)). 
+For the first 13 years (2030, 2034, and 2038), regardless of the recovery effect size, power did not reach 80\% for any species.
+Similarly, with 5\% or 10\% increases in abundance over 25 years, 80\% power was never achieved for any species.
+With 25\% recoveries in abundance, target power was almost achieved after 20 years for three species: Quillback Rockfish (`r pull(qb_25_power, `2046`)`, Lingcod (`r pull(ling_25_power, `2046`)`), and Yelloweye Rockfish (`r pull(ye_25_power, `2046`)`) for 25\% recoveries of abundance. 
+While for 50\% recoveries in abundance, target power was achieved for all species after 20 years (Figure \@ref(fig:main-power-plot)).
 For Quillback, Lingcod, and Yelloweye with a 50\% recovery in abundance, target power was reached four years earlier (2042) than the other three species species. 
+Importantly, when power was low, the exaggeration rates were very high (Figure \@ref(fig:type-m-plot)). 
+If a significant recovery in abundance was detected in 2030, it is likely overestimated by a factor of 5--30 times the true rate.
+By 2042, for the species with the highest power and for true recovery effect sizes of 25\% or 50\%, the exaggeration rates fell to < 2 times the true rate, with the exception of Lingcod .
+For example, given a true 25% recovery in Quillback Rockfish abundance over 25 years, if a significant positive effect was detected in 2038, this effect is likely to overestimate the recovery by a factor of $\sim2$ (i.e., estimated as a $\sim50\%$ recovery).  
 
-Importantly, when power is low, the exageration rates are very high \@ref(fig:type-m-plot). 
+Power was positively correlated with encounter rates, but negatively correlated with interannual variability and spatiotemporal variability \@ref(fig:power-correlations-25pct).
+Canary Rockfish and Silvergray Rockfish are the two species with the lowest encounter rates (`r round(canary_encounter * 100, 1)`\% and `r round(silvergray_encounter * 100, 1)`\% respectively).
+Doublecheck that methods say that canary and silvergray didn't include HBLL INS N.
+Although Pacific Spiny Dogfish had the highest encounter rates (`r round(dogfish_encounter * 100, 1)`\%), it had similarly low power as canary and silvergray.
+Dogfish did have the highest interannual variability and spatiotemporal variability.
+Of the parameters tested, the observation precision error had the weakest correlations with power (Figure \@ref(fig:phi-correlation-plot)).  
 
-Canary Rockfish and Silvergray Rockfish are the two species with the lowest encounter rates.
+When MPA sampling frequency was reduced to every fourth year (compared to the biennial status quo sampling), power was lower for the three species considered (yelloweye rockfish, lingcod, quillback rockfish) Figure A\@ref(fig:sampling-scenario-power-comparison)).
+Reduced sampling delayed when a given power level could be reached by approximately four years. 
+This delay also occurred in the exaggeration errors, with higher exaggeration ratios when sampling frequency was reduced. 
 
-- lower for silvergray and canary that are encountered less frequently
-
-- expect fairly large magntitude errors unless 50% true increase and long evaluation times (M error plot), for example, quilback 2038 25% over 25 years - if signficant expect to actually estimate 50%!
-
-- correlations - positively correlated wiht encoutner rates (inside or whole coast - very colleated - we show in side), negatively with sigma E and sigma V. precision on observation error less so....
-
-- reduced sampling scenario
 
 # Discussion
 
