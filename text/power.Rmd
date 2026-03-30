@@ -31,7 +31,6 @@ silvergray_encounter <- mean_fit_values |>
 dogfish_encounter <- mean_fit_values |> 
   filter(species == "north pacific spiny dogfish") |>
   pull(encountered_rate_restricted)
-
 ```
 
 # POWER ANAYLSIS --- RECOMMENDATIONS FOR MONITORING PROGRAM DESIGN/SAMPLING FREQUENCY
@@ -272,9 +271,10 @@ For example, a magnitude error of two would mean that, if we detected a signific
 -->
 
 **HBLL - MPAN coverage**  
+
 Almost 31\% of HBLL survey sets have occurred within the MPAN boundaries since 2003 (Figure \@ref(fig:hbll-mpa-historical-overlay)). 
-The most sets in the MPAN are from the HBLL OUT N and HBLL OUT S regions.
-Due to the existing RCA sites that are not sampled by the HBLL survey, relative coverage of the MPAN by the HBLL INS N is much lower.
+Most sets in the MPAN are from the HBLL OUT N and HBLL OUT S regions.
+Due to the existing RCA sites that are not sampled by the survey, relative coverage of the MPAN by the HBLL INS N is much lower than for the other HBLL surveys.
 
 ```{r}
 power_df <- readRDS(here::here('data-generated', 'power-df-historical-sampling.rds'))
@@ -297,34 +297,30 @@ type_m_wide <- power_wide <- power_df |>
 
 qb_25_type_m <- power_wide |> 
   filter(species == "quillback rockfish", mpa_effect_label == "25%")
-
 ```
 
 
 **Power analysis results**  
 
-Power to detect recovery of abundance inside MPAs increased with longer timeframes of evalution \@ref(fig:main-power-plot)). 
+Power to detect recovery of abundance inside MPAs increased with longer evaluation timeframes (Figure \@ref(fig:main-power-plot)). 
 For the first 13 years (2030, 2034, and 2038), regardless of the recovery effect size, power did not reach 80\% for any species.
-Similarly, with 5\% or 10\% increases in abundance over 25 years, 80\% power was never achieved for any species.
+With 5\% or 10\% increases in abundance over 25 years, 80\% power was never achieved for any species.
 With 25\% recoveries in abundance, target power was almost achieved after 20 years for three species: Quillback Rockfish (`r pull(qb_25_power, `2046`)`, Lingcod (`r pull(ling_25_power, `2046`)`), and Yelloweye Rockfish (`r pull(ye_25_power, `2046`)`) for 25\% recoveries of abundance. 
-While for 50\% recoveries in abundance, target power was achieved for all species after 20 years (Figure \@ref(fig:main-power-plot)).
-For Quillback, Lingcod, and Yelloweye with a 50\% recovery in abundance, target power was reached four years earlier (2042) than the other three species species. 
-Importantly, when power was low, the exaggeration rates were very high (Figure \@ref(fig:type-m-plot)). 
-If a significant recovery in abundance was detected in 2030, it is likely overestimated by a factor of 5--30 times the true rate.
-By 2042, for the species with the highest power and for true recovery effect sizes of 25\% or 50\%, the exaggeration rates fell to < 2 times the true rate, with the exception of Lingcod .
-For example, given a true 25% recovery in Quillback Rockfish abundance over 25 years, if a significant positive effect was detected in 2038, this effect is likely to overestimate the recovery by a factor of $\sim2$ (i.e., estimated as a $\sim50\%$ recovery).  
+For 50\% recoveries in abundance, target power was achieved for all species after 20 years (Figure \@ref(fig:main-power-plot)).
+For Quillback, Lingcod, and Yelloweye with a 50\% recovery in abundance, target power was reached four years earlier (2042) than the other three species. 
+Importantly, when power was low, the exaggeration rates were high (Figure \@ref(fig:type-m-plot)). 
+If a significant recovery in abundance was detected in 2030, it was on average overestimated by a factor of 5--30 times the true rate.
+By 2042, for the species with the highest power and for true recovery effect sizes of 25\% or 50\%, the exaggeration rates fell to < 2 times the true rate, with the exception of Lingcod.
+For example, given a true 25% recovery in Quillback Rockfish abundance over 25 years, if a significant positive effect was detected in 2038, this effect is on average expected to overestimate the recovery by a factor of $\sim 2$ (i.e., estimated as a $\sim 50\%$ recovery).  
 
 Power was positively correlated with encounter rates, but negatively correlated with interannual variability and spatiotemporal variability \@ref(fig:power-correlations-25pct).
-Canary Rockfish and Silvergray Rockfish are the two species with the lowest encounter rates (`r round(canary_encounter * 100, 1)`\% and `r round(silvergray_encounter * 100, 1)`\% respectively).
-Doublecheck that methods say that canary and silvergray didn't include HBLL INS N.
-Although Pacific Spiny Dogfish had the highest encounter rates (`r round(dogfish_encounter * 100, 1)`\%), it had similarly low power as canary and silvergray.
-Dogfish did have the highest interannual variability and spatiotemporal variability.
-Of the parameters tested, the observation precision error had the weakest correlations with power (Figure \@ref(fig:phi-correlation-plot)).  
+Canary Rockfish and Silvergray Rockfish were the two species with the lowest encounter rates (`r round(canary_encounter * 100, 1)`\% and `r round(silvergray_encounter * 100, 1)`\% respectively).
+<!-- Double-check that the methods state that Canary and Silvergray did not include HBLL INS N. -->
+Although Pacific Spiny Dogfish had the highest encounter rates (`r round(dogfish_encounter * 100, 1)`\%), its power was similarly low to that of Canary and Silvergray Rockfish, potentially due high interannual variability and spatiotemporal variability along with high observation error (Figure \@ref(fig:phi-correlation-plot)).
 
-When MPA sampling frequency was reduced to every fourth year (compared to the biennial status quo sampling), power was lower for the three species considered (yelloweye rockfish, lingcod, quillback rockfish) Figure A\@ref(fig:sampling-scenario-power-comparison)).
+When MPA sampling frequency was reduced to every fourth year (compared to the biennial status quo sampling), power was lower for the three species considered (Yelloweye Rockfish, Lingcod, Quillback Rockfish; Figure A\@ref(fig:sampling-scenario-power-comparison)).
 Reduced sampling delayed when a given power level could be reached by approximately four years. 
-This delay also occurred in the exaggeration errors, with higher exaggeration ratios when sampling frequency was reduced. 
-
+This delay also occurred in the exaggeration ratios, with higher exaggeration ratios when MPA sampling frequency was reduced. 
 
 # Discussion
 

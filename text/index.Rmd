@@ -94,6 +94,7 @@ library(dplyr) # used in examples in template example
 library(ggplot2) # used in examples in template example
 # add more packages here as needed
 library(ftExtra)
+library(purrr)
 ```
 
 ```{r get-asp}
