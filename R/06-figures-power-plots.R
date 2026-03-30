@@ -87,6 +87,8 @@ spp_levels <- power_df |>
 # Order species by increasing max power at 25% MPA effect size
 power_df <- power_df |> mutate(species = factor(species, levels = spp_levels))
 
+saveRDS(power_df, here::here('data-generated', 'power-df-historical-sampling.rds'))
+
 # d <- filter(power_df, species == "yelloweye rockfish", mpa_effect_label == "10%", eval_year == "2030")
 # # names(d)
 
