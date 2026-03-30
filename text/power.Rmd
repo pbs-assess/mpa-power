@@ -42,7 +42,7 @@ In impact monitoring frameworks such as Before--After--Control--Impact (BACI) de
 
 The HBLL survey was selected as an illustrative example for several reasons.
 The HBLL scored high in our program assessment based on temporal suitability, domain relevance, and spatial coverage criteria. 
-It has a 19-year time series providing sufficient historical data to characterize baseline variability, monitors multiple MPAN E-CP rockfish species (yelloweye, quillback), samples `r hbll_n_sites_unique` protected area sites with coverage both inside and outside MPAN boundaries, and collects detailed biological data (length, weight, archived otoliths) enabling analysis of multiple response metrics.
+It has a 19-year time series providing sufficient historical data to characterize baseline variability, monitors multiple MPAN E-CP rockfish species (Yelloweye Rockfish, Quillback Rockfish), samples `r hbll_n_sites_unique` protected area sites with coverage both inside and outside MPAN boundaries, and collects detailed biological data (length, weight, archived otoliths) enabling analysis of multiple response metrics.
 
 The power analyses conducted on the HBLL were used to inform recommendations on sampling frequency, spatial replication, and temporal coverage needed to support robust evaluation of MPA performance.
 Importantly, this case study serves as one methodological example---not a prescription. 
@@ -119,11 +119,15 @@ Three of the four regions (HBLL OUT N, HBLL OUT S, and HBLL INS N) overlap with 
 The surveys use a depth-stratified random sampling design, with a target allocation of 189 sets (HBLL OUT N), 252 (HBLL OUT S), and 70 (HBLL INS N).
 
 We used a simulation-based power analysis to assess the ability of the HBLL survey to detect changes in population indices of groundfish across the MPA Network. 
-Our approach consisted of four steps: (1) fit conditioning models to historical data to parameterise the operating model, (2) used the operating model to simulate population recovery trends inside the MPAs under the assumption of fishing cessation (3) apply different sampling strategies to the simulated population, and (4) fit monitoring models to the combined historical and simulated data to evaluate the power of these sampling strategies to detect trends across the MPA Network.
-
-
-Using a spatiotemporal modelling approach, we applied this power analysis to five conservation priority species that are well sampled by the HBLL survey: Yelloweye Rockfish, Quillback Rockfish, Lingcod, Canary Rockfish, Silvergray Rockfish, and Pacific Spiny Dogfish. 
+Our approach consisted of four steps: (1) fit conditioning models to historical data to parameterise the operating model, (2) use the operating model to simulate population recovery trends inside the MPAs under the assumption of fishing cessation (3) apply different sampling strategies to the simulated population, and (4) fit estimation or monitoring models to the combined historical and simulated data to evaluate the power of these sampling strategies to detect trends across the MPAN.
 This approach allows us to test different scenarios, such as varying recovery rates within MPAs or evaluation time frames, while incorporating some ecological complexity and variability.
+
+Using a spatiotemporal modelling approach, we applied this power analysis to six conservation priority species that are well sampled by the HBLL surveys: Yelloweye Rockfish, Quillback Rockfish, Lingcod, Canary Rockfish, Silvergray Rockfish, and Pacific Spiny Dogfish. 
+The HBLL surveys were designed to monitor Quillback Rockfish and Yelloweye Rockfish.
+Lingcod and Pacific Spiny Dogfish are also well indexed by the HBLL surveys and these surveys are used in their stock assessments.
+Canary Rockfish and Silvergray Rockfish are generally found in deeper waters than Yelloweye or Quillback Rockfish are encountered less frequently in the HBLL surveys than the other species here.
+Their stock assessments use synoptic trawl survey data, not the HBLL survey data.
+Furthermore, Canary and Silvergray Rockfish have not been encountered in the portion of the HBLL INS inside the MPAN.
 
 ### Fitting conditioning models
 
