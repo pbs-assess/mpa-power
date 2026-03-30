@@ -2,6 +2,8 @@ library(dplyr)
 library(ggplot2)
 library(tidyr)
 
+source("R/05-make-power-df.R")
+
 power_df <- readRDS("data-generated/power-results-df.rds")
 theta <- readRDS("data-generated/fit_characteristics.rds")
 ar1_theta <- readRDS("data-generated/ar1-parameters.rds") |>

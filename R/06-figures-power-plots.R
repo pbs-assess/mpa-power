@@ -52,7 +52,8 @@ rates_lu <- data.frame(
 all_fitted_results <- all_fitted_results0 |>
   mutate(species = replace(species, species == "north pacific spiny dogfish", "pacific spiny dogfish")) |>
   mutate(converged = ifelse(sanity == "ok", TRUE, FALSE)) |>
-  left_join(rates_lu)
+  left_join(rates_lu) |>
+  filter(sampling_plan == "historical survey-year bootstrap")
 
 all_fitted_results |> glimpse()
 filter(all_fitted_results, !converged) |>
@@ -188,15 +189,17 @@ filter_species <- c("lingcod")
 # Bias check on estimate -------------------------------------------------------
 power_df0 |>
   # filter(species %in% filter_species) |>
+  mutate(species = stringr::str_to_title(species)) |>
   filter(mpa_effect_label == "25%") |>
   group_by(!!!syms(combo)) |>
   mutate(id = row_number()) |>
   mutate(combo = paste(!!!syms(combo), collapse = " - ")) |>
   filter(replicate <= max(replicate)) |>
   ggplot() +
-  geom_point(aes(x = id, y = estimate)) +
+  geom_point(aes(x = id, y = estimate), alpha = 0.2) +
   geom_hline(aes(yintercept = true_effect), colour = "red") +
-  facet_grid(rows = vars(species), cols = vars(eval_year)) +
+  facet_grid(rows = vars(species), cols = vars(eval_year),
+    labeller = labeller(species = function(x) stringr::str_replace(x, " ", "\n"))) +
   labs(x = "Replicate", y = "Estimate") +
   ggtitle(paste0("25% recovery over 25 years"))
 ggsave(file.path(fig_dir, paste0("bias-check-on-estimate-", sp_to_hyphens(filter_species), ".png")),
