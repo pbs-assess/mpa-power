@@ -307,10 +307,14 @@ qb_25_type_m <- power_wide |>
   filter(species == "quillback rockfish", mpa_effect_label == "25%")
 ```
 
+Our estimation models were generally able to recover true rates of recovery without bias (Figure B\@ref(fig:bias-check)). 
+Estimates of the recovery trend became more accurate and less noisy across replicates after evaluating the MPAN for more years (Figure B\@ref(fig:bias-check)).
+Our estimates of power had stabilized after running 160 replicates (Figure B\@ref(fig:cumulative-power)).
+
 Power to detect recovery of abundance inside MPAs increased with longer evaluation timeframes (Figure \@ref(fig:power-plot)). 
 For the first 13 years (2030, 2034, and 2038), regardless of the recovery effect size, power did not reach the target power of 80% for any species.
 With 5% or 10% increases in abundance over 25 years, 80% power was never achieved for any species.
-In our simulated system, we would not be able to statistically detect increases of only 5% or 10% for these species with these surveys, even after approximately 20 years.
+In our simulated system, we would not be able to statistically detect increases of only 5% or 10% for these species with these surveys, even after approximately 20 years.P
 With 25% recoveries in abundance, target power was almost achieved after 20 years for three species: Quillback Rockfish (`r pull(qb_25_power, "2046")`), Lingcod (`r pull(ling_25_power, "2046")`), and Yelloweye Rockfish (`r pull(ye_25_power, "2046")`).
 For 50\% recoveries in abundance, target power was achieved for all species after 20 years (Figure \@ref(fig:power-plot)).
 For Quillback Rockfish, Lingcod, and Yelloweye Rockfish, target power for a 50% recovery in abundance was reached four years earlier, after 16 years (2042), than for the other three species. 
@@ -323,7 +327,7 @@ For example, given a true 25% recovery in Quillback Rockfish abundance over 25 y
 Power was positively correlated with encounter rates, but negatively correlated with interannual variability and spatiotemporal variability (Figure \@ref(fig:power-correlation-plot)).
 Canary Rockfish and Silvergray Rockfish were the two species with the lowest encounter rates (`r round(canary_encounter * 100, 0)`\% and `r round(silvergray_encounter * 100, 0)`\% respectively).
 <!-- TODO: Double-check that the methods state that Canary and Silvergray did not include HBLL INS N. -->
-Although Pacific Spiny Dogfish had the highest encounter rates (`r round(dogfish_encounter * 100, 0)`\%), its power was similarly low to that of Canary and Silvergray Rockfish, potentially due to high interannual variability, high spatiotemporal variability (Figure \@ref(fig:power-correlation-plot)), and high observation error (Figure A\@ref(fig:power-phi-correlation)).
+Although Pacific Spiny Dogfish had the highest encounter rates (`r round(dogfish_encounter * 100, 0)`\%), its power was similarly low to that of Canary and Silvergray Rockfish, potentially due to high interannual variability, high spatiotemporal variability (Figure \@ref(fig:power-correlation-plot)), and high observation error (Figure B\@ref(fig:power-phi-correlation)).
 
 When MPA sampling frequency was reduced to every fourth year, compared to the biennial status quo sampling, power was lower for the three species considered (Yelloweye Rockfish, Lingcod, and Quillback Rockfish; Figure \@ref(fig:sampling-scenario-power-comparison)).
 Reduced sampling delayed when a given power level could be reached by approximately four years. 
