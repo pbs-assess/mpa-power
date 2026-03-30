@@ -147,7 +147,6 @@ power_df |>
     nrow = 2) +
   scale_colour_viridis_d(option = "plasma", end = 0.85) +
   scale_x_continuous(breaks = unique(power_df$eval_year)) +
-  geom_hline(yintercept = 1) +
   labs(colour = "Recovery over 25 years") +
   theme(legend.position = "top",
         panel.spacing = unit(1, "lines")) +
