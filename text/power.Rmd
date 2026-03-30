@@ -192,6 +192,11 @@ These were parameterized as coefficients in the linear predictor of the log-link
 Sites outside the MPA network followed a flat trajectory over time on average.
 Both the inside and outside sites were given additional noise around the mean trajectories from the AR1 time series noted above.
 
+These true recovery trends were added to our simulation of the underlying spatial, spatiotemporal, and observation error properties.
+In all cases, the historical data remained untouched and were used as they were observed when generating a complete historical and forward simulation dataset.
+For a given simulation replicate of future data, we used the estimated spatial random field values (i.e., assuming a stationary distribution), drew a new set of spatiotemporal random fields for each year given the estimated variance and range, and drew a new set of observation error given the estimated beta-binomial precision.
+We performed sufficient replicates that our power scores stabilized (160) (Figure \@ref(fig:cumulative-power)).
+
 We chose sampling locations for the future data by bootstrapping survey sites from the historical years.
 After sampling years with replacement, we assigned all samples from a given historical year to a future year.
 Our main experiment maintained this status quo sampling design, in which survey effort was unchanged.
@@ -277,14 +282,18 @@ power_wide <- power_df |>
   select(species, mpa_effect_label, eval_year, power_signed) |>
   tidyr::pivot_wider(names_from = "eval_year", values_from = "power_signed")
 
-qb_25_power <- power_wide |> 
-  filter(species == "quillback rockfish", mpa_effect_label == "25%")
-ling_25_power <- power_wide |> 
-  filter(species == "lingcod", mpa_effect_label == "25%")
-ye_25_power <- power_wide |> 
-  filter(species == "yelloweye rockfish", mpa_effect_label == "25%")
-ye_50_power <- power_wide |> 
-  filter(species == "yelloweye rockfish", mpa_effect_label == "50%")
+qb_25_power <- power_wide |>
+  filter(species == "quillback rockfish", mpa_effect_label == "25%") |>
+  mutate(across(where(is.numeric), \(x) sprintf("%.2f", round(x, 2))))
+ling_25_power <- power_wide |>
+  filter(species == "lingcod", mpa_effect_label == "25%") |>
+  mutate(across(where(is.numeric), \(x) sprintf("%.2f", round(x, 2))))
+ye_25_power <- power_wide |>
+  filter(species == "yelloweye rockfish", mpa_effect_label == "25%") |>
+  mutate(across(where(is.numeric), \(x) sprintf("%.2f", round(x, 2))))
+ye_50_power <- power_wide |>
+  filter(species == "yelloweye rockfish", mpa_effect_label == "50%") |>
+  mutate(across(where(is.numeric), \(x) sprintf("%.2f", round(x, 2))))
 
 type_m_wide <- power_wide <- power_df |>
   select(species, mpa_effect_label, eval_year, type_m_error) |>
