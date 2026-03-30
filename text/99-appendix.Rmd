@@ -61,9 +61,9 @@ knitr::include_graphics(here::here("figures/turing-map-yelloweye rockfish-HBLL-O
 knitr::include_graphics(here::here("figures/turing-map-lingcod-HBLL-OUT-N.png"))
 ```
 
-(ref:bias-check-lingcod-caption) Example check of whether the estimation model is able to recover the true simulated recovery rate inside the MPA network without bias. In some cases there is minimal bias at 2030, likely driven by however the real time series ended. By 2034 and beyond, the estimates appear centered on the true value but become increasingly precise over time. This illustration is just for the 25% increase over 25 years scenario.
+(ref:bias-check-caption) Example check of whether the estimation model is able to recover the true simulated recovery rate inside the MPA network without bias. The estimates appear centered on the true value and become increasingly accurate over time. This illustration is just for the 25% increase over 25 years scenario.
 
-```{r bias-check-lingcod, fig.cap='(ref:bias-check-lingcod-caption)', fig.asp=get_asp(here::here("figures/bias-check-on-estimate-lingcod.png")), out.width="100%"}
+```{r bias-check, fig.cap='(ref:bias-check-caption)', fig.asp=get_asp(here::here("figures/bias-check-on-estimate-lingcod.png")), out.width="100%"}
 knitr::include_graphics(here::here("figures/bias-check-on-estimate-lingcod.png"))
 ```
 
