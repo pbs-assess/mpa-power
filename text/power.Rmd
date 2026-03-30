@@ -115,7 +115,7 @@ readr::read_csv(here::here("text/data/power-definitions.csv")) |>
 
 The HBLL survey consists of two survey series: inside (HBLL INS, referring to waters between Vancouver Island and the mainland) and outside (HBLL OUT, all other BC waters). 
 North and south areas within each series are surveyed biennially. 
-Three of the four regions (HBLL OUT N, HBLL OUT S, and HBLL INS N) overlap with the GBS MPA Network (Figure \@ref(fig:hbll-mpa-overlay)).
+Three of the four regions (HBLL OUT N, HBLL OUT S, and HBLL INS N) overlap with the GBS MPA Network (Figure \@ref(fig:hbll-mpa-historical-overlay)).
 The surveys use a depth-stratified random sampling design, with a target allocation of 189 sets (HBLL OUT N), 252 (HBLL OUT S), and 70 (HBLL INS N).
 
 We used a simulation-based power analysis to assess the ability of the HBLL survey to detect changes in population indices of groundfish across the MPAN. 
