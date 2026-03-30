@@ -338,14 +338,13 @@ Reducing MPA sampling frequency generally delayed when ≥80% power was reached 
 
 Extensions:
 
-- AR1 on year effects, but made little difference
+- Could add AR1 on year effects, but made little difference
 
 - increased sampling scenario
 
 - could do by survey - would very likely be weaker still
 
 - could combine with other surveys such as the synoptic trawl - more power!
-
 
 - what are reasonable rates of recovery by stock ... lingcod at B0... yelloweye, quillback - well below B0 but late age at maturity long generation time... expect slower recovery
 
@@ -367,7 +366,6 @@ Any potential spillover effects or capturing of fishes that move outside of the 
 
 * Recent analyses have shown that body size rather than abundance is more sensitive to detection. [@wilson2025groundfish; @perkins2021quantifying]
 
-
 Helps us set expectations:
 
 - At best expect detection of MPA effects in the best sampled species within 10-15 years
@@ -378,7 +376,7 @@ Helps us set expectations:
 
 - Rates \>4% expect within \<10 years
 
-- Decreasing sampling within MPAs to every 4 years increased the number of years before we could detect an effect by \~ 5-10 years for a given recovery rate
+- Decreasing sampling within MPAs to every 4 years increased the number of years before we could detect an effect by ~ 4 years for a given recovery rate
 
 Detection of significant effects before 10 years is likely to lead to over estimates of effects 🡪 high exaggeration rates.
 
