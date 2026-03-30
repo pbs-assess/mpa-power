@@ -33,9 +33,9 @@ dogfish_encounter <- mean_fit_values |>
   pull(encountered_rate_restricted)
 ```
 
-# POWER ANAYLSIS --- RECOMMENDATIONS FOR MONITORING PROGRAM DESIGN/SAMPLING FREQUENCY
+# POWER ANALYSIS --- RECOMMENDATIONS FOR MONITORING PROGRAM DESIGN AND SAMPLING FREQUENCY
 
-We chose a case study of the Hard Bottom Longline (HBLL) survey to evaluate sampling design requirements using power analysis to assess how monitoring programs could be adapted or expanded to detect meaningful changes in conservation priority species.
+We selected the Hard Bottom Longline (HBLL) survey as a case study to evaluate sampling design requirements using power analysis and to assess how monitoring programs could be adapted or expanded to detect meaningful changes in conservation priority species.
 Power analysis is a widely used approach for evaluating how sampling design and replication influence the ability to detect ecological change when it occurs.
 Statistical power depends on the magnitude of the effect being tested, the degree of spatial and temporal variability in indicators, and the level of replication across sites, years, and sampling units [@underwoodBACISampling1994; @stewart-oatenEnvironmentalImpact1986].
 In impact monitoring frameworks such as Before--After--Control--Impact (BACI) designs, balanced designs with comparable numbers of observations in pre- and post-impact periods generally provide greater statistical power than unbalanced designs with the same total sampling effort [@underwoodBACISampling1994; @smokorowskiCautionsUsing2017].
@@ -44,7 +44,7 @@ The HBLL survey was selected as an illustrative example for several reasons.
 The HBLL scored high in our program assessment based on temporal suitability, domain relevance, and spatial coverage criteria. 
 It has a 19-year time series providing sufficient historical data to characterize baseline variability, monitors multiple MPAN E-CP rockfish species (Yelloweye Rockfish, Quillback Rockfish), samples `r hbll_n_sites_unique` protected area sites with coverage both inside and outside MPAN boundaries, and collects detailed biological data (length, weight, archived otoliths) enabling analysis of multiple response metrics.
 
-The power analyses conducted on the HBLL were used to inform recommendations on sampling frequency, spatial replication, and temporal coverage needed to support robust evaluation of MPA performance.
+The power analyses conducted for the HBLL were used to inform recommendations on sampling frequency, spatial replication, and temporal coverage needed to support robust evaluation of MPA performance.
 Importantly, this case study serves as one methodological example---not a prescription. 
 The HBLL was not originally designed for MPA performance assessment; sampling locations were selected for regional stock assessment and conservation monitoring. 
 The power analysis demonstrates what is currently feasible with existing data.
@@ -53,56 +53,52 @@ This case study illustrates a general analytical workflow that can be applied to
 
 ## MONITORING PROGRAM DESIGN CONSIDERATIONS
 
-*here we could have the section on sampling/monitoring program design stuff from the intro?*
-
 **Statistical robustness in monitoring**
 
-Effective sampling and monitoring design requires statistical robustness, incorporating careful consideration of sample size, replication, statistical power, and data independence. 
-Neves et al. (In prep.) provides comprehensive discussion of factors involved in monitoring program sampling design, including various sample design
-types, BACI approaches, and reference site selection (DFO 2021a).
+Effective sampling and monitoring design require statistical robustness, including careful consideration of sample size, replication, statistical power, and data independence. 
+Neves et al. (in prep.) provides a comprehensive discussion of factors involved in monitoring program sampling design, including various sample design types, BACI approaches, and reference site selection (DFO 2021a).
 
 **Replication**
 
-Establishing appropriate replication levels---whether measured in number of sites, years, or samples within sites---presents significant challenges and varies considerably among projects and indicators (Braun et al. 2019). 
+Establishing appropriate replication levels, whether measured as the number of sites, years, or samples within sites, presents significant challenges and varies considerably among projects and indicators (Braun et al. 2019). 
 Power analyses serve as valuable tools for understanding how replication influences statistical power, defined as the ability to detect effects when they exist. 
-Statistical power depends on several key factors: spatial and temporal variation in indicators, the strength of relationships between indicators and responses (effect size), and replication or sample size including number of sites, years, and plots.
+Statistical power depends on several key factors: spatial and temporal variation in indicators, the strength of relationships between indicators and responses (effect size), and replication or sample size, including the number of sites, years, and plots.
 
-Power analyses can employ standard methods for simple statistical analyses or utilize simulations for more complex modeling approaches (Johnson et al. 2015). 
-These analyses require assumptions about spatial and temporal variability of indicators and effect sizes specific to individual studies and indicators.
+Power analyses can use standard methods for simple statistical analyses or simulations for more complex modelling approaches (Johnson et al. 2015). 
+These analyses require assumptions about the spatial and temporal variability of indicators and about effect sizes specific to individual studies and indicators.
 
 **Temporal considerations and study design**
 
 Increasing the number of years of data collection generally enhances statistical power. 
 Balanced designs with equal numbers of before and after years provide greater statistical power than unbalanced designs using the same total number of years (Braun et al. 2019). 
-O\'Neal et al. (2016) recommends collecting a minimum of two years of before-project data, matched with two years of after-project data. 
-While acquiring pre-project data can be challenging, the statistical benefits of balanced design make a compelling case for investing in before-project data collection when feasible (Braun et al. 2019).
+O\'Neal et al. (2016) recommend collecting a minimum of two years of before-project data, matched with two years of after-project data. 
+While acquiring pre-project data can be challenging, the statistical benefits of a balanced design make a compelling case for investing in before-project data collection when feasible (Braun et al. 2019).
 
-Within the NSB context, MPA sites experiencing greater pre-implementation fishing intensity and other pressures may demonstrate higher power to detect management-related changes compared to sites with historically lower human activity levels. 
-This is because there is an expected ecological response when fishing is removed through protection (i.e., recovery), whereas in areas with low preimplementation fishing pressure there will be no associated reocvery (litte change in fishing pressure pre- and post- implementation).
+Within the NSB context, MPA sites experiencing greater pre-implementation fishing intensity and other pressures may have higher power to detect management-related changes than sites with historically lower human activity levels. 
+This is because an ecological response is expected when fishing is reduced through protection (i.e., recovery), whereas in areas with low pre-implementation fishing pressure there may be little associated recovery because fishing pressure changes little before and after implementation.
 
 **Before-After-Control-Impact (BACI) design**
 
-BACI design represents one of the most appropriate methods for evaluating management measure performance. 
-This approach proves particularly powerful because it controls for both temporal and spatial variation, thereby improving the robustness of conclusions regarding management effects. 
-BACI design compares sampling periods before and after measure implementation alongside impacted and control sites.
+A BACI design represents one of the most appropriate methods for evaluating management measure performance. 
+This approach is particularly powerful because it controls for both temporal and spatial variation, thereby improving the robustness of conclusions regarding management effects. 
+A BACI design compares sampling periods before and after measure implementation alongside impacted and control sites.
 
 Successful BACI implementation requires suitable reference sites (control sites) that remain fixed throughout the study period, while within-site sampling units may be re-randomized or maintained as fixed locations. 
-External reference sites are highly recommended to optimize conclusion scope and are required for BACI or similar sampling designs. 
-These sites should be positioned sufficiently distant from protected areas to avoid edge effects, maintain comparable environmental conditions and substrates, and exhibit similar historical pressure
-levels (DFO 2021a).
+External reference sites are highly recommended to maximize the scope of inference and are required for BACI or similar sampling designs. 
+These sites should be positioned sufficiently far from protected areas to avoid edge effects, maintain comparable environmental conditions and substrates, and exhibit similar historical pressure levels (DFO 2021a).
 
 **Reference sites and monitoring**
 
-Areas currently under monitoring outside protected areas serve as invaluable reference sites for assessing MPA performance and impact. 
+Areas currently monitored outside protected areas serve as invaluable reference sites for assessing MPA performance and impact. 
 These monitored zones, often sharing similar ecological characteristics with MPA areas, provide comparative benchmarks for evaluating changes and patterns within protected regions (Nature United 2023). 
 Through examination of these external areas, scientists and conservationists can establish meaningful parallels, contrasting impacts of human activities and environmental changes in unprotected regions against conservation outcomes within MPAs.
 
 Reference areas facilitate understanding of natural variations, human-induced pressures, and potential benefits derived from protective measures. 
 Analysis of differences and similarities enables assessment of MPA efficacy, providing critical information for adaptive management and conservation strategy refinement within protected marine environments.
 
-Reference monitoring represents an emerging opportunity that utilizes well-managed MPA sites as reference points for understanding global and regional driver effects on ocean conditions (Fairweather 2012a; Fairweather 2012b). 
-Since reference sites will develop over time, this approach has been identified as a low priority for the Network monitoring framework, strategy, and associated plans (Network Monitoring Framework). 
-However, reference monitoring should be considered in subsequent iterations of Network monitoring following sufficient duration of site and Network establishment.
+Reference monitoring represents an emerging opportunity that uses well-managed MPA sites as reference points for understanding the effects of global and regional drivers on ocean conditions (Fairweather 2012a; Fairweather 2012b). 
+Because reference sites will develop over time, this approach has been identified as a low priority for the Network monitoring framework, strategy, and associated plans (Network Monitoring Framework). 
+However, reference monitoring should be considered in subsequent iterations of Network monitoring after sufficient time has passed for site and network establishment.
 
 ```{r power-definitions}
 readr::read_csv(here::here("text/data/power-definitions.csv")) |> 
