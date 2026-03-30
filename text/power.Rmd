@@ -301,6 +301,11 @@ type_m_wide <- power_wide <- power_df |>
 
 qb_25_type_m <- power_wide |> 
   filter(species == "quillback rockfish", mpa_effect_label == "25%")
+
+rates_lu <- distinct(power_df, mpa_effect_label, true_effect) |>
+  mutate(annual_rate = round(true_effect * 100, 1))
+
+max_annual_rate <- max(rates_lu$annual_rate)
 ```
 
 Our estimation models were generally able to recover true rates of recovery without bias (Figure B\@ref(fig:bias-check)). 
@@ -322,7 +327,6 @@ For example, given a true 25% recovery in Quillback Rockfish abundance over 25 y
 
 Power was positively correlated with encounter rates, but negatively correlated with interannual variability and spatiotemporal variability (Figure \@ref(fig:power-correlation-plot)).
 Canary Rockfish and Silvergray Rockfish were the two species with the lowest encounter rates (`r round(canary_encounter * 100, 0)`\% and `r round(silvergray_encounter * 100, 0)`\% respectively).
-<!-- TODO: Double-check that the methods state that Canary and Silvergray did not include HBLL INS N. -->
 Although Pacific Spiny Dogfish had the highest encounter rates (`r round(dogfish_encounter * 100, 0)`\%), its power was similarly low to that of Canary and Silvergray Rockfish, potentially due to high interannual variability, high spatiotemporal variability (Figure \@ref(fig:power-correlation-plot)), and high observation error (Figure B\@ref(fig:power-phi-correlation)).
 
 When MPA sampling frequency was reduced to every fourth year, compared to the biennial status quo sampling, power was lower for the three species considered (Yelloweye Rockfish, Lingcod, and Quillback Rockfish; Figure \@ref(fig:sampling-scenario-power-comparison)).
@@ -374,14 +378,41 @@ Helps us set expectations:
 
 - Rates of recovery \~ 1% per year expect to detect effects in 20-25 years
 
-- Rates of recovery 2-3 % expect 10-15 years
-
-- Rates \>4% expect within \<10 years
-
 - Decreasing sampling within MPAs to every 4 years increased the number of years before we could detect an effect by \~ 5-10 years for a given recovery rate
 
-Detection of significant effects before 10 years is likely to lead to over estimates of effects 🡪 high exaggeration rates.
+Detection of significant effects before 15 years is likely to lead to over estimates of effects 🡪 high exaggeration rates.
 
 Stock assessment "no fishing" scenarios and life histories can help to inform expectations of recovery rates
 
- 
+**Pre-implementation fishing pressure**
+Pre-implementation fishing pressure will affect the recovery rates -- i.e., sites that had low or no pre-implementation fishing pressure are not expected to recover. 
+Similarly, only sites that have have interventions that reduce or exclude fishing pressure are expected to recover.
+Therefore, if MPA effects are assessed across all sites in the network, power will lower than simulated here.
+
+
+**Morris et al. 2024 in relation to our work**
+- Tested much larger effect sizes than we did - specifically they were considering these changes over much shorter time frames as well: 3- 10 years
+
+- Status quo monitoring (23 trawls / stratum) could detect when a 20% decline per year for smooth skate. Compared to our maximum rate with a 50% increase in abundance over 25 years, which is a `r max_annual_rate` \% increase per year.
+
+- For black dogfish, the most frequently encountered and highest CPUE species they considered 
+
+- They did find that the lowest CPUE species (Northern Wolfish) had the lowest power 
+
+
+---
+
+**SAR / main text discussion bullet points**
+
+- 
+
+- 
+
+- 
+
+
+**Uncertainties/limitations (bullet points for main text discussion):** 
+
+- 
+
+- 
