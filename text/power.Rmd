@@ -340,18 +340,13 @@ This delay also occurred in the exaggeration ratios, with higher exaggeration ra
 
 <!-- **Summary** -->
 
-For moderate to high recovery rates (25--50% abundance increase over 25 years), achieving $\geq 80\%$ power to detect trends inside MPAs required 10--20 years of monitoring depending on species-specific encounter rates, interannual variability, and spatiotemporal variability.
-Whereas, small recovery rates (5--10% increases over 25 years) were not detectable with $\geq 80\%$ power for any species even after 20 years of monitoring under the current sampling effort of the HBLL survey.  
-
-Reducing MPA sampling frequency from biennial to every four years delayed when  $\geq 80\%$ power was reached by one sampling cycle (an additional four years). 
-
+For moderate to high recovery rates (25--50% abundance increase over 25 years), achieving $\geq$80\% power to detect trends inside MPAs required 10--20 years of monitoring depending on species-specific encounter rates, interannual variability, and spatiotemporal variability.
+Whereas, small recovery rates (5--10% increases over 25 years) were not detectable with $\geq$80\% power for any species even after 20 years of monitoring under the current sampling effort of the HBLL survey.  
+Reducing MPA sampling frequency from biennial to every four years delayed when  $\geq$80\% power was reached by one sampling cycle (an additional four years). 
 Importantly, when power is low, particularly in the first 15 years, exaggeration rates and the possibility of sign errors are high. 
 Therefore, early detections of change should be interpretted with caution as significant effects can be highly overestimated or show declining trends when the true trend is recovery. 
-
 Although encounter rate was most strongly correlated with power, with species caught in >60\% of sets generally having higher power, high interannual or spatiotemporal variability could reduce power even for frequently encountered species such as Pacific spiny dogfish. 
-
 Understanding the factors affecting our ability to detect MPA recovery is important in setting expectations of whether we are meeting network/MPA objectives. 
-
 However, other biological and methodological factors can affect power, beyond what was considered in this power analysis. 
 
 ### Expected recovery rates
@@ -371,7 +366,12 @@ Pacific Halibut might be expected to rebound more quickly than some of the other
 
 <!-- **Abundance vs biomass** --> 
 
-
+In this analysis we simulated and modelled increases in fish abundance, which will likely be slower to detect compared to changes in body size.
+Given that fishing pressure targets large individuals, cessation of fishing would lead to an increase in larger body sizes as those large individuals are no longer removed. 
+Whereas, abundance increases will be a combination of young, small fish increasing in size to be capture by the survey gear, and then will depend on ongoing or post-implementation recruitment. 
+In a population model, @perkins2021quantifying showed that over 25 years, biomass was expected to increase by 95\% but abundance would only increase by 44\%. 
+They also found that to achieve high power in the shortest time required using biomass as the response metric.
+When effects of proximity to RCA were examined for 28 species @wilson2025groundfish found positive effects on body size and relative abundance, but body size (length) effects were detected sooner and more consistently across species and sites. 
 
 
 ### Caveats and extensions
@@ -405,79 +405,34 @@ A spatially balanced sampling approach such as balanced acceptance sampling [@va
 **Future extensions**
 
 
+- Include depth or other habitat covariates
+
+- Could also combine with other surveys such as the synoptic trawl
+
+For this analysis and with the goal to evaluate at a network scale we pooled the three HBLL surveys. 
+Future analyses could use the individual survey regions, however this would reduce power further due to lower sample sizes. 
+In particular, the HBLL INS N would have very limited power as it has fewer than half the target number of sets as the HBLL OUT N and S. 
+Perkins et al. [@perkins2021quantifying] also found that combining data across survey areas and MPA sites improved power and shortened the time to reach target power. 
+For network monitoring additional surveys such as the trawl or ROV surveys could be combined with the HBLL to improve power. 
 
 
+---
 
-Extensions:
+Notes:
 
-- Could add AR1 on year effects, but made little difference
-
-- increased sampling scenario
-
-- could do by survey - would very likely be weaker still
-
-- could combine with other surveys such as the synoptic trawl - more power!
-
-- what are reasonable rates of recovery by stock ... lingcod at B0... yelloweye, quillback - well below B0 but late age at maturity long generation time... expect slower recovery
-
-- and we did a exponential growth recovery trend - would actually level off towards B0 *and* rockfish often have spasmodic recruitment... so for numbers, very little in most years, occasionally large recruitment events - we did a continuous linear effect - probably easier to detect what we did!
-
-* We assumed a constant linear rate of increase over the 25 years. Although the recovery rates calculated from the stock assessments reflect current levels of depletion and density dependent effects. 
-
-- dogfish - slow recovery + movement may disperse them
-
-- will depend on movement too
-
-* This analysis assumed no species movement.
-Any potential spillover effects or capturing of fishes that move outside of the MPA boundaries would reduce recovery rates and our ability to detect MPA effects.
-
-- body size may be faster - reference Kyle's preprint
-  - growth
-  - biomass will be faster
-  - HBLL is abundance - reference the Perkins et al. paper
-
-* Recent analyses have shown that body size rather than abundance is more sensitive to detection. [@wilson2025groundfish; @perkins2021quantifying]
-
-Helps us set expectations:
-
-- At best expect detection of MPA effects in the best sampled species within 10-15 years
-
-- Rates of recovery \~ 1% per year expect to detect effects in 20-25 years
-
-- Rates of recovery 2-3 % expect 10-15 years
-
-- Rates \>4% expect within \<10 years
-
-- Decreasing sampling within MPAs to every 4 years increased the number of years before we could detect an effect by ~ 4 years for a given recovery rate
-
-Detection of significant effects before 15 years is likely to lead to over estimates of effects 🡪 high exaggeration rates.
-
-Stock assessment "no fishing" scenarios and life histories can help to inform expectations of recovery rates
-
-**Pre-implementation fishing pressure**
-Pre-implementation fishing pressure will affect the recovery rates -- i.e., sites that had low or no pre-implementation fishing pressure are not expected to recover. 
-Similarly, only sites that have have interventions that reduce or exclude fishing pressure are expected to recover.
-Therefore, if MPA effects are assessed across all sites in the network, power will lower than simulated here.
-
-
-**Morris et al. 2024 in relation to our work**
-- Tested much larger effect sizes than we did - specifically they were considering these changes over much shorter time frames as well: 3- 10 years
-
-- Status quo monitoring (23 trawls / stratum) could detect when a 20% decline per year for smooth skate. Compared to our maximum rate with a 50% increase in abundance over 25 years, which is a `r max_annual_rate` \% increase per year.
-
-- For black dogfish, the most frequently encountered and highest CPUE species they considered 
-
-- They did find that the lowest CPUE species (Northern Wolfish) had the lowest power 
-
-
-- dogfish move but not as much as halibut --> literature doesn't really say that they move that much --> see jackie king + macfarlane 70k tagging study
+- total length effect of RCA proximity was stronger in species with a low Rmax (which are all of our rockfish: Yelloweye, Quillback, Canary, Silvergray); and less for species with high Rmax (lingcod) [@wilson2025groundfish]
+- possible increases in larval abundance - combination of MPA effects and favourable conditions? [@thompson2017LarvalAbundances]
+- SCUBA surveys 20 years post-implementation showed little change in fish population [@starr2015mpa]
+- Surveys after 34 years showed increases in abundance and body size [@starr2015mpa]
+- higher abundances of fish > L50 --> higher spawning stock biomass inside MPAs than outside [@starr2015mpa]
+- pre-implementation fishing pressure is associated with consistent increases in target species body size, but not for non-target species[@jacoSteele2020]
 
 
 ---
 
 **SAR / main text discussion bullet points**
 
-- Do not expect to detect significant and true effects for the first 10-15 years post implementation. More realistically effects are unlikely to be detected for the first 20 years, which is consistent with other studies ([@perkins2021quantifying], [@morris], Starr 2015)
+- Do not expect to detect significant and true effects for the first 10-15 years post implementation. More realistically effects are unlikely to be detected for the first 20 years, which is consistent with other studies ([@perkins2021quantifying], [TODO:morris], Starr 2015)
 
 - Significant effects detected in the first 10-15 years are likely to be overestimates or have the incorrect sign (i.e., don't panic)
 
