@@ -175,7 +175,8 @@ power_df |>
     geom_point(aes(size = has_error, alpha = has_error)) +
     scale_alpha_manual(values = c("TRUE" = 1, "FALSE" = 0.3), guide = "none") +
     scale_size_manual(values = c("TRUE" = 1.5, "FALSE" = 2), guide = "none") +
-    facet_grid(rows = vars(mpa_effect_label), cols = vars(species)) +
+    facet_grid(rows = vars(mpa_effect_label), cols = vars(species),
+      labeller = labeller(species = function(x) stringr::str_replace(x, " ", "\n"))) +
     scale_colour_viridis_d(option = "plasma", end = 0.85, guide = "none") +
     scale_y_continuous(labels = scales::percent, limits = c(0, 1.05),
                         expand = expansion(mult = c(0, 0.02))) +
@@ -184,7 +185,7 @@ power_df |>
       axis.text.x = element_text(angle = 45, hjust = 1, size = 7),
       panel.spacing = unit(0.5, "lines")
     )
-ggsave(file.path(fig_dir, "type-s-error-plot.png"), width = 6.2, height = 5)
+ggsave(file.path(fig_dir, "type-s-error-plot.png"), width = 8.2, height = 5)
 
 
 # ------------------------------------------------------------------------------
@@ -210,7 +211,7 @@ power_df0 |>
     labeller = labeller(species = function(x) stringr::str_replace(x, " ", "\n"))) +
   labs(x = "Replicate", y = "Estimate") +
   ggtitle(paste0("25% recovery over 25 years"))
-ggsave(file.path(fig_dir, paste0("bias-check-on-estimate-", sp_to_hyphens(filter_species), ".png")),
+ggsave(file.path(fig_dir, paste0("bias-check-on-estimate.png")),
   width = 6.2, height = 6.6)
 # ggsave(file.path(supp_dir, "bias-check-on-estimate-lingcod.png"), width = 9, height = 6.5)
 
@@ -233,11 +234,15 @@ samples |>
   # mutate(species = factor(species, levels = spp_levels)) |>
   ggplot(data = _) +
   aes(x = n_samps, y = power_signed, colour = factor(mpa_effect_label)) +
+  geom_hline(yintercept = 0.8, linetype = "dashed", colour = "grey50") +
   geom_point(size = 0.8) +
   geom_line(aes(group = mpa_effect_pct)) +
-  geom_hline(yintercept = 0.8, linetype = "dashed", colour = "grey50") +
    scale_colour_viridis_d(option = "plasma", end = 0.85) +
   facet_grid(cols = vars(eval_year), rows = vars(species), labeller = as_labeller(stringr::str_to_title)) +
   labs(x = "Number of replicates", y = "Power", colour = "Recovery over 25 years") +
+  coord_cartesian(xlim = c(0, 150), expand = FALSE) +
+  scale_x_continuous(breaks = seq(50, 150, 50)) +
+  scale_y_continuous(breaks = seq(0.2, 1, 0.2)) +
   theme(legend.position = "top")
-ggsave(file.path(fig_dir, "cumulative-power-plot-all-species.png"), width = 8, height = 9.5)
+
+ggsave(file.path(fig_dir, "cumulative-power-plot-all-species.png"), width = 8, height = 9.9)
