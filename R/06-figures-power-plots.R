@@ -126,19 +126,22 @@ year_threshold <- power_df |>
 power_df |>
   ggplot() +
   aes(x = eval_year, y = power_signed, colour = mpa_effect_label) +
+  geom_hline(yintercept = 0.8, linetype = "dashed", colour = "grey50") +
   geom_line() +
   geom_point() +
-  geom_hline(yintercept = 0.8, linetype = "dashed", colour = "grey50") +
   facet_wrap(~ species, labeller = as_labeller(stringr::str_to_title),
     nrow = 2) +
   scale_colour_viridis_d(option = "plasma", end = 0.85) +
   scale_x_continuous(breaks = unique(power_df$eval_year)) +
-  labs(colour = "Recovery over 25 years") +
-  theme(legend.position = "top",
-        panel.spacing = unit(1, "lines")) +
+  labs(colour = "Recovery over\n25 years") +
+  theme(legend.position = "inside",
+    legend.position.inside = c(0.9, 0.2),
+        panel.spacing = unit(1, "lines"), 
+      panel.grid.major = element_line(colour = "grey92", linewidth = 0.4)) +
+  guides(colour = guide_legend(reverse = TRUE)) +
   labs(x = "Evaluation year", y = "Correctly signed power") +
-  scale_y_continuous(limits = c(-0.005, 1.005), expand = expansion(mult = c(0, 00)))
-ggsave(file.path(fig_dir, "main-power-plot.png"), width = 6.2, height = 5)
+  scale_y_continuous(limits = c(-0.005, 1.005), expand = expansion(mult = c(0, 0)), breaks = seq(0, 1, 0.2))
+ggsave(file.path(fig_dir, "main-power-plot.png"), width = 7.4, height = 4.4)
 
 # Type M error plot ------------------------------------------------------------
 power_df |>
@@ -150,12 +153,15 @@ power_df |>
     nrow = 2) +
   scale_colour_viridis_d(option = "plasma", end = 0.85) +
   scale_x_continuous(breaks = unique(power_df$eval_year)) +
-  labs(colour = "Recovery over 25 years") +
-  theme(legend.position = "top",
-        panel.spacing = unit(1, "lines")) +
+  labs(colour = "Recovery over\n25 years") +
+  theme(legend.position = "inside",
+    legend.position.inside = c(0.9, 0.2),
+        panel.spacing = unit(1, "lines"), 
+      panel.grid.major = element_line(colour = "grey92", linewidth = 0.4)) +
+  guides(colour = guide_legend(reverse = TRUE)) +
   scale_y_log10(limits = c(1, NA), expand = expansion(mult = c(0, 0.05)), breaks = c(1, 2, 5, 10, 30)) +
   labs(x = "Evaluation year", y = "Multiplicative magnitude error\non the 25-year percent increase")
-ggsave(file.path(fig_dir, "type-m-error-plot.png"), width = 6.2, height = 5)
+ggsave(file.path(fig_dir, "type-m-error-plot.png"), width = 7.4, height = 4.4)
 
 # Type S error plot ------------------------------------------------------------
 # Current option
@@ -205,7 +211,7 @@ power_df0 |>
   labs(x = "Replicate", y = "Estimate") +
   ggtitle(paste0("25% recovery over 25 years"))
 ggsave(file.path(fig_dir, paste0("bias-check-on-estimate-", sp_to_hyphens(filter_species), ".png")),
-  width = 6.2, height = 4.6)
+  width = 6.2, height = 6.6)
 # ggsave(file.path(supp_dir, "bias-check-on-estimate-lingcod.png"), width = 9, height = 6.5)
 
 # Cumulative power plot - to check stability of power analysis results ---------
