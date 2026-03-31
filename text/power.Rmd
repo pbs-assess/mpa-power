@@ -354,7 +354,7 @@ Although encounter rate was most strongly correlated with power, with species ca
 
 Understanding the factors affecting our ability to detect MPA recovery
 
-### Reasonable recovery rates
+### Expected recovery rates
 
 We explored recovery rates ranging from 5% to 50% over 25 years.
 Most species considered here have life-history traits or stock status suggesting they would fall toward the lower end of this range.
@@ -371,17 +371,7 @@ Pacific Halibut might be expected to rebound more quickly than some of the other
 
 **Abundance vs biomass**
 
-
-<!-- **Sampling design going forward** -->
-
-<!-- Sampling design going forward - Sean -->
-<!-- 	we bootstrapped historical - so some blocks have 0% inclusion probability... -->
-<!-- 	if you were to actually do this - then sampling domain has shrunk -->
-<!-- 	be able to monitor trend, but limited in inference with respect to whole MPAN -->
-<!-- 	reducing spatial variability in sampling - increase time trends, but trade off in terms of spatial inference -->
-
-
-### Model caveats and assumptions
+### Caveats and extensions
 
 Our results are dependent on several assumptions within our modelling framework.
 First, our power results are conditional on our simulated system reasonably representing reality.
@@ -398,6 +388,16 @@ Additionally, our simulation assumed spatially constant recovery across the MPAs
 In reality, recovery likely varies across the MPAN.
 For instance, pre-implementation fishing pressure varies by site, and sites with interventions that reduce or exclude fishing would be expected to experience more recovery than those that do not.
 Introducing spatially varying recovery could be expected to decrease power.
+
+In our analyses, we bootstrapped from historical survey locations when simulating future data.
+This had the advantage of ensuring that future sampling locations reflect realistic survey blocks.
+However, this also means that some survey blocks had a 0% inclusion probability in the simulations, limiting the abilty to make inference to the full survey domain.
+If the survey were actually implemented, one would likely follow the historical random stratified block selection procedure.
+One might also choose to adapt the survey design.
+For example, the MPAN could be incorporated into the stratification design to ensure adequate coverage each year.
+Or a fixed station design within the MPAN could be chosen to maximize the ability to detect temporal changes and contain any benthic impacts.
+This would, however, limit the ability to describe spatial variation.
+A spatially balanced sampling approach such as balanced acceptance sampling [@vanDamBatesUsingBalanced2018], combined with a rotating panel revisit design [@mcdonaldReviewEnvironmental2003], could balance those tradeoffs.
 
 **Future extensions**
 
