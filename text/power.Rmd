@@ -351,18 +351,28 @@ Although encounter rate was most strongly correlated with power, with species ca
 
 Understanding the factors affecting our ability to detect MPA recovery
 
-**Reasonable recovery rates**
+### Reasonable recovery rates
 
+We explored recovery rates ranging from 5% to 50% over 25 years.
+Most species considered here have life-history traits or stock status suggesting they would fall toward the lower end of this range.
+As a point of reference, @perkins2021quantifying used an integral projection model to estimate likely recovery rates in MPAs for Brown Rockfish (*Sebastes auriculatus*) and found approximately 40% increases over 25 years, but this species has a faster life history than several of the species in our study.
+Yelloweye Rockfish and Quillback Rockfish are estimated to be at 0.3--0.6 of unfished biomass [@dfo2023quillback_outside_fsar; @doherty2026], meaning density dependence favours recovery when released from fishing pressure. However, their slow life histories, long generation times, and late age at maturation make rates as high as 50% over 25 years unlikely.
+Silvergray and Canary Rockfish are estimated as less depleted (0.56 and 0.78, respectively; [@dfoStockAssessment2014; @starr2023canary]) but with somewhat faster life histories than Yelloweye or Quillback Rockfish, placing them in an intermediate position. 
+Furthermore, abundance recovery will be driven by recruitment and recruitment for many rockfish tends to be spasmodic or episodic with prolonged low periods [e.g., @caddy1983; @freeImpact2023].
 
+Expected recovery rates for the non-rockfish species in our study are also likely to be modest, though for different reasons.
+Lingcod, was estimated to be near unfished biomass in its last stock assessment [@dfo2025lingcod_outside_fsar], meaning release from fishing pressure would not be expected to have a meaningful impact on abundance.
+Pacific Spiny Dogfish is estimated to be highly depleted [@andersonPacificSpiny2026] but has an exceptionally slow life history, reaching maturity at approximately 35 years [@mcfarlaneValidationDorsal1987] with an approximately 50-year generation time [@andersonPacificSpiny2026], meaning recovery would also be expected to be slow.
+A separate consideration is species mobility.
+Pacific Halibut might be expected to rebound more quickly than some of the other species, but like dogfish [@mcfarlaneMigrationPatterns2003], Pacific Halibut can be highly mobile [e.g., @skud1977], and movement outside of MPAs could expose individuals to fishing mortality and dilute a MPAN recovery signal.
 
 **Abundance vs biomass**
-
 
 
 **Sampling design going forward**
 
 
-<!-- **Model caveats and assumptions** -->
+### Model caveats and assumptions
 
 Our results are dependent on several assumptions within our modelling framework.
 First, our power results are conditional on our simulated system reasonably representing reality.
