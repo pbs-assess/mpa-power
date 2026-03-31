@@ -1,12 +1,5 @@
 
 # Main figures
-- [x] hbll-mpa-historical-overlay.png (`hbll-mpa-historical-overlay`)
-- [x] predicted-distributions.png (`predicted-distributions`)
-- [x] mean-observed-ts-eg.png (`mean-observed-ts-eg`)
-- [x] main-power-plot.png (`power-plot`)
-- [x] type-m-error-plot.png (`type-m-plot`)
-- [x] power-correlations-25pct.png (`power-correlation-plot`)
-- [x] yelloweye-power-bootstrap-vs-no-mpa-every-2nd-survey.png (`sampling-scenario-power-comparison`)
 
 (ref:hbll-mpa-overlay-caption) Distribution of historical survey sets (a) outside and (b) inside the MPAs (grey polygons). Sampling locations are shown as points, with the hard bottom longline survey grid shown by region HBLL OUT N (blue), HBLL OUT S (orange), and HBLL INS N (green). The region has been cropped to the extent of the MPA Network.
 
