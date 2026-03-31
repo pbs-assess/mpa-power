@@ -63,14 +63,18 @@ knitr::include_graphics(here::here("figures/turing-map-lingcod-HBLL-OUT-N.png"))
 
 (ref:bias-check-caption) Example check of whether the estimation model is able to recover the true simulated recovery rate inside the MPA network without bias. The estimates appear centered on the true value and become increasingly accurate over time. This illustration is just for the 25% increase over 25 years scenario.
 
-```{r bias-check, fig.cap='(ref:bias-check-caption)', fig.asp=get_asp(here::here("figures/bias-check-on-estimate-lingcod.png")), out.width="100%"}
-knitr::include_graphics(here::here("figures/bias-check-on-estimate-lingcod.png"))
+```{r bias-check, fig.cap='(ref:bias-check-caption)', fig.asp=get_asp(here::here("figures/bias-check-on-estimate.png")), out.width="100%"}
+knitr::include_graphics(here::here("figures/bias-check-on-estimate.png"))
 ```
 
 (ref:cumulative-power-caption) Cumulative calculation of statistical power. This is to determine whether sufficient simulation replicates have been run for stable results. For each additional replicate, power is calculated with all replicates up to that replicate and the results become increasingly stable.
 
 ```{r cumulative-power, fig.cap='(ref:cumulative-power-caption)', fig.asp=get_asp(here::here("figures/cumulative-power-plot-all-species.png")), out.width="100%"}
 knitr::include_graphics(here::here("figures/cumulative-power-plot-all-species.png"))
+```
+
+```{r type-s-error, fig.cap='Type S (sign) error rates by recovery rate, evaluation year, and species. The type S error rate refers to the percentage of significant trends that were in the wrong direction (declines estimated in the MPAN when the truth is an increase). At low levels of power (e.g., in early evaluation years and for small increases), sign errors rates can be substantial, meaning we would could estimate a significant decline just due to noise and chance.', fig.asp=get_asp(here::here("figures/type-s-error-plot.png")), out.width="100%"}
+knitr::include_graphics(here::here("figures/type-s-error-plot.png"))
 ```
 
 (ref:power-phi-correlation-caption) Correlation plots of correctly signed power against observation error precision from the beta-binomial distribution. Higher precision leads to lower variance. Pearson's correlation coefficients are shown in the top left corner of each panel. Columns show the evaluation year and rows show the percent increase for the inside-MPA sites relative to the outside MPA sites over 25 years.
