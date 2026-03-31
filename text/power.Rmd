@@ -336,6 +336,8 @@ This delay also occurred in the exaggeration ratios, with higher exaggeration ra
 # Discussion
 
 
+**Summary**
+
 For moderate to high recovery rates (25--50% abundance increase over 25 years), achieving $\geq 80\%$ power to detect trends inside MPAs required 10--20 years of monitoring depending on species-specific encounter rates, interannual variability, and spatiotemporal variability.
 Whereas, small recovery rates (5--10% increases over 25 years) were not detectable with $\geq 80\%$ power for any species even after 20 years of monitoring under the current sampling effort of the HBLL survey.  
 
@@ -346,7 +348,23 @@ Therefore, early detections of change should be interpretted with caution as sig
 
 Although encounter rate was most strongly correlated with power, with species caught in >60\% of sets generally having higher power, high interannual or spatiotemporal variability could reduce power even for frequently encountered species such as Pacific spiny dogfish. 
 
-Transition sentence here
+Understanding the factors affecting our ability to detect MPA recovery
+
+**Reasonable recovery rates**
+
+
+
+**Abundance vs biomass**
+
+
+
+**Sampling design going forward**
+
+
+**Model caveats and assumptions**
+
+
+**Future extensions**
 
 
 
