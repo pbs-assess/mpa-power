@@ -118,12 +118,14 @@ We used a simulation-based power analysis to assess the ability of the HBLL surv
 Our approach consisted of four steps: (1) fit conditioning models to historical data to parameterise the operating model, (2) use the operating model to simulate population recovery trends inside the MPAs under the assumption of fishing cessation, (3) apply different sampling strategies to the simulated population, and (4) fit estimation (monitoring) models to the combined historical and simulated data to evaluate the power of these sampling strategies to detect trends across the MPAN.
 This approach allows us to test different scenarios, such as varying recovery rates within MPAs or evaluation time frames, while incorporating some ecological complexity and variability.
 
-Using a spatiotemporal modelling approach, we applied this power analysis to six conservation priority species that are well sampled by the HBLL surveys: Yelloweye Rockfish, Quillback Rockfish, Lingcod, Canary Rockfish, Silvergray Rockfish, and Pacific Spiny Dogfish. 
+Using a spatiotemporal modelling approach, we applied this power analysis to seven conservation priority species that are well sampled by the HBLL surveys: Yelloweye Rockfish, Quillback Rockfish, Lingcod, Canary Rockfish, Silvergray Rockfish, Pacific Spiny Dogfish, and Pacific Halibut. 
 The HBLL surveys were designed to monitor Quillback Rockfish and Yelloweye Rockfish.
 Lingcod and Pacific Spiny Dogfish are also well indexed by the HBLL surveys, and these surveys are used in their stock assessments.
 Canary Rockfish and Silvergray Rockfish are generally found in deeper waters than Yelloweye or Quillback Rockfish and are encountered less frequently in the HBLL surveys than the other species considered here.
 Their stock assessments use synoptic trawl survey data, not the HBLL survey data.
 Furthermore, Canary and Silvergray Rockfish have not been encountered in the portion of HBLL INS that lies inside the MPAN.
+Pacific Halibut is encountered frequently in the HBLL surveys, but the surveys are not used in the halibut stock assessment run by the International Pacific Halibut Commision (IPHC).
+Instead the IPHC uses a separate fixed station coastwide setline survey.
 
 ### Fitting conditioning models
 
@@ -195,7 +197,7 @@ Both the inside and outside sites were given additional noise around the mean tr
 These true recovery trends were added to our simulation of the underlying spatial, spatiotemporal, and observation error properties.
 In all cases, the historical data remained untouched and were used as they were observed when generating a complete historical and forward simulation dataset.
 For a given simulation replicate of future data, we used the estimated spatial random field values (i.e., assuming a stationary distribution), drew a new set of spatiotemporal random fields for each year given the estimated variance and range, and drew a new set of observation error given the estimated beta-binomial precision.
-We performed 160 replicates, which was sufficient for our power estimates to stabilize (Figure \@ref(fig:cumulative-power)).
+We performed 150 replicates, which was sufficient for our power estimates to stabilize (Figure \@ref(fig:cumulative-power)).
 
 We chose sampling locations for the future data by bootstrapping survey sites from the historical years.
 After resampling years with replacement, we assigned all samples from a given historical year to a future year.
@@ -337,6 +339,7 @@ This delay also occurred in the exaggeration ratios, with higher exaggeration ra
 # Discussion
 
 
+
 **Summary**
 
 For moderate to high recovery rates (25--50% abundance increase over 25 years), achieving $\geq 80\%$ power to detect trends inside MPAs required 10--20 years of monitoring depending on species-specific encounter rates, interannual variability, and spatiotemporal variability.
@@ -369,7 +372,13 @@ Pacific Halibut might be expected to rebound more quickly than some of the other
 **Abundance vs biomass**
 
 
-**Sampling design going forward**
+<!-- **Sampling design going forward** -->
+
+<!-- Sampling design going forward - Sean -->
+<!-- 	we bootstrapped historical - so some blocks have 0% inclusion probability... -->
+<!-- 	if you were to actually do this - then sampling domain has shrunk -->
+<!-- 	be able to monitor trend, but limited in inference with respect to whole MPAN -->
+<!-- 	reducing spatial variability in sampling - increase time trends, but trade off in terms of spatial inference -->
 
 
 ### Model caveats and assumptions
