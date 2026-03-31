@@ -127,6 +127,7 @@ g <- ggplot(plot_df, aes(metric_value, power_signed, colour = species)) +
     colour = "Species"
   ) +
   gfplot::theme_pbs() +
+  guides(colour = guide_legend(nrow = 3)) +
   theme(
     legend.position = "top",
     legend.direction = "horizontal"
@@ -138,5 +139,5 @@ ggsave(
   "figures/power-correlations-25pct.png",
   g,
   width = 5,
-  height = 5
+  height = 5.5
 )
