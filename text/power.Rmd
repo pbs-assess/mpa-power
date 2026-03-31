@@ -369,8 +369,7 @@ Given that fishing pressure targets large individuals, cessation of fishing woul
 Whereas, abundance increases will be a combination of young, small fish increasing in size to be capture by the survey gear, and then will depend on ongoing or post-implementation recruitment. 
 In a population model, @perkins2021quantifying showed that over 25 years, biomass was expected to increase by 95\% but abundance would only increase by 44\%. 
 They also found that to achieve high power in the shortest time required using biomass as the response metric.
-When effects of proximity to RCA were examined for 28 species @wilson2025groundfish found positive effects on body size and relative abundance, but body size (length) effects were detected sooner and more consistently across species and sites. 
-
+When effects of proximity to RCA were examined for 28 species @wilson2025groundfish found positive effects on body size and relative abundance, but body size (length) effects were stronger and detected more consistently across species and sites.
 
 ### Caveats and extensions
 
