@@ -361,8 +361,23 @@ Understanding the factors affecting our ability to detect MPA recovery
 **Sampling design going forward**
 
 
-**Model caveats and assumptions**
+<!-- **Model caveats and assumptions** -->
 
+Our results are dependent on several assumptions within our modelling framework.
+First, our power results are conditional on our simulated system reasonably representing reality.
+Our predictive simulation comparisons from the conditioning models assessed this with historical data, but this does not guarantee that simulations will reflect all important properties of future data.
+Second, our results depend on the specific estimation model we chose for monitoring.
+We think our model is reasonable, and alternatives (such as annual mean abundance following an autoregressive process) produced similar results, though how one anchors starting abundance in the first year of MPA implementation likely affects power.
+We estimated a new intercept for the post-MPA years, but another reasonable approach would use a different baseline such as the long-term historical average.
+This may increase power with a possible bias tradeoff.
+
+Our model also made simplifying spatial assumptions.
+We represented habitat covariates (e.g., depth, rockiness, temperature) as latent spatial and spatiotemporal random effects rather than including them explicitly.
+Including habitat covariates explicitly would yield more finely resolved spatial distributions but would not be expected to materially affect power.
+Additionally, our simulation assumed spatially constant recovery across the MPAs.
+In reality, recovery likely varies across the MPAN.
+For instance, pre-implementation fishing pressure varies by site, and sites with interventions that reduce or exclude fishing would be expected to experience more recovery than those that do not.
+Introducing spatially varying recovery could be expected to decrease power.
 
 **Future extensions**
 
