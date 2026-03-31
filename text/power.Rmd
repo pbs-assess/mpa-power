@@ -324,6 +324,7 @@ When power was low, magnitude errors or exaggeration rates were high (Figure \@r
 For instance, if a significant recovery in abundance was detected in 2030, it was on average overestimated by a factor of 5 to 30 relative to the true rate.
 By 2042, for the species with the highest power and for true recovery effect sizes of 25% or 50%, the exaggeration rates fell to less than twice the true rate, with the exception of Lingcod.
 For example, given a true 25% recovery in Quillback Rockfish abundance over 25 years, if a significant positive effect was detected in 2038, the estimated recovery would on average be exaggerated by a factor of $\sim 2$ (i.e., estimated as a $\sim 50\%$ recovery).  
+Type S (sign) errors were also considerable at low levels of power (Figure \@ref(fig:type-s-error)), meaning there's a considerable probability that one could detect a signficant decline in early evaluation years for some species, especialy if true recoveries are slow.
 
 Power was positively correlated with encounter rates, but negatively correlated with interannual variability and spatiotemporal variability (Figure \@ref(fig:power-correlation-plot)).
 Canary Rockfish and Silvergray Rockfish were the two species with the lowest encounter rates (`r round(canary_encounter * 100, 0)`\% and `r round(silvergray_encounter * 100, 0)`\% respectively).
