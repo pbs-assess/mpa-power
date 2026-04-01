@@ -22,8 +22,8 @@ species_to_plot <- sampling_summary |>
     survey_abbrev == .env$survey_abbrev,
     plan == .env$plan,
     ar1_scenario == .env$ar1_scenario,
-    time_scenario == .env$time_scenario,
-    !grepl("halibut", species, ignore.case = TRUE)
+    time_scenario == .env$time_scenario
+    # !grepl("halibut", species, ignore.case = TRUE)
   ) |>
   distinct(species) |>
   arrange(species) |>
