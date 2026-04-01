@@ -177,15 +177,15 @@ power_df |>
     scale_size_manual(values = c("TRUE" = 1.5, "FALSE" = 2), guide = "none") +
     facet_grid(rows = vars(mpa_effect_label), cols = vars(species),
       labeller = labeller(species = function(x) stringr::str_replace(x, " ", "\n"))) +
-    scale_colour_viridis_d(option = "plasma", end = 0.85, guide = "none") +
+    scale_colour_viridis_d(option = "plasma", end = 0.85) +
     scale_y_continuous(labels = scales::percent, limits = c(0, 1.05),
                         expand = expansion(mult = c(0, 0.02))) +
-    labs(x = "Evaluation year", y = "Type S error rate") +
+    labs(x = "Evaluation year", y = "Type S (sign) error rate", colour = "Recovery over 25 years") +
     theme(
       axis.text.x = element_text(angle = 45, hjust = 1, size = 7),
-      panel.spacing = unit(0.5, "lines")
+      panel.spacing = unit(0.5, "lines"), legend.position = "top"
     )
-ggsave(file.path(fig_dir, "type-s-error-plot.png"), width = 8.2, height = 5)
+ggsave(file.path(fig_dir, "type-s-error-plot.png"), width = 8.2, height = 5.5)
 
 
 # ------------------------------------------------------------------------------
