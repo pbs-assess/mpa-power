@@ -100,6 +100,12 @@ hbll_general |>
   flextable() |>
   set_table_properties(layout = "autofit") |>
   set_caption("General information for the Hard Bottom Longline Survey — Outside and Inside (2003–2024).")
+
+# Count inside and outside of MPAs is slightly different than the power analysis
+# because the power analysis used grid cell classification of inside/outside
+# Where grids that had majority of area inside were noted as inside. 
+# Whereas, individual transects if they overlapped with the polygons, they were 
+# considered to be inside 
 ```
 
 <br><br>
@@ -110,10 +116,10 @@ hbll_summary_wide <-
   readRDS(here::here("data-generated", "overlays", "hbll-summary-table.rds")) |>
   tidyr::pivot_wider(names_from = metric, values_from = value)
 
-hbll_n_events_total    <- as.integer(hbll_summary_wide$`Total transects`)
-hbll_n_events_inside   <- as.integer(hbll_summary_wide$`Transects inside MPA boundaries`)
+hbll_n_events_total    <- as.integer(hbll_summary_wide$n_sets)
+hbll_n_events_inside   <- as.integer(hbll_summary_wide$`Sets inside MPA boundaries`)
 hbll_pct_inside        <- as.numeric(hbll_summary_wide$`% of effort inside MPA boundaries`)
-hbll_years_conducted   <- hbll_summary_wide$`Years conducted`
+hbll_years_conducted   <- hbll_summary_wide$`Years evaluated here`
 
 hbll_sites_all         <- readRDS(here::here("data-generated", "overlays", "hbll-site-summary-table.rds"))
 hbll_n_site_rows       <- nrow(hbll_sites_all)
@@ -165,9 +171,8 @@ hbll_mpa_df |>
             .groups = "drop") |>
   arrange(desc(n_events)) |>
   slice(1:3) |>
-  mutate(Notes = "") |>
   select(`Site Name` = site, `Total fishing events` = n_events,
-         `Years of coverage` = years, Notes) |>
+         `Years of coverage` = years) |>
   flextable() |>
   set_table_properties(layout = "autofit") |>
   set_caption("The three MPAN sites with the highest number of Hard Bottom Longline fishing events recorded within site boundaries (2003–2024).")
@@ -178,15 +183,25 @@ hbll_mpa_df |>
 <br><br>
 
 ```{r}
+# Option to add subregion - but it does get complicated because we have to 
+# manually aggregate them since a site can be split across subregions
+# subregion_lu <- simple_mpa |>
+#   st_drop_geometry() |>
+#   distinct(uid, subregion, site = common_site_name_site_profile) |>
+#   mutate(subregion = ifelse(is.na(subregion), "NC/CC", subregion))
+
 hbll_sites <- readRDS(here::here("data-generated", "overlays", "hbll-site-summary-table.rds"))
 
 hbll_sites |> 
-  select(`Site ID`, `Common Site Name`, `Total transects`, `First survey`, `Last survey`, `No. years`, `E-CP species count`) |>
-  slice(1:5) |>
+  # left_join(subregion_lu, by = c("Common Site Name" = "site")) |>
+  select(#Subregion = subregion, 
+  `Site Name` = `Common Site Name`, `Total transects`, `First survey`, `Last survey`, `No. years`, `E-CP species count`) |>
+  distinct() |>
+  # slice(1:5) |>
   flextable() |>
   colformat_int(j = c("First survey", "Last survey"), big.mark = "") |>
   set_table_properties(layout = "autofit") |>
-  set_caption("The five MPAN Hard Bottom Longline Survey sites with the highest number of fishing events recorded within site boundaries (2003–2024), showing total transects, first and last survey years, number of survey years, and E-CP species richness. See Appendix XX for the complete list of 74 sites.")
+  set_caption("The five MPAN Hard Bottom Longline Survey sites with the highest number of fishing events recorded within site boundaries (2003–2024), showing total transects, first and last survey years, number of survey years, and E-CP species richness.")
 
 ```
 
@@ -197,17 +212,18 @@ hbll_ecp_encounter_cpue <- readRDS(here::here("data-generated", "overlays", "hbl
 
 hbll_ecp_top_inside <-
   hbll_ecp_encounter_cpue |>
-  dplyr::arrange(dplyr::desc(total_catch_inside))
+  filter(in_mpa == 1) |>
+  dplyr::arrange(dplyr::desc(total_catch))
 
 hbll_yerow <- hbll_ecp_encounter_cpue |>
   dplyr::filter(species_common_name == "yelloweye rockfish")
 
 hbll_ecp_top1_name  <- "yelloweye rockfish"
-hbll_ecp_top1_n_raw <- hbll_yerow$total_catch_inside[1]
+hbll_ecp_top1_n_raw <- hbll_yerow$total_catch[1]
 hbll_ecp_top2_name  <- hbll_ecp_top_inside$species_common_name[2]
-hbll_ecp_top2_n_raw <- hbll_ecp_top_inside$total_catch_inside[2]
+hbll_ecp_top2_n_raw <- hbll_ecp_top_inside$total_catch[2]
 hbll_ecp_top3_name  <- hbll_ecp_top_inside$species_common_name[3]
-hbll_ecp_top3_n_raw <- hbll_ecp_top_inside$total_catch_inside[3]
+hbll_ecp_top3_n_raw <- hbll_ecp_top_inside$total_catch[3]
 
 hbll_ecp_top1_n <- formatC(hbll_ecp_top1_n_raw, format = "f", big.mark = ",", digits = 0)
 hbll_ecp_top2_n <- formatC(hbll_ecp_top2_n_raw, format = "f", big.mark = ",", digits = 0)
@@ -216,7 +232,84 @@ hbll_ecp_top3_n <- formatC(hbll_ecp_top3_n_raw, format = "f", big.mark = ",", di
 hbll_ecp_raw <- readRDS(here::here("data-generated", "hbll-ecp-species.rds"))
 hbll_ecp_n_species <- length(unique(hbll_ecp_raw$species_common_name))
 
-ecp_clean <- readRDS(here::here("data-generated", "ecp-clean.rds"))
+fish_groups <- c(
+    "pleuronectidae(righteye flounders)",
+    "osmeridae(smelts)",
+    "clupeidae(herrings)",
+    "ammodytidae(sand lances)",
+    "hexagrammidae(greenlings)",
+    "anoplopomatidae(sablefishes)",
+    "anarhichadidae(wolffishes)",
+    "myctophidae(lanternfishes)",
+    "bathylagidae(deepsea smelts)",
+    "oncorhynchus(pacific salmon and native trout)",
+    "salmoninae(pacific salmon and native trout)",
+    "scombridae(mackerels and tunas)",
+    "molidae(molas)",
+    "sebastes",                      # rockfish genus
+    "sebastolobus(thornyheads)",
+    "gadidae",                       # cods
+    "merlucciidae(merluccid hakes)",
+    "acipenseridae",                 # sturgeons
+    "embiotocidae(surfperches)",
+    "hexanchidae(cow sharks)",
+    "somniosidae",                   # sleeper sharks
+    "squalidae(dogfish sharks)",
+    "cetorhinidae(basking shark)",
+    "carcharhinidae(requiem sharks)",
+    "lamnidae(mackerel sharks)",
+    "rajidae(skates)",
+    "bathyraja"                      # skate genus
+  )
+
+# Invertebrates - 
+invert_groups <- c(
+  # Cnidarians (corals, anemones)
+  "ceriantipatharia",
+  "hexacorallia",
+  "octocorallia",
+  # Crustaceans
+  "pollicipes",
+  "metacarcinus",
+  "chionoecetes(tanner crabs)",
+  "lopholithodes(box crabs)",
+  "neotrypaea",
+  "pandalus(pandalid shrimp)",
+  "pandalopsis",
+  "eucarida",
+  # Echinoderms (sea stars, urchins, cucumbers)
+  "pisaster",
+  "pycnopodia",
+  "strongylocentrotus",
+  "strongylocentrotidae",
+  "apostichopus",
+  # Molluscs
+  "enteroctopus",  # octopus
+  "doryteuthis",   # squid
+  "saxidomus",     # clams
+  "clinocardium",
+  "panopea",
+  "tresus(horse clam)",
+  "leukoma",
+  "siliqua",
+  "mytilus",       # mussels
+  "ostrea",        # oysters
+  "chlamys",       # scallops
+  "crassadoma",
+  "patinopecten",
+  "haliotis",       # abalone
+  # Sponges
+  "porifera(sponges)",
+  "aphrocallistidae",
+  "farrea",
+  "heterochone"
+)
+
+
+ecp_clean0 <- readRDS(here::here("data-generated", "ecp-clean.rds"))
+ecp_clean <- ecp_clean0 |> mutate(is_fish = parent_taxonomic_unit %in% fish_groups) |>
+  mutate(is_invert = parent_taxonomic_unit %in% invert_groups)
+
 hbll_ecp_species_lu <- hbll_ecp_raw |>
   dplyr::distinct(species_science_name, species_common_name) |>
   dplyr::left_join(
@@ -225,6 +318,31 @@ hbll_ecp_species_lu <- hbll_ecp_raw |>
     by = c("species_science_name" = "scientific_name")
   )
 hbll_ecp_n_species_ecp <- sum(!is.na(hbll_ecp_species_lu$is_ecp) & hbll_ecp_species_lu$is_ecp)
+
+n_fish_ecps <- ecp_clean |> 
+  mutate(is_fish = parent_taxonomic_unit %in% fish_groups) |>
+  summarise(n_fish_ecps = sum(is_fish), .groups = "drop")
+
+n_invert_ecps <- ecp_clean |> 
+  mutate(is_invert = parent_taxonomic_unit %in% invert_groups) |>
+  filter(is_invert == TRUE) |>
+  summarise(n_invert_ecps = sum(is_invert), .groups = "drop")
+
+hbll_fish_ecps <- hbll_ecp_species_lu |>
+  left_join(ecp_clean |> select(scientific_name, is_fish), by = c("species_science_name" = "scientific_name")) |>
+  filter(is_fish == TRUE) |>  
+  nrow()
+
+hbll_invert_ecps <- hbll_ecp_species_lu |>
+  left_join(ecp_clean |> select(scientific_name, is_invert), by = c("species_science_name" = "scientific_name")) |>
+  filter(is_invert == TRUE) |>  
+  nrow()
+
+hbll_non_fish_ecps <- hbll_ecp_species_lu |>
+  left_join(ecp_clean |> select(scientific_name, is_fish), by = c("species_science_name" = "scientific_name")) |>
+  filter(is_fish == FALSE) |>  
+  nrow()
+
 ```
 
 **Conservation Priority Species — Catches Inside MPA Boundaries**
@@ -236,64 +354,75 @@ Yelloweye rockfish is a particularly high-priority conservation target: it is lo
 
 <br><br>
 
-```{r, fig.cap="Catch-per-unit-effort (CPUE; counts per set) for Ecologically (E‑CP) and Culturally Important (C-CP) species in the HBLL surveys that are encountered in at least 5% of survey sets, comparing inside (blue) and outside (orange) MPAs. Species are ordered from top to bottom by their maximum CPUE across zones.", fig.width=7.5, fig.height=8}
+```{r, fig.cap="Mean catch-per-unit-effort (CPUE; counts per set) for Ecologically (E‑CP) and Culturally Important (C-CP) species in the HBLL surveys that are encountered in at least 5% of survey sets, comparing inside (blue) and outside (orange) MPAs. Species are ordered from top to bottom by mean CPUE.", fig.width=6.4, fig.height=7}
 
-hbll_ecp_encounter_cpue <- readRDS(file.path(here::here("data-generated", "overlays", "hbll-ecp-encounter-cpue.rds")))
+# hbll_ecp_encounter_cpue <- readRDS(file.path(here::here("data-generated", "overlays", "hbll-ecp-encounter-cpue.rds")))
 
-hbll_ecp_encounter_long <-
-  hbll_ecp_encounter_cpue |>
-  select(species_common_name, encounter_rate_inside, encounter_rate_outside) |>
-  tidyr::pivot_longer(
-    cols = c(encounter_rate_inside, encounter_rate_outside),
-    names_to = "zone", values_to = "encounter_rate"
+gf_ecp_data_complete <- readRDS(here::here("data-generated", "overlays", "gf-ecp-data-complete.rds"))
+
+
+hbll_ecp_encounter_cpue_by_mpa <- gf_ecp_data_complete |>
+  group_by(species_common_name, in_mpa) |>
+  summarise(
+    mean_catch_count = mean(catch_count, na.rm = TRUE),
+    prop_encounter = mean(present, na.rm = TRUE),  # or mean(catch_count > 0)
+    n_sets = n_distinct(fishing_event_id),
+    n_encounters = sum(present, na.rm = TRUE),
+    total_catch = sum(catch_count, na.rm = TRUE),
+    .groups = "drop"
   ) |>
-  mutate(zone = if_else(zone == "encounter_rate_inside", "Inside MPAs", "Outside MPAs"))
+  mutate(
+    location = if_else(in_mpa == 1, "Inside MPA", "Outside MPA")
+  )
 
-hbll_ecp_cpue_long <-
-  hbll_ecp_encounter_cpue |>
-  left_join(hbll_ecp_encounter_long) |>
-  filter(encounter_rate > 0.05) |>
-  select(species_common_name, cpue_inside, cpue_outside) |>
-  tidyr::pivot_longer(
-    cols = c(cpue_inside, cpue_outside),
-    names_to = "zone", values_to = "cpue"
+# Bar chart of CPUE inside vs outside MPAs ------------------------------------
+more_than5_percent <- 
+gf_ecp_data_complete |>
+  group_by(species_common_name) |>
+  summarise(
+    n_sets = n_distinct(fishing_event_id),
+    n_encounters = sum(present, na.rm = TRUE),
+    .groups = "drop"
   ) |>
-  mutate(zone = if_else(zone == "cpue_inside", "Inside MPAs", "Outside MPAs"))
+  arrange(desc(n_encounters)) |>
+  filter(n_encounters / n_sets > 0.05) |>
+  pull(species_common_name)
 
 hbll_ecp_cpue_bar <-
-  hbll_ecp_cpue_long |>
-  filter(cpue > 0) |>
+  hbll_ecp_encounter_cpue_by_mpa |>
+  filter(species_common_name %in% more_than5_percent) |>
   mutate(
     species_common_name = stringr::str_to_title(species_common_name),
     species_common_name = gsub(" North Pacific", "", species_common_name)
   ) |>
-  group_by(species_common_name) |>
-  mutate(max_cpue = max(cpue, na.rm = TRUE)) |>
-  ungroup() |>
+  # group_by(species_common_name) |>
+  # mutate(max_cpue = max(val, na.rm = TRUE)) |>
+  # ungroup() |>
   mutate(
-    species_common_name = forcats::fct_reorder(species_common_name, max_cpue)
+    species_common_name = forcats::fct_reorder(species_common_name, mean_catch_count)
   ) |>
-  ggplot(aes(x = cpue, y = species_common_name, fill = zone)) +
+  ggplot(aes(x = mean_catch_count, y = species_common_name, fill = location)) +
   geom_col(position = position_dodge(width = 0.7), width = 0.7) +
   scale_fill_manual(
     values = c(
-      "Inside MPAs" = "#0072B2",  # blue, colourblind friendly
-      "Outside MPAs" = "#D55E00"  # reddish orange, colourblind friendly
+      "Inside MPA" = "#0072B2",  # blue, colourblind friendly
+      "Outside MPA" = "#D55E00"  # reddish orange, colourblind friendly
     )
   ) +
   labs(
-    x = "CPUE (catch per set)",
+    x = "Mean CPUE (count per set)",
     y = "",
     fill = "",
-    title = "HBLL E-CP species: CPUE inside vs outside MPAs"
   ) +
   gfplot::theme_pbs() +
-  theme(
-    legend.position = "top",
-    axis.text.y = element_text(hjust = 1.03)
-  )
+  theme(legend.position = "inside", 
+        legend.position.inside = c(0.75, 0.1),
+        legend.title = element_blank(),
+        legend.text = element_text(size = 9),
+        legend.key.size = unit(0.5, "cm"),
+        legend.key.spacing.y = unit(0.2, "cm"))
 hbll_ecp_cpue_bar
-
+ggsave(file.path(here::here("figures", "spatial-overlays", "hbll-ecp-cpue-bar.png")), width = 6.4, height = 6.1)
 
 ```
 <br><br>
@@ -362,10 +491,10 @@ A practical recommendation is to prioritize yelloweye rockfish as the primary bi
 
 ```{r}
 
-msd_general <- readRDS(here::here("data-generated", "msd-summary-table.rds"))
+msd_general <- readRDS(here::here("data-generated", "overlays", "msd-summary-table.rds"))
 
 msd_general |>
-  filter(metric != "years_not_in_mpa") |>
+  filter(!(metric %in% c("years_not_in_mpa", "n_sites_sampled"))) |>
   flextable() |>
   set_table_properties(layout = "autofit") |>
   set_caption("General information for the DFO Multispecies Benthic Invertebrate Dive Survey (2016–2024).")
@@ -376,14 +505,18 @@ msd_general |>
 
 
 ```{r msd-stage4-narrative-values, include = FALSE}
+msd_sites <- readRDS(here::here("data-generated", "overlays", "msd-site-summary-table.rds")) |>
+select(-`site`)
+
+
 # Stage 4 and general narrative values (from msd_general and msd_sites only)
-msd_v <- msd_general |> filter(metric != "years_not_in_mpa") |> tibble::deframe()
+msd_v <- msd_general |> tibble::deframe()
 msd_transects_inside <- as.integer(msd_v["Transects inside MPA boundaries"])
 msd_transects_total <- as.integer(msd_v["Total transects"])
 msd_transects_outside <- as.integer(msd_v["Transects outside MPA boundaries"])
 msd_pct_inside <- as.numeric(msd_v["% of effort inside MPA boundaries"])
 msd_pct_outside <- round(100 - msd_pct_inside, 0)
-msd_n_sites <- as.integer(msd_v["Number of MPAN sites sampled"])
+msd_n_sites <- as.integer(msd_v["n_sites_sampled"])
 msd_years_conducted <- msd_v["Years conducted"]
 msd_first_year <- as.integer(sub("^([0-9]+)-.*", "\\1", msd_years_conducted))
 msd_last_year <- as.integer(sub("^[0-9]+-(.*)", "\\1", msd_years_conducted))
@@ -435,12 +568,15 @@ knitr::include_graphics(here::here("figures/spatial-overlays/heatmap-msd-mpa-sf.
 <br><br>
 
 ```{r}
-
-msd_sites <- readRDS(here::here("data-generated", "msd-site-summary-table.rds"))
-
 msd_sites |> 
+  # left_join(subregion_lu, by = c("Common Site Name" = "site")) |>
   mutate(`Mean species richness` = round(`Mean species richness`, 1)) |>
-  select(`Site ID`, `Common Site Name`, `Total transects`, `Years in MPA`, `Unique species`, `Mean species richness`) |>
+  select(#Subregion = subregion, 
+  `Site Name` = `Common Site Name`, `Total transects`, 
+  #`No. years`, 
+  `Years in MPA`,
+  `Unique species`, `Mean species richness`) |>
+  distinct() |>
   flextable() |>
   set_table_properties(layout = "autofit") |>
   set_caption("MPAN sites where multispecies benthic invertebrate surveys have been conducted (2016–2024), showing total transects, survey years, and species richness. Northern Abalone transect data are excluded from site-level species counts due to data confidentiality provisions (DFO 2012)")
@@ -452,7 +588,7 @@ msd_sites |>
 
 ```{r}
 
-msd_species_summary <- readRDS(here::here("data-generated", "msd-species-summary-table.rds"))
+msd_species_summary <- readRDS(here::here("data-generated", "overlays", "msd-species-summary-table.rds"))
 
 # see: https://esajournals.onlinelibrary.wiley.com/doi/full/10.1002/ecs2.4959
 # macrocystis pyrifera is different from macrocystis integrifola and is found in california while integrifolia is found in BC
@@ -461,7 +597,7 @@ ecp_lu <- tribble(
   "Apostichopus californicus", "(C-CP)",
   "Macrocystis integrifolia", "",
   "Mesocentrotus franciscanus", "(E-CP)",
-  "Nereocystis luetkeanus", "(E-CP)",
+  "Nereocystis luetkeana", "(E-CP)",
   "Panopea generosa", "(E-CP)",
   "Phyllospadix (genus)", "(E-CP)",
   "Pterygophora californica", "",
@@ -473,7 +609,9 @@ ecp_lu <- tribble(
 
 msd_species_summary_clean <- msd_species_summary |>
   mutate(Species = ifelse(Species == "Zostera", "Zostera (genus)", Species),
-         Species = ifelse(Species == "Phyllospadix", "Phyllospadix (genus)", Species),
+         Species = ifelse(Species == "Phyllospadix", "Phyllospadix (genus)",
+          Species),
+         Species = ifelse(Species == "Nereocystis luetkeanus", "Nereocystis luetkeana", Species),
          `Common name` = gsub("red urchin", "red sea urchin", `Common name`),
          `Common name` = gsub("green urchin", "green sea urchin", `Common name`),
          `Common name` = gsub("pacific geoduck", "geoduck", `Common name`),
@@ -519,7 +657,7 @@ msd_eelgrass <- msd_species_summary_clean |>
 msd_eelgrass_pct <- round(msd_eelgrass$`Proportion inside MPAs` * 100)
 
 # Top 3 sites by E-CP species sightings; order so longest time series is last ("notably...")
-msd_site_ecp <- readRDS(here::here("data-generated", "msd-site-ecp-sightings.rds")) |>
+msd_site_ecp <- readRDS(here::here("data-generated", "overlays", "msd-site-ecp-sightings.rds")) |>
   filter(!is.na(site))
 msd_top3_ecp <- msd_site_ecp |>
   left_join(msd_sites |> select(site = `Common Site Name`, `No. years`), by = "site") |>
@@ -546,8 +684,6 @@ Within MPAN boundaries, the survey has documented all target E-CP and C-CP speci
 
 Geoduck (`r msd_geoduck_pct`% of sightings inside MPAs) and Red Sea Urchin (`r msd_red_urchin_pct`%) show the highest proportional representation inside MPA boundaries, suggesting these species may be concentrated in the rocky reef habitats sampled within MPA sites. Sunflower Sea Star sightings, while lower in absolute numbers (`r msd_sunflower_inside` inside, `r msd_sunflower_outside` outside), show `r msd_sunflower_pct`% of records inside MPAs — notable given this species is IUCN Critically Endangered and recovering from Sea Star Wasting Disease. Eelgrass sightings are predominantly recorded outside MPA boundaries (`r msd_eelgrass_pct`% inside), consistent with the distribution of eelgrass habitat in more sheltered intertidal and shallow subtidal areas not concentrated within the current MPAN sites.
 
-~~The three most productive sites for E-CP species monitoring were `r msd_ecp_site1` (>`r msd_ecp_site1_n` total species sightings), `r msd_ecp_site2` (>`r msd_ecp_site2_n` sightings), and `r msd_ecp_site3` — notably the site with the longest temporal coverage.~~ Not sure this text fits anymore because these are also the most sampled sites.
-
 <br><br>
 
 ```{r}
@@ -563,19 +699,46 @@ msd_species_summary_clean |>
 
 <br><br>
 
-```{r, fig.cap="Alternative to previous table"}
+```{r, fig.cap="Alternative to previous table", fig.width=6.4, fig.height=5.3}
 msd_species_summary_clean |>
   mutate(
     total = `Sightings inside MPAs` + `Sightings outside MPAs`,
     Species = gsub("\\(E-CP\\)", "", Species),
+    Species = gsub("\\(C-CP\\)", "", Species),
     Species = gsub("\\(genus\\)", "", Species),
     Species = forcats::fct_reorder(Species, total, .desc = FALSE)
   ) |>
-  ggplot(aes(y = Species, x = total)) +
+  # ggplot(aes(y = Species, x = total)) +
+  ggplot(aes(y = forcats::fct_reorder(`Common name`, total), x = total)) +
   geom_col() +
   labs(x = "Total sightings", y = "Species") +
-  gfplot::theme_pbs()
+  gfplot::theme_pbs() #+
+  # theme(axis.text.y = element_text(face = "italic"))
+ggsave(file.path(here::here("figures", "spatial-overlays", "msd-ecp-cpue-bar.png")), width = 6.4, height = 4.1)
 
+msd_species_summary_clean |>
+  mutate(
+    total = `Sightings inside MPAs` + `Sightings outside MPAs`,
+    Species = gsub("\\(E-CP\\)", "", Species),
+    Species = gsub("\\(C-CP\\)", "", Species),
+    Species = gsub("\\(genus\\)", "", Species),
+    Species = forcats::fct_reorder(Species, total, .desc = FALSE)
+  ) |>
+  tidyr::pivot_longer(cols = c(`Sightings inside MPAs`, `Sightings outside MPAs`), names_to = "location", values_to = "sightings") |>
+  ggplot(aes(y = forcats::fct_reorder(`Common name`, total), x = sightings, 
+    fill = location)) +
+  geom_col(position = "dodge") +
+  scale_fill_manual(values = c("Sightings inside MPAs" = "#0072B2", "Sightings outside MPAs" = "#D55E00")) +
+  labs(x = "Total sightings", y = "Species") +
+  gfplot::theme_pbs() +
+  theme(legend.position = "inside", 
+        legend.position.inside = c(0.75, 0.1),
+        legend.title = element_blank(),
+        legend.text = element_text(size = 9),
+        legend.key.size = unit(0.5, "cm"),
+        legend.key.spacing.y = unit(0.2, "cm"))
+
+ggsave(file.path(here::here("figures", "spatial-overlays", "msd-ecp-cpue-bar-inside-outside.png")), width = 6.4, height = 4.1)
 ```
 
 **Value for Assessing MPA Effectiveness**

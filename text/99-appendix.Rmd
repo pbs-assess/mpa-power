@@ -7,7 +7,7 @@
 hbll_sites <- readRDS(here::here("data-generated", "overlays", "hbll-site-summary-table.rds"))
 
 hbll_sites |> 
-  select(`Site ID`, `Common Site Name`, `Total transects`, `First survey`, `Last survey`, `No. years`, `E-CP species count`) |>
+  select(`Common Site Name`, `Total transects`, `First survey`, `Last survey`, `No. years`, `E-CP species count`) |>
   flextable() |>
   colformat_int(j = c("First survey", "Last survey"), big.mark = "") |>
   set_table_properties(layout = "autofit") |>
