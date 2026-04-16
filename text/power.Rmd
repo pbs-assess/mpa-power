@@ -366,10 +366,16 @@ Pacific Halibut might be expected to rebound more quickly than some of the other
 
 In this analysis we simulated and modelled increases in fish abundance, which will likely be slower to detect compared to changes in body size.
 Given that fishing pressure targets large individuals, cessation of fishing would lead to an increase in larger body sizes as those large individuals are no longer removed. 
-Whereas, abundance increases will be a combination of young, small fish increasing in size to be capture by the survey gear, and then will depend on ongoing or post-implementation recruitment. 
-In a population model, @perkins2021quantifying showed that over 25 years, biomass was expected to increase by 95\% but abundance would only increase by 44\%. 
-They also found that to achieve high power in the shortest time required using biomass as the response metric.
-When effects of proximity to RCA were examined for 28 species @wilson2025groundfish found positive effects on body size and relative abundance, but body size (length) effects were stronger and detected more consistently across species and sites.
+Whereas abundance increases will be a combination of young, small fish increasing in size to be captured by the survey gear and then will depend on ongoing or post-implementation recruitment. 
+In a population model for Brown Rockfish (*Sebastes auriculatus*), a faster-growing rockfish species with an intrinsic rate of population growth more similar to Lingcod than to Yelloweye or Quillback Rockfish, @perkins2021quantifying showed that over 25 years, biomass was expected to increase by 95\% but abundance would only increase by 44\%. 
+They found that achieving high power in the shortest time required using biomass as the response metric, with biomass-based detections possible within 12 years but abundance-based detections not achievable even after 18 years.
+
+Similarly, in an empirical study examining the effects of proximity to rockfish conservation areas (RCA) for 28 species @wilson2025groundfish found positive effects on body size and relative abundance, but body size (length) effects were stronger and detected more consistently across species and sites.
+For species with low intrinsic rates of population growth like Yelloweye and Quillback Rockfish, body size increases were detectable within 3--6 years depending on pre-implementation harvest levels, while abundance increases were not detectable even after 18 years.
+Meanwhile, species like Lingcod with high intrinsic rates of population growth detected increases in both abundance and body size as early as 12 years.
+These findings are consistent with our power analysis showing that at least 16--20 years of monitoring are needed to detect significant increases in abundance. 
+They also suggest that incorporating size-based metrics could substantially reduce the monitoring timeline needed to detect MPA effects.
+
 
 ### Caveats and extensions
 
@@ -401,16 +407,14 @@ A spatially balanced sampling approach such as balanced acceptance sampling [@va
 
 **Future extensions**
 
-
-- Include depth or other habitat covariates
-
-- Could also combine with other surveys such as the synoptic trawl
-
 For this analysis and with the goal to evaluate at a network scale we pooled the three HBLL surveys. 
 Future analyses could use the individual survey regions, however this would reduce power further due to lower sample sizes. 
 In particular, the HBLL INS N would have very limited power as it has fewer than half the target number of sets as the HBLL OUT N and S. 
 Perkins et al. [@perkins2021quantifying] also found that combining data across survey areas and MPA sites improved power and shortened the time to reach target power. 
 For network monitoring additional surveys such as the trawl or ROV surveys could be combined with the HBLL to improve power. 
+Given the early detections of body size increases, a future power anlayis could use an approach to simulate changes in the size distributions through time to provide, similar to the method used by @perkins2021quantifying or by using stock assessment models that use size-at-age projections under no-fishing scenarios.
+
+
 
 
 ---
