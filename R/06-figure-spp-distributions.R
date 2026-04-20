@@ -69,7 +69,8 @@ species_breaks <- list(
   "pacific spiny dogfish" = c(1, 5, 20, 70),
   "quillback rockfish" = c(0.1, 2, 5, 15),
   "lingcod" = c(0.1, 2, 5, 10),
-  "yelloweye rockfish" = c(1, 5, 20, 50)
+  "yelloweye rockfish" = c(1, 5, 20, 50),
+  "pacific halibut" =c (1, 5, 20)
 )
 
 plot_dists <- function(p_spp_sf) {
@@ -96,9 +97,11 @@ plot_dists <- function(p_spp_sf) {
     facet_wrap(~ species, ncol = 6,
       labeller = labeller(species = function(x) tools::toTitleCase(tolower(x)))) +
     theme(legend.position = "bottom",
-      strip.text = element_text(size = 10),
+      strip.text = element_text(size = 11),
+      strip.clip = "off",
       axis.ticks = element_blank(),
       axis.text = element_blank(),
+      legend.margin = margin(t = -4, r = 0, b = 0, l = 0),
       legend.text = element_text(size = 9)) +
     guides(fill = guide_colorbar(title.position = "top", barwidth = 5, title = NULL)) +
     labs(fill = NULL, colour = NULL)
@@ -109,14 +112,17 @@ plot_dists <- function(p_spp_sf) {
 #   group_split()  |>
 #   purrr::map(plot_dists)
 
+ye_dist <- local(preds_sf |> filter(species == "yelloweye rockfish") |> plot_dists())
+saveRDS(ye_dist, file.path("data-generated", "fig-ye-dist.rds"))
+
 # dev.new(width = 9, height = 5.5)
 dist_plots <- preds_sf |>
   group_by(species) |>
   group_split()  |>
   purrr::map(plot_dists)
 
-p_grid <- patchwork::wrap_plots(dist_plots, ncol = 6) &
-  theme(plot.margin = margin(2, 2, 2, 2))
+p_grid <- patchwork::wrap_plots(dist_plots, nrow = 2) &
+  theme(plot.margin = margin(2, 5, 2, 5))
 
 p_grid <- p_grid +
   patchwork::plot_annotation(
@@ -127,5 +133,5 @@ p_grid <- p_grid +
   )
 
 p_grid
-
-ggsave(file.path(fig_dir, "predicted-distributions.png"), width = 9, height = 5.5)
+meep()
+ggsave(file.path(fig_dir, "predicted-distributions.png"), width = 6, height = 9)

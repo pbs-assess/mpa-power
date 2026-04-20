@@ -164,7 +164,7 @@ ggplot(
   geom_vline(
     xintercept = eval_years,
     linetype = 2,
-    alpha = 0.3
+    alpha = 0.25
   ) +
   scale_linetype_manual(values = c(`TRUE` = "solid", `FALSE` = "solid"), guide = "none") +
   scale_y_log10() +

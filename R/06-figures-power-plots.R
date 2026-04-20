@@ -136,7 +136,7 @@ power_df |>
   labs(colour = "Recovery over\n25 years") +
   theme(legend.position = "inside",
     legend.position.inside = c(0.9, 0.2),
-        panel.spacing = unit(1, "lines"), 
+        panel.spacing = unit(1, "lines"),
       panel.grid.major = element_line(colour = "grey92", linewidth = 0.4)) +
   guides(colour = guide_legend(reverse = TRUE)) +
   labs(x = "Evaluation year", y = "Correctly signed power") +
@@ -144,7 +144,7 @@ power_df |>
 ggsave(file.path(fig_dir, "main-power-plot.png"), width = 7.4, height = 4.4)
 
 # Type M error plot ------------------------------------------------------------
-power_df |>
+type_m_all_species <- power_df |>
   ggplot() +
   aes(x = eval_year, y = type_m_error, colour = mpa_effect_label) +
   geom_point() +
@@ -156,12 +156,21 @@ power_df |>
   labs(colour = "Recovery over\n25 years") +
   theme(legend.position = "inside",
     legend.position.inside = c(0.9, 0.2),
-        panel.spacing = unit(1, "lines"), 
+        panel.spacing = unit(1, "lines"),
       panel.grid.major = element_line(colour = "grey92", linewidth = 0.4)) +
   guides(colour = guide_legend(reverse = TRUE)) +
-  scale_y_log10(limits = c(1, NA), expand = expansion(mult = c(0, 0.05)), breaks = c(1, 2, 5, 10, 30)) +
+  scale_y_log10(limits = c(0.97, NA), expand = expansion(mult = c(0, 0.05)), breaks = c(1, 2, 5, 10, 30)) +
   labs(x = "Evaluation year", y = "Multiplicative magnitude error\non the 25-year percent increase")
-ggsave(file.path(fig_dir, "type-m-error-plot.png"), width = 7.4, height = 4.4)
+type_m_all_species
+ggsave(file.path(fig_dir, "type-m-error-plot-all-species.png"), width = 7.4, height = 4.4)
+
+type_m_all_species +
+ (power_df |> filter(species %in% c("yelloweye rockfish", "lingcod", "quillback rockfish"))) +
+ facet_wrap(~ species, labeller = as_labeller(stringr::str_to_title), nrow = 1) +
+ theme(legend.position = "bottom") +
+ labs(colour = "Recovery over 25 years")
+ggsave(file.path(fig_dir, "type-m-error-plot.png"), width = 7, height = 3.3)
+
 
 # Type S error plot ------------------------------------------------------------
 # Current option
