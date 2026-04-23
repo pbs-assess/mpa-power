@@ -221,8 +221,7 @@ load_sim_data <- function(species, survey_abbrev, mpa_trend, ar1_scenario,
 
   # Add joins that were moved from script 02 to reduce file size
   sim_dat <- sim_dat |>
-    left_join(hbll_allocations, by = c("survey_abbrev", "grouping_code")) |>
-    mutate(spatial_grouping_id = ifelse(pfma %in% c("5A", "4B"), "5A4B", pfma))
+    left_join(hbll_allocations, by = c("survey_abbrev", "grouping_code"))
 
   historical_locations <- readRDS(file.path("data-generated", "historical-locations.rds")) |>
     tidyr::drop_na(block_id) |>
@@ -492,10 +491,11 @@ run_sampling <- function(sim_dat, species) {
 
   if (RUN_NON_BOOTSTRAP_PLANS) {
     # Case 1: Status quo sampling plan ------------------------
+
     sample_effort_status_quo <- sim_dat |>
       mutate(n_samps = allocation) |>
       select(survey_series_id, survey_abbrev,
-        year, X, Y, block_id, grouping_code, pfma, strata_depth,
+        year, X, Y, block_id, grouping_code, grouping_spatial_id, grouping_depth_id, strata_depth,
         restricted, allocation, n_samps) |>
       filter_hbll_survey_years()
 

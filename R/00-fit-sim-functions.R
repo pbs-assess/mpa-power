@@ -707,7 +707,7 @@ sample_by_plan <- function(
   group_list <- sim_dat |>
     left_join(sampling_effort, by = join_by(year, X, Y, restricted,
       survey_abbrev, block_id, grouping_code, survey_series_id,
-      pfma, strata_depth, allocation)) |>
+      grouping_spatial_id, grouping_depth_id, strata_depth, allocation)) |>
     drop_na(n_samps) |>
     group_by(!!!syms(grouping_vars)) |>
     group_split()
@@ -716,6 +716,7 @@ sample_by_plan <- function(
     n_samps <- unique(g$n_samps)
     slice_sample(g, n = n_samps, replace = FALSE)
   })
+
   bind_rows(sampled_list)
 }
 
