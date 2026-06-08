@@ -133,7 +133,7 @@ power_df |>
     nrow = 2) +
   scale_colour_viridis_d(option = "plasma", end = 0.85) +
   scale_x_continuous(breaks = unique(power_df$eval_year)) +
-  labs(colour = "Recovery over\n25 years") +
+  labs(colour = "Abundance increase\nover 25 years") +
   theme(legend.position = "inside",
     legend.position.inside = c(0.9, 0.2),
         panel.spacing = unit(1, "lines"),
@@ -153,7 +153,7 @@ type_m_all_species <- power_df |>
     nrow = 2) +
   scale_colour_viridis_d(option = "plasma", end = 0.85) +
   scale_x_continuous(breaks = unique(power_df$eval_year)) +
-  labs(colour = "Recovery over\n25 years") +
+  labs(colour = "Abundance increase\nover 25 years") +
   theme(legend.position = "inside",
     legend.position.inside = c(0.9, 0.2),
         panel.spacing = unit(1, "lines"),
@@ -168,7 +168,7 @@ type_m_all_species +
  (power_df |> filter(species %in% c("yelloweye rockfish", "lingcod", "quillback rockfish"))) +
  facet_wrap(~ species, labeller = as_labeller(stringr::str_to_title), nrow = 1) +
  theme(legend.position = "bottom") +
- labs(colour = "Recovery over 25 years")
+ labs(colour = "Abundance increase over 25 years")
 ggsave(file.path(fig_dir, "type-m-error-plot.png"), width = 7, height = 3.3)
 
 
@@ -189,7 +189,7 @@ power_df |>
     scale_colour_viridis_d(option = "plasma", end = 0.85) +
     scale_y_continuous(labels = scales::percent, limits = c(0, 1.05),
                         expand = expansion(mult = c(0, 0.02))) +
-    labs(x = "Evaluation year", y = "Type S (sign) error rate", colour = "Recovery over 25 years") +
+    labs(x = "Evaluation year", y = "Type S (sign) error rate", colour = "Abundance increase over 25 years") +
     theme(
       axis.text.x = element_text(angle = 45, hjust = 1, size = 7),
       panel.spacing = unit(0.5, "lines"), legend.position = "top"
@@ -219,7 +219,7 @@ power_df0 |>
   facet_grid(rows = vars(species), cols = vars(eval_year),
     labeller = labeller(species = function(x) stringr::str_replace(x, " ", "\n"))) +
   labs(x = "Replicate", y = "Estimate") +
-  ggtitle(paste0("25% recovery over 25 years"))
+  ggtitle(paste0("25% abundance increase over 25 years"))
 ggsave(file.path(fig_dir, paste0("bias-check-on-estimate.png")),
   width = 6.2, height = 6.6)
 # ggsave(file.path(supp_dir, "bias-check-on-estimate-lingcod.png"), width = 9, height = 6.5)
@@ -248,7 +248,7 @@ samples |>
   geom_line(aes(group = mpa_effect_pct)) +
    scale_colour_viridis_d(option = "plasma", end = 0.85) +
   facet_grid(cols = vars(eval_year), rows = vars(species), labeller = as_labeller(stringr::str_to_title)) +
-  labs(x = "Number of replicates", y = "Power", colour = "Recovery over 25 years") +
+  labs(x = "Number of replicates", y = "Power", colour = "Abundance increase over 25 years") +
   coord_cartesian(xlim = c(0, 150), expand = FALSE) +
   scale_x_continuous(breaks = seq(50, 150, 50)) +
   scale_y_continuous(breaks = seq(0.2, 1, 0.2)) +
