@@ -135,3 +135,21 @@ p_grid <- p_grid +
 p_grid
 meep()
 ggsave(file.path(fig_dir, "predicted-distributions.png"), width = 6, height = 9)
+
+spp_levels <- c("canary rockfish", "quillback rockfish", "silvergray rockfish", "yelloweye rockfish",
+  "lingcod", "pacific halibut", "pacific spiny dogfish")
+dist_plots <- preds_sf |>
+  mutate(species = factor(species, levels = spp_levels)) |>
+  arrange(species) |>
+  group_by(species) |>
+  group_split()  |>
+  purrr::map(plot_dists)
+patchwork::wrap_plots(dist_plots, nrow = 1)
+ggsave(file.path(fig_dir, "presentations", "2026-05-05-CSAS-meeting", "predicted-distributions-spp-order.png"),
+  width = 12.7, height = 7.5)
+
+
+names(dist_plots) <- spp_levels
+display_mpa
+
+dist_plots[['pacific halibut']]

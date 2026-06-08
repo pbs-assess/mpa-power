@@ -212,3 +212,17 @@ power_df |>
   select(species, sampling_plan_label, n_reps, n_converged, convergence_rate, power_signed, power_allreps) |>
   arrange(species, sampling_plan_label) |>
   print(n = Inf)
+
+
+patchwork::wrap_plots(
+  power_plot + theme(legend.position = "right"),
+  error_plot + theme(legend.position = "right"), ncol = 1, axes = "collect", guides = "collect", axis_titles = "collect") &
+  # theme(legend.position = "right") &
+  theme(panel.spacing.x = unit(1, "lines"), panel.spacing.y = unit(0.2, "lines"))
+print(combined_plot)
+
+power_plot + theme(legend.position = "right")
+ggsave(file.path(fig_dir, "presentations", "2026-05-05-CSAS-meeting",
+"multispecies-power-bootstrap-vs-no-mpa-every-2nd-survey-25pct-legend-right.png"),
+  width = 9.7, height = 3.7
+)

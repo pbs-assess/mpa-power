@@ -6,12 +6,19 @@ source(here::here("R", "00-fit-sim-functions.R"))
 library(tidyr)
 library(patchwork)
 library(dplyr)
+library(gginnards)
 
 sample_dir <- here::here("data-generated", "sampled-data")
 
-angle <- -40
-fig_dir <- here::here("figures")
+
+presentation <- TRUE
+if (presentation) {
+  fig_dir <- here::here("figures", "presentations", "2026-05-05-CSAS-meeting")
+} else {
+  fig_dir <- here::here("figures")
+}
 dir.create(fig_dir, showWarnings = FALSE, recursive = TRUE)
+
 
 # Allocation values for HBLL survey regions
 hbll_region_levels <- c("HBLL OUT N", "HBLL OUT S", "HBLL INS N")
@@ -43,15 +50,17 @@ display_mpa <- readRDS(file.path("data-generated", "spatial", "simple-mpa-500m.r
 
 ye_files <- list.files(file.path("data-generated", "cleaned-species-data"), pattern = "yelloweye-rockfish.*", full.names = TRUE)
 ye_data <- purrr::map_dfr(ye_files, readRDS)
+ye_data_sf <- ye_data |>
+  XY_to_sf(coords = c("longitude", "latitude"), crs_from = 4326, crs_to = 4326)
 
 
-# historical_locations <- readRDS(file.path("data-generated", "historical-locations.rds")) |>
-#   st_as_sf(coords = c("longitude", "latitude"), crs = 4326)
+historical_locations <- readRDS(file.path("data-generated", "historical-locations.rds")) |>
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326)
 
-# historical_n_sets <- historical_locations |>
-#   group_by(restricted) |>
-#   st_drop_geometry() |>
-#   summarise(n = n())
+historical_n_sets <- historical_locations |>
+  group_by(restricted) |>
+  st_drop_geometry() |>
+  summarise(n = n())
 
 historical_n_sets <- ye_data |>
   group_by(restricted) |>
@@ -68,6 +77,7 @@ hbll_labels <- hbll_grid_sf |>
 hbll_labels |> st_transform(crs = 4326)
 
 if (presentation) {
+  angle <- 0
   hbll_labels <- tribble(
     ~X, ~Y, ~survey_abbrev,
     -130, 53.9, "HBLL OUT N",
@@ -77,6 +87,7 @@ if (presentation) {
     mutate(survey_abbrev = factor(survey_abbrev, levels = hbll_region_levels)) |>
     st_as_sf(coords = c("X", "Y"), crs = 4326)
 } else {
+  angle <- -40
   hbll_labels <- tribble(
     ~X, ~Y, ~survey_abbrev,
     -129.9, 53.6, "HBLL OUT N",
@@ -105,30 +116,41 @@ p1 <- ggplot() +
   scale_fill_manual(values = survey_cols) +
   scale_colour_manual(values = survey_cols) +
   guides(fill = "none", colour = "none") +
-  auto_coord() +
+  # auto_coord() +
+  gfplot::coord_sf_auto(display_mpa |> rotate_sf(angle = angle), buffer = 0) +
   theme(axis.title = element_blank())
 
 p_out <- p1 +
-  geom_sf(data = historical_locations |> filter(restricted == 0) |> rotate_sf(angle = angle),
+  geom_sf(data = ye_data_sf |> filter(restricted == 0) |> rotate_sf(angle = angle),
     shape = 21, size = 0.4) +
-  auto_coord() +
-  theme(axis.title = element_blank()) +
-  ggtitle(paste0("a) Survey sets outside MPA (n = ", historical_n_sets$n[1], ")"))
-p_in <- p1 +
-  geom_sf(data = historical_locations |> filter(restricted == 1) |> rotate_sf(angle = angle),
-    shape = 21, size = 0.4) +
+  # auto_coord() +
   geom_sf_label(data = hbll_labels |> rotate_sf(angle = angle),
     aes(label = survey_abbrev, fill = survey_abbrev),
     size = ifelse(presentation, 5, 3),
     hjust = 0, alpha = 0.7, colour = "black", linewidth = 0) +
-  auto_coord() +
+  gfplot::coord_sf_auto(hbll_grid_sf |> rotate_sf(angle = angle), buffer = 0) +
+  theme(axis.title = element_blank())
+p_in <- p1 +
+  geom_sf(data = historical_locations |> filter(restricted == 1) |> rotate_sf(angle = angle),
+    shape = 21, size = 0.4) +
+  # auto_coord() +
+  gfplot::coord_sf_auto(hbll_grid_sf |> rotate_sf(angle = angle), buffer = 0) +
   theme(axis.title = element_blank(),
-        axis.text.y = element_blank()) +
-  ggtitle(paste0("b) Survey sets inside MPA (n = ", historical_n_sets$n[2], ")"))
+        axis.text.y = element_blank())
 
-p_out + p_in
 if (presentation) {
-  ggsave(file.path(fig_dir, "hbll-mpa-historical-overlay.png"), width = 13.4, height = 7.8)
+  p_out + delete_layers(p_in, "GeomLabel")
+  ggsave(file.path(fig_dir, "hbll-mpa-historical-overlay1.png"), width = 13, height = 7.6)
 } else {
+  (p_out + ggtitle(paste0("a) Survey sets outside MPA (n = ", historical_n_sets$n[1], ")"))) +
+  (p_in + ggtitle(paste0("b) Survey sets inside MPA (n = ", historical_n_sets$n[2], ")")))
   ggsave(file.path(fig_dir, "hbll-mpa-historical-overlay.png"), width = 7.5, height = 7.8)
 }
+
+# extract_layers(p_out, "GeomSf")
+(delete_layers(p_out, idx = 4) +
+  geom_sf(data = ye_data_sf |> filter(restricted == 0) |> rotate_sf(angle = angle),
+    shape = 21, size = 0.4, alpha = 0) +
+  gfplot::coord_sf_auto(hbll_grid_sf |> rotate_sf(angle = angle), buffer = 0)) +
+  delete_layers(p_in, "GeomLabel")
+ggsave(file.path(fig_dir, "hbll-mpa-historical-overlay0.png"), width = 13, height = 7.6)

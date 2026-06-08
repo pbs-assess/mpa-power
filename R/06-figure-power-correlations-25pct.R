@@ -4,7 +4,8 @@ library(tidyr)
 
 source("R/05-make-power-df.R")
 
-power_df <- readRDS("data-generated/power-results-df.rds")
+# power_df <- readRDS("data-generated/power-results-df.rds")
+power_df <- readRDS("data-generated/power-df-historical-sampling.rds")
 theta <- readRDS("data-generated/fit_characteristics.rds")
 ar1_theta <- readRDS("data-generated/ar1-parameters.rds") |>
   rename(survey = survey_abbrev)
@@ -49,6 +50,7 @@ theta_species$species[theta_species$species == "north pacific spiny dogfish"] <-
 diag_df <- power_df |>
   left_join(theta_species, by = "species") |>
   filter(
+    sampling_plan == "historical survey-year bootstrap",
     mpa_effect_label == "25%",
     !eval_year %in% c(2030, 2034)
   ) |>
@@ -141,3 +143,47 @@ ggsave(
   width = 5,
   height = 5.5
 )
+
+spp_levels <- plot_df |>
+  filter(eval_year == 2046) |>
+  filter(metric_label == "Mean encountered rate\nin MPA network") |>
+  arrange(metric_value) |>
+  pull(species)
+plot_df |> filter(eval_year == 2046) |>
+  mutate(species = factor(species, levels = spp_levels)) |>
+ggplot(data = _, aes(metric_value, power_signed, colour = species)) +
+  geom_point() +
+  facet_grid(eval_year ~ metric_label, scales = "free") +
+  scale_color_brewer(palette = "Dark2") +
+  scale_x_continuous(n.breaks = 3) +
+  geom_smooth(
+    method = "lm",
+    se = FALSE,
+    formula = y ~ x,
+    mapping = aes(group = NULL, colour = NULL),
+    colour = "grey50",
+    linewidth = 0.7,
+    na.rm = TRUE
+  ) +
+  geom_text(
+    data = corr_df |> filter(eval_year == 2046),
+    aes(x = -Inf, y = Inf, label = label),
+    inherit.aes = FALSE,
+    hjust = -0.1,
+    vjust = 1.3,
+    size = 3,
+    colour = "grey50"
+  ) +
+  labs(
+    x = "Conditioning model property value",
+    y = "Power (correctly signed)",
+    colour = "Species"
+  ) +
+  gfplot::theme_pbs() +
+  guides(colour = guide_legend(nrow = 1)) +
+  theme(
+    legend.position = "top",
+    legend.direction = "horizontal"
+  )
+ggsave("figures/presentations/2026-05-05-CSAS-meeting/power-correlations-25pct-2046.png",
+  width = 8.7, height = 4.2)

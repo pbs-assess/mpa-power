@@ -15,14 +15,14 @@ summarise_power <- function(power_df,
     summarise(
       mpa_effect_label = first(mpa_effect_label),
       n_reps = n(),
-      n_converged = sum(converged),
+      n_converged = sum(converged, na.rm = TRUE),
       convergence_rate = n_converged / n_reps,
-      n_significant = sum(significant & converged),
-      n_significant_signed = sum(significant & converged & sign_correct),
+      n_significant = sum(significant & converged, na.rm = TRUE),
+      n_significant_signed = sum(significant & converged & sign_correct, na.rm = TRUE),
       power = n_significant / n_converged,
       power_signed = n_significant_signed / n_converged,
       power_allreps = n_significant / n_reps,
-      type_s_error = sum(!sign_correct & significant & converged) / n_significant,
+      type_s_error = sum(!sign_correct & significant & converged, na.rm = TRUE) / n_significant,
       type_m_error = mean(ratio_to_true[significant & converged & sign_correct], na.rm = TRUE),
       mean_estimate = mean(estimate[significant & converged & sign_correct], na.rm = TRUE),
       true_effect = first(true_effect),
@@ -75,7 +75,7 @@ power_df0 <- all_fitted_results |>
 
 # Calculate scenario-level metrics
 # ------------------------------------------------------------------------------
-combo <- c("species", "mpa_effect_label", "eval_year")
+combo <- c("species", "mpa_effect_label", "sampling_plan", "eval_year")
 
 power_df <- summarise_power(power_df0, by = combo)
 spp_levels <- power_df |>
@@ -115,33 +115,71 @@ saveRDS(power_df, here::here('data-generated', 'power-df-historical-sampling.rds
 
 # ------------------------------------------------------------------------------
 # Main power plot
-year_threshold <- power_df |>
-  filter(power >= 0.8) |>
-  group_by(species, eval_year, mpa_effect_label) |>
-  slice_min(eval_year, n = 1) |>
-  select(species, mpa_effect_label, year_80pct_power = eval_year) |>
-  ungroup()
+# year_threshold <- power_df |>
+#   filter(power >= 0.8) |>
+#   group_by(species, eval_year, mpa_effect_label) |>
+#   slice_min(eval_year, n = 1) |>
+#   select(species, mpa_effect_label, year_80pct_power = eval_year) |>
+#   ungroup()
 
 # Power plot ------
-power_df |>
+power_plot <- power_df |>
   ggplot() +
   aes(x = eval_year, y = power_signed, colour = mpa_effect_label) +
   geom_hline(yintercept = 0.8, linetype = "dashed", colour = "grey50") +
   geom_line() +
   geom_point() +
-  facet_wrap(~ species, labeller = as_labeller(stringr::str_to_title),
+  facet_wrap( ~ species, labeller = as_labeller(stringr::str_to_title),
     nrow = 2) +
-  scale_colour_viridis_d(option = "plasma", end = 0.85) +
+  scale_colour_viridis_d(option = "plasma", end = 0.85, limits = unique(power_df$mpa_effect_label), drop = FALSE) +
   scale_x_continuous(breaks = unique(power_df$eval_year)) +
-  labs(colour = "Recovery over\n25 years") +
+  labs(colour = "Abundance increase\nover 25 years") +
   theme(legend.position = "inside",
-    legend.position.inside = c(0.9, 0.2),
-        panel.spacing = unit(1, "lines"),
-      panel.grid.major = element_line(colour = "grey92", linewidth = 0.4)) +
+    legend.position.inside = c(0.89, 0.2),
+    panel.spacing = unit(1, "lines"),
+    panel.grid.major = element_line(colour = "grey92", linewidth = 0.4)) +
   guides(colour = guide_legend(reverse = TRUE)) +
   labs(x = "Evaluation year", y = "Correctly signed power") +
   scale_y_continuous(limits = c(-0.005, 1.005), expand = expansion(mult = c(0, 0)), breaks = seq(0, 1, 0.2))
+power_plot
 ggsave(file.path(fig_dir, "main-power-plot.png"), width = 7.4, height = 4.4)
+
+pp2 <- power_plot +
+  labs(colour = "Abundance increase over 25 years") +
+  guides(colour = guide_legend(
+    direction = "horizontal",
+    label.position = "bottom",
+    nrow = 1
+  )) +
+  theme(
+    legend.key.size = unit(0.5, "cm"),
+    legend.key.width = unit(0.8, "cm"),
+    legend.text = element_text(size = 10),
+    legend.title.position = "top",
+    legend.position.inside = c(0.89, 0.2)
+  )
+
+pp2 + (power_df |> distinct(species, mpa_effect_label, .keep_all = TRUE) |> mutate(power_signed = NA))
+ggsave(file.path(fig_dir, "presentations/2026-05-05-CSAS-meeting/main-power-plot-0.png"),
+  width = 9.2, height = 4.5)
+
+pp2 + bind_rows(
+  power_df |> filter(mpa_effect_label %in% c("5%", "10%")),
+  power_df |> filter(mpa_effect_label %in% c("25%", "50%")) |> mutate(power_signed = NA))
+ggsave(file.path(fig_dir, "presentations/2026-05-05-CSAS-meeting/main-power-plot-1.png"),
+  width = 9.2, height = 4.5)
+
+pp2 + bind_rows(
+  power_df |> filter(mpa_effect_label %in% c("5%", "10%", "25%")),
+  power_df |> filter(mpa_effect_label %in% c("50%")) |> mutate(power_signed = NA))
+ggsave(file.path(fig_dir, "presentations/2026-05-05-CSAS-meeting/main-power-plot-2.png"),
+  width = 9.2, height = 4.5)
+
+pp2
+ggsave(file.path(fig_dir, "presentations/2026-05-05-CSAS-meeting/main-power-plot-3.png"),
+  width = 9.2, height = 4.5)
+
+
 
 # Type M error plot ------------------------------------------------------------
 type_m_all_species <- power_df |>
@@ -153,7 +191,7 @@ type_m_all_species <- power_df |>
     nrow = 2) +
   scale_colour_viridis_d(option = "plasma", end = 0.85) +
   scale_x_continuous(breaks = unique(power_df$eval_year)) +
-  labs(colour = "Recovery over\n25 years") +
+  labs(colour = "Abundance increase\nover 25 years") +
   theme(legend.position = "inside",
     legend.position.inside = c(0.9, 0.2),
         panel.spacing = unit(1, "lines"),
@@ -168,8 +206,20 @@ type_m_all_species +
  (power_df |> filter(species %in% c("yelloweye rockfish", "lingcod", "quillback rockfish"))) +
  facet_wrap(~ species, labeller = as_labeller(stringr::str_to_title), nrow = 1) +
  theme(legend.position = "bottom") +
- labs(colour = "Recovery over 25 years")
-ggsave(file.path(fig_dir, "type-m-error-plot.png"), width = 7, height = 3.3)
+ labs(colour = "Abundance increase over 25 years") +
+ guides(colour = guide_legend(reverse = FALSE))
+ggsave(file.path(fig_dir, "type-m-error-plot.png"),
+  width = 7.4, height = 3.8)
+
+type_m_all_species +
+#  (power_df |> filter(species %in% c("yelloweye rockfish", "lingcod", "quillback rockfish"))) +
+(power_df |> filter(species %in% c("yelloweye rockfish"))) +
+ facet_wrap(~ species, labeller = as_labeller(stringr::str_to_title), nrow = 1) +
+ theme(legend.position = "bottom") +
+ labs(colour = "") +
+ guides(colour = guide_legend(reverse = FALSE))
+ggsave(file.path(fig_dir, "presentations", "2026-05-05-CSAS-meeting", "type-m-error-plot.png"),
+  width = 3.1, height = 3.8)
 
 
 # Type S error plot ------------------------------------------------------------
@@ -189,7 +239,7 @@ power_df |>
     scale_colour_viridis_d(option = "plasma", end = 0.85) +
     scale_y_continuous(labels = scales::percent, limits = c(0, 1.05),
                         expand = expansion(mult = c(0, 0.02))) +
-    labs(x = "Evaluation year", y = "Type S (sign) error rate", colour = "Recovery over 25 years") +
+    labs(x = "Evaluation year", y = "Type S (sign) error rate", colour = "Abundance increase over 25 years") +
     theme(
       axis.text.x = element_text(angle = 45, hjust = 1, size = 7),
       panel.spacing = unit(0.5, "lines"), legend.position = "top"
@@ -219,7 +269,7 @@ power_df0 |>
   facet_grid(rows = vars(species), cols = vars(eval_year),
     labeller = labeller(species = function(x) stringr::str_replace(x, " ", "\n"))) +
   labs(x = "Replicate", y = "Estimate") +
-  ggtitle(paste0("25% recovery over 25 years"))
+  ggtitle(paste0("25% abundance increase over 25 years"))
 ggsave(file.path(fig_dir, paste0("bias-check-on-estimate.png")),
   width = 6.2, height = 6.6)
 # ggsave(file.path(supp_dir, "bias-check-on-estimate-lingcod.png"), width = 9, height = 6.5)
@@ -227,6 +277,7 @@ ggsave(file.path(fig_dir, paste0("bias-check-on-estimate.png")),
 # Cumulative power plot - to check stability of power analysis results ---------
 # Add replicate count per combo so we only sample up to each combo's n_reps
 power_df0_n <- power_df0 |>
+  filter(sampling_plan == "historical survey-year bootstrap") |>
   add_count(!!!syms(combo), name = "combo_n_reps")
 glimpse(power_df0_n)
 
@@ -239,6 +290,7 @@ samples <- purrr::map_dfr(1:max(power_df0_n$combo_n_reps), \(x) {
     mutate(n_samps = x)
 })
 samples |>
+  filter(sampling_plan == "historical survey-year bootstrap") |>
   # filter(species %in% filter_species) |>
   # mutate(species = factor(species, levels = spp_levels)) |>
   ggplot(data = _) +
@@ -248,9 +300,9 @@ samples |>
   geom_line(aes(group = mpa_effect_pct)) +
    scale_colour_viridis_d(option = "plasma", end = 0.85) +
   facet_grid(cols = vars(eval_year), rows = vars(species), labeller = as_labeller(stringr::str_to_title)) +
-  labs(x = "Number of replicates", y = "Power", colour = "Recovery over 25 years") +
-  coord_cartesian(xlim = c(0, 150), expand = FALSE) +
-  scale_x_continuous(breaks = seq(50, 150, 50)) +
+  labs(x = "Number of replicates", y = "Power", colour = "Abundance increase over 25 years") +
+  # coord_cartesian(xlim = c(0, 150), expand = FALSE) +
+  # scale_x_continuous(breaks = seq(50, 150, 50)) +
   scale_y_continuous(breaks = seq(0.2, 1, 0.2)) +
   theme(legend.position = "top")
 

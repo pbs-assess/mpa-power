@@ -201,18 +201,18 @@ hbll_grid_poly_transformed <- hbll_grid_poly |>
 
 # Step 1: Filter for HBLL survey and crop DEM
 # Save the cropped DEM
-if (!file.exists(here::here("data-generated/spatial/dem_hbll_cropped.tif"))) {
-  # Crop DEM to HBLL OUT N extent
-  dem_cropped <- terra::crop(dem, hbll_grid_poly_transformed)
-  meep()
-  terra::writeRaster(dem_cropped, here::here("data-generated/spatial/dem_hbll_cropped.tif"), overwrite = TRUE)
-  # Step 2: Aggregate DEM to 100m resolution
-  dem_100m <- terra::aggregate(dem_cropped, fact = 10, fun = "mean", na.rm = TRUE)
-  terra::writeRaster(dem_100m, here::here("data-generated/spatial/dem_hbll_cropped_100m.tif"), overwrite = TRUE)
-} else {
-  dem_cropped <- terra::rast(here::here("data-generated/spatial/dem_hbll_cropped.tif"))
-  dem_100m <- terra::rast(here::here("data-generated/spatial/dem_hbll_cropped_100m.tif"))
-}
+# if (!file.exists(here::here("data-generated/spatial/dem_hbll_cropped.tif"))) {
+#   # Crop DEM to HBLL OUT N extent
+#   dem_cropped <- terra::crop(dem, hbll_grid_poly_transformed)
+#   meep()
+#   terra::writeRaster(dem_cropped, here::here("data-generated/spatial/dem_hbll_cropped.tif"), overwrite = TRUE)
+#   # Step 2: Aggregate DEM to 100m resolution
+#   dem_100m <- terra::aggregate(dem_cropped, fact = 10, fun = "mean", na.rm = TRUE)
+#   terra::writeRaster(dem_100m, here::here("data-generated/spatial/dem_hbll_cropped_100m.tif"), overwrite = TRUE)
+# } else {
+#   dem_cropped <- terra::rast(here::here("data-generated/spatial/dem_hbll_cropped.tif"))
+#   dem_100m <- terra::rast(here::here("data-generated/spatial/dem_hbll_cropped_100m.tif"))
+# }
 
 # get 100 m DEM for full coast
 if (!file.exists(here::here("data-generated/spatial/dem_full_coast_100m.tif"))) {
