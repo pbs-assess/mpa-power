@@ -507,7 +507,6 @@ run_sampling <- function(sim_dat, species) {
     ) |>
       mutate(plan = "status quo", replicate = rep)
     # ggplot(sampled_status_quo, aes(X, Y, colour = factor(restricted))) + geom_point() + facet_wrap(~year)
-
     # Case 2: MPA sampling every 5 years; Status quo reallocated outside MPAs in off years
     sampled_mpas_5_years <- sample_by_plan(
       sim_dat = sim_dat,
@@ -714,6 +713,9 @@ load_sampled_data <- function(species, survey_abbrev, mpa_trend, ar1_scenario,
 
 USE_PARALLEL <- TRUE
 N_WORKERS <- 8L
+if (Sys.info()['user'] %in% c("jillian", "jilliandunic")) {
+  N_WORKERS <- ifelse(Sys.info()['user'] == "jillian", 10, 8)
+}
 
 # Setup parallel processing
 if (USE_PARALLEL) {
@@ -766,7 +768,8 @@ if (USE_PARALLEL) {
 #   FILTER_REPLICATES: Integer vector of replicate numbers
 
 ### SETTINGS
-RUN_NON_BOOTSTRAP_PLANS <- FALSE
+# RUN_NON_BOOTSTRAP_PLANS <- FALSE
+RUN_NON_BOOTSTRAP_PLANS <- TRUE
 FILTER_SPECIES <- c(
   "yelloweye rockfish"
   #  "north pacific spiny dogfish",
@@ -780,7 +783,7 @@ FILTER_SURVEY <- NULL
 FILTER_MPA_TREND <- NULL
 FILTER_AR1_SCENARIO <- NULL#"fitted_AR1"
 FILTER_TIME_SCENARIO <- NULL
-FILTER_REPLICATES <-  1:20
+FILTER_REPLICATES <- 1:3
 
 # Apply filters to simulation summary
 filter_config <- list(
@@ -1022,9 +1025,12 @@ sampling_summary <- purrr::map_dfr(species_list, function(sp) {
 })
 
 
-# Save sampling summary catalog
+# Save sampling summary catalog - merge with existing to preserve prior batches
 summary_file <- file.path(sample_dir, "sampling-summary.rds")
-saveRDS(sampling_summary, summary_file)
+existing_summary <- if (file.exists(summary_file)) readRDS(summary_file) else tibble()
+combined_summary <- bind_rows(existing_summary, sampling_summary) |>
+  distinct(species, survey_abbrev, mpa_trend, ar1_scenario, time_scenario, plan, replicate, .keep_all = TRUE)
+saveRDS(combined_summary, summary_file)
 message("\n=== All sampling complete ===")
 message("Files saved to: ", sample_dir)
 message("Summary saved to: ", summary_file)
@@ -1055,18 +1061,55 @@ meep()
 
 # Test scenario buildng:
 
-# test <- load_sim_data(
-#   species = "yelloweye rockfish",
-#   survey_abbrev = "HBLL OUT N",
-#   mpa_trend = 1.011,
-#   ar1_scenario = "no_AR1",
-#   time_scenario = "twenty_years",
-#   sim_summary = sim_summary,
-#   sim_dir = sim_dir
-# ) |> filter(replicate == 1)
+test <- load_sim_data(
+  species = "yelloweye rockfish",
+  survey_abbrev = "HBLL INS N",
+  mpa_trend = 1.009,
+  ar1_scenario = "fitted_AR1",
+  time_scenario = "twenty-five_years",
+  sim_summary = sim_summary,
+  sim_dir = sim_dir,
+  replicates = 1
+)
 
 # display_mpa <- readRDS(here::here("data-generated", "spatial", "simple-mpa-500m.rds"))
-# test2 <- run_sampling(test) |> XY_to_sf()
+test2 <- run_sampling(test, species = "yelloweye rockfish") #|> XY_to_sf()
+
+wide_test2 <- test2 |>
+  group_by(plan, year, restricted) |>
+  summarise(n = n(), .groups = "drop") |>
+  mutate(
+    plan_group = ifelse(plan %in% c("historical survey-year bootstrap", "status quo"), "status quo", "every 4 years"),
+    strategy = ifelse(grepl("bootstrap", plan), "bootstrap", "allocation")
+  ) |>
+  summarise(n = sum(n), .by = c(plan_group, year, restricted, strategy)) |>
+  pivot_wider(names_from = strategy, values_from = n)
+
+wide_test2 |>
+  mutate(diff = bootstrap - allocation) |>
+  arrange(plan_group, restricted, year) |>
+  print(n = Inf)
+
+# on average realised sampling is about 97% of the bootstrapped allocations
+wide_test2 |>
+  mutate(ratio = bootstrap / allocation) |>
+  pull(ratio) |>
+  mean(na.rm = TRUE)
+
+glimpse(test2)
+test2 |> filter(year %in% 2025:2030) |>
+ggplot(aes(X, Y, colour = factor(restricted))) +
+  geom_point() +
+  facet_grid(year~plan)
+
+test2 |>
+  group_by(plan, year, restricted) |>
+  summarise(n = n()) |>
+  mutate(plan_group = ifelse(plan %in% c("historical survey-year bootstrap", "status quo"), "status quo", "every 4 years")) |>
+  mutate(strategy = ifelse(grepl("bootstrap", plan), "boostrap", "allocation")) |>
+ggplot(aes(year, n, colour = factor(strategy))) +
+  geom_jitter(width = 0.1) +
+  facet_wrap(factor(restricted)~plan_group)
 
 # test2 |>
 #   ggplot(data = _) +
