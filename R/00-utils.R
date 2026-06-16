@@ -1,3 +1,13 @@
+# Species data cache
+set_synopsis_cache <- function() {
+  if (Sys.info()['user'] == "jilliandunic") synopsis_cache <- "~/R_DFO/gfsynopsis-2024-data/report/data-cache-2025-03"
+  if (Sys.info()['user'] %in% c("dunic", "anderson")) synopsis_cache <- "/srv/anderson/src/gfsynopsis-2024/report/data-cache-2025-03"
+  if (Sys.info()['user'] == "seananderson") synopsis_cache <- "../gfsynopsis-2024/report/data-cache-2025-03"
+  if (Sys.info()['user'] == "jillian") synopsis_cache <- here::here("data-generated", "cleaned-species-data")
+  message("Synopsis cache set to: ", synopsis_cache)
+  return(synopsis_cache)
+}
+
 #' Get Model Years
 #'
 #' Extracts years from an sdmTMB model object.
