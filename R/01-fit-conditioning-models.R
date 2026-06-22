@@ -56,19 +56,31 @@ if (!file.exists(shared_mesh_file)) {
 hbll_allocations <- readRDS(here::here("data-generated", "hbll-allocations.rds"))
 bait_counts <- readRDS(file.path(synopsis_cache, "bait-counts.rds"))
 simple_mpa <- readRDS(here::here("data-generated", "spatial", "simple-mpa.rds"))
+survey_set_depths <- readRDS(here::here("data-generated", "spatial", "hbll-dem-survey-depths.rds")) |>
+  group_by(survey_abbrev, fishing_event_id) |>
+  mutate(dem_depth = mean(c(depth_start, depth_end), na.rm = TRUE)) |>
+  ungroup() |>
+  select(survey_abbrev, fishing_event_id, dem_depth)
 
 # Fitting parameters
-check_cache <- TRUE
-silent <- TRUE
+check_cache <- FALSE
+silent <- FALSE
+
+# get_unscaled_rho <- function(rho_time) qlogis((rho_time + 1) / 2)
+# get_unscaled_rho(0.2)
 
 # Fit models for a single species
-fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
+fit_species <- function(sp_name, check_cache = FALSE, silent = FALSE,
                         save_cleaned_data = TRUE,
+                        # INS_prior = NULL,
+                        # INS_control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
                         .options = furrr::furrr_options(seed = TRUE)) {
+
+  # get_unscaled_rho <- function(rho_time) qlogis((rho_time + 1) / 2)
 
   historical_locations <- readRDS(file.path("data-generated", "historical-locations.rds")) |>
     st_drop_geometry() |>
-    select(X, Y, uid, restricted)
+    select(X, Y, uid, fishing_event_id, restricted)
 
   sp <- sp_to_hyphens(sp_name)
   message(paste0("Fitting conditioning models for ", sp))
@@ -77,18 +89,25 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
   sp_dat <- filter(sp_dat0, stringr::str_detect(survey_abbrev, "HBLL")) |>
     filter(survey_abbrev != "HBLL INS S") |> # may as well remove this up here
     prep_hbll_data(bait_counts = bait_counts, restricted_df = historical_locations) |>
+    distinct(survey_abbrev, fishing_event_id, .keep_all = TRUE) |> # one duplicate with different deployment/retrieval time
+    left_join(survey_set_depths, by = c("survey_abbrev", "fishing_event_id")) |>
     mutate(
       obs_id = factor(row_number()),
       catch_prop = catch_count / hook_count,
-      log_depth = log(depth_m),
+      log_depth = log(dem_depth), # use DEM depth to match prediction grid DEM depth
       last_sampled_year = max(year),
       year_covariate = 0,
       historical = TRUE
-    )
+    ) |>
+    drop_na(log_depth)
 
   d_ON <- filter(sp_dat, survey_abbrev == "HBLL OUT N")
   d_OS <- filter(sp_dat, survey_abbrev == "HBLL OUT S")
   d_IN <- filter(sp_dat, survey_abbrev == "HBLL INS N")
+
+  # extra_time_ON <- setdiff(seq(min(d_ON$year), max(d_ON$year)), unique(d_ON$year))
+  # extra_time_OS <- setdiff(seq(min(d_OS$year), max(d_OS$year)), unique(d_OS$year))
+  # extra_time_IN <- setdiff(seq(min(d_IN$year), max(d_IN$year)), unique(d_IN$year))
 
   # Validate each dataset
   val_ON <- validate_hbll_data(d_ON, sp_name, "HBLL OUT N")
@@ -149,10 +168,11 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
   # Beta binomial ----------------------------------------------------------------
   sprf <- "on"
   strf <- "iid"
-  conditioning_formula <- catch_prop ~ 0 + fyear + restricted
+  conditioning_formula <- catch_prop ~ 1 + fyear + restricted + poly(log_depth, 2)
+
   fit_ON <- if (val_ON$passed) {
     fit_cached_sdmTMB(
-      model_tag = paste0(sp, "-HBLL-OUT-N-betabinomial-", sprf, "-", strf),
+      model_tag = paste0(sp, "-HBLL-OUT-N-betabinomial-depth-", sprf, "-", strf),
       fit_dir = fit_dir,
       data = d_ON,
       formula = conditioning_formula,
@@ -161,6 +181,9 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
       spatial = sprf,
       spatiotemporal = strf,
       time = "year",
+      # time_varying = ~ 1,
+      # time_varying_type = "ar1",
+      # extra_time = extra_time_ON,
       anisotropy = FALSE,
       weights = d_ON$adjusted_hook_count,
       control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
@@ -174,7 +197,7 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
 
   fit_OS <- if (val_OS$passed) {
     fit_cached_sdmTMB(
-      model_tag = paste0(sp, "-HBLL-OUT-S-betabinomial-restricted-", sprf, "-", strf),
+      model_tag = paste0(sp, "-HBLL-OUT-S-betabinomial-depth-", sprf, "-", strf),
       fit_dir = fit_dir,
       data = d_OS,
       formula = conditioning_formula,
@@ -183,6 +206,9 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
       spatial = sprf,
       spatiotemporal = strf,
       time = "year",
+      # time_varying = ~ 1,
+      # time_varying_type = "ar1",
+      # extra_time = extra_time_OS,
       anisotropy = FALSE,
       weights = d_OS$adjusted_hook_count,
       control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
@@ -196,7 +222,7 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
 
   fit_IN <- if (val_IN$passed) {
     fit_cached_sdmTMB(
-      model_tag = paste0(sp, "-HBLL-INS-N-betabinomial-restricted-", sprf, "-", strf),
+      model_tag = paste0(sp, "-HBLL-INS-N-betabinomial-depth-", sprf, "-", strf),
       fit_dir = fit_dir,
       data = d_IN,
       formula = conditioning_formula,
@@ -205,9 +231,14 @@ fit_species <- function(sp_name, check_cache = TRUE, silent = FALSE,
       spatial = sprf,
       spatiotemporal = strf,
       time = "year",
+      # time_varying = ~ 1,
+      # time_varying_type = "ar1",
+      # extra_time = extra_time_IN,
       anisotropy = FALSE,
       weights = d_IN$adjusted_hook_count,
       control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
+      # control = INS_control,
+      # priors = INS_prior,
       check_cache = check_cache,
       silent = silent
     )
@@ -268,42 +299,68 @@ assert_fits_have_omega_s <- function(all_fits_flat) {
 # -----------------------------------------------------------------------------
 # Run fits
 # -----------------------------------------------------------------------------
-
 # Single species (for testing)
-# test <- fit_species("yelloweye rockfish", save_cleaned_data = FALSE)
+# test_fit <- fit_species("north pacific spiny dogfish", save_cleaned_data = FALSE)
 
-# look at new species fits:
-# test0 <- fit_species("yelloweye rockfish", save_cleaned_data = F)
-# test <- fit_species("silvergray rockfish", save_cleaned_data = F)
-# test[[1]] |> sanity()
-# test[[2]] |> sanity()
-# test[[3]] |> sanity()
+# # look at new species fits:
+# test0 <- fit_species("yelloweye rockfish", save_cleaned_data = F, check_cache = TRUE)
+# # test <- fit_species("silvergray rockfish", save_cleaned_data = F)
+# test_fit[[1]] |> sanity()
+# test_fit[[2]] |> sanity()
+# test_fit[[3]] |> sanity()
 
-# hbll_grid <- gfdata::load_survey_blocks(type = "XY")
-# hbll_grid_sf <- gfdata::load_survey_blocks(type = "polygon") |>
-#   select(survey_abbrev, block_id, geometry) |>
-#   filter(survey_abbrev %in% c("HBLL OUT N", "HBLL OUT S", "HBLL INS N"))
-# pON <- predict_hbll(test[[1]], grid = hbll_grid)
-# pOS <- predict_hbll(test[[2]], grid = hbll_grid)
+# test_fit[[3]]
 
-# dat <- left_join(
-#   hbll_grid_sf,
-#   bind_rows(
-#     pON |> filter(year == 2023) |> select(survey_abbrev, block_id, year, est),
-#     pOS |> filter(year == 2024) |> select(survey_abbrev, block_id, year, est)
-#     )
+# Attempted the below; but it ended up being rather fickle, and would likely make
+# the final estimation model also very fickle, so including depth, but going back
+# to the two step approach.
+# - Rather than fitting independent year effects and fitting a post hoc ARIMA
+#   model to estimate AR1 parameters, we directly model the AR1 on the
+#   time-varying intercept in the conditioning model. This makes the conditioning
+#   model consistent with the simulation and evaluation models (yes?), and
+#   jointly estimates these parameters at the same time as the others.
+# - Including both the time_varying year intercept and IID spatiotemporal
+#   random fields creates competition to explain the year-to-year variation and
+#   increases the chance of sigma_V collapsing. A weakly informative prior on
+#   the sigma_V we can keep it from collapsing.
+# - We used sigma_V = gamma_cv(0.2, 0.5) prior for yelloweye and lingcod INS N.
+#   Parameterisation: gamma_cv(mean, CV); CV = sd / mean, which seems reasonable
+#   given the original post hoc arima model estimates:
+og_ar_estimates <- readRDS(here::here("data-generated", "ar1-parameters-resdoc-nodepth.rds"))
+og_ar_estimates
+og_ar_estimates |> filter(species %in% c("yelloweye rockfish", "lingcod"), survey_abbrev == "HBLL INS N")
+# - In the case of yelloweye HBLL INS N, the rho_time was unidentifiable even
+#   with a sigma_V prior, meaning there was little/no temporal variation for the
+#   model to estimate autocorrelation from. The post-hoc rho for YE was -0.08
+#   (near-zero), so we fixed rho_time_unscaled at 0.
+# Note: rho_time_unscaled is on the unconstrained scale, but rho is constrained
+# to -1 and 1.
+#   See: sdmTMB/src/utils.h:280 (minus_one_to_one), sdmTMB/src/sdmTMB.cpp:710
+#   transformation is rho = 2 * plogis(rho_time_unscaled) - 1
+#   inverse: rho_time_unscaled = qlogis((rho + 1) / 2)
+# # The transformaation is rho_time = 2 * plogis(rho_time_unscaled) - 1
+# qlogis((0 + 1) / 2)    # rho = 0  → rho_unscaled = 0
+# # example of how we convert if we were fixing at a value other than 0
+# rho = 0.32
+# qlogis((rho + 1) / 2)
+
+# ye <- fit_species("yelloweye rockfish")
+# ye <- fit_species("yelloweye rockfish", save_cleaned_data = TRUE,
+#   INS_control = sdmTMBcontrol(collapse_spatial_variance = TRUE,
+#     map = list(rho_time_unscaled = factor(matrix(NA, nrow = 1, ncol = 1))),
+#     start = list(rho_time_unscaled = matrix(0, nrow = 1, ncol = 1)),
+#   ),
+#   INS_prior = sdmTMBpriors(sigma_V = gamma_cv(0.2, 0.5))
 # )
+# qb <- fit_species("quillback rockfish", save_cleaned_data = TRUE)
+# dog <- fit_species("north pacific spiny dogfish", save_cleaned_data = TRUE)
+# lng <- fit_species("lingcod", save_cleaned_data = TRUE,
+#   INS_prior = sdmTMBpriors(sigma_V = gamma_cv(0.2, 0.5)))
+# hal <- fit_species("pacific halibut", save_cleaned_data = TRUE)
+# can <- fit_species("canary rockfish", save_cleaned_data = TRUE)
+# sil <- fit_species("silvergray rockfish", save_cleaned_data = TRUE)
 
-# display_mpa <- readRDS(file.path("data-generated", "spatial", "simple-mpa-500m.rds"))
-# ggplot(data = dat |> rotate_sf()) +
-#   geom_sf(aes(fill = exp(est) * 100, colour = exp(est) * 100)) +
-#   geom_sf(data = display_mpa |> rotate_sf(),
-#     fill = "grey50", colour = "grey50", alpha = 0.5) +
-#   viridis::scale_fill_viridis(trans = ggsidekick::fourth_root_power_trans()) +
-#   viridis::scale_colour_viridis(trans = ggsidekick::fourth_root_power_trans()) +
-#   gfplot::coord_sf_auto(display_mpa |> rotate_sf(), buffer = 0)
-
-# Species list
+# Species list (needed for the assert omega)
 sp_list <- c(
   "yelloweye rockfish",
   "north pacific spiny dogfish",
@@ -338,7 +395,7 @@ if (USE_PARALLEL) {
 # Reset to sequential
 future::plan(future::sequential)
 
-# Get process error parameters from conditioning models
+# # Get process error parameters from conditioning models
 ar1_estimates <- all_fits |>
   purrr::flatten() |>
   purrr::keep(~!is.null(.x) && inherits(.x, "sdmTMB")) |>
@@ -359,7 +416,7 @@ ar1_estimates <- all_fits |>
            sigma_V = sqrt(afit$sigma2))
   })
 
-saveRDS(ar1_estimates, here::here("data-generated", "ar1-parameters.rds"))
+saveRDS(ar1_estimates, here::here("data-generated", "ar1-parameters-depth.rds"))
 message("Saved AR1 parameters for ", nrow(ar1_estimates), " species × survey combinations")
 
 # Summary of fitting outcomes
@@ -421,4 +478,4 @@ fit_characteristics <- purrr::map_dfr(all_fits_flat, \(x) {
     bind_cols(out, pw)
   }
 })
-saveRDS(fit_characteristics, here::here("data-generated", "fit_characteristics.rds"))
+saveRDS(fit_characteristics, here::here("data-generated", "fit_characteristics_depth.rds"))

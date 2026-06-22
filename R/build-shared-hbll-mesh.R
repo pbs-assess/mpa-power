@@ -21,8 +21,8 @@ mesh_file <- file.path(mesh_dir, "HBLL-combined-mesh.rds")
 bait_counts <- readRDS(file.path(synopsis_cache, "bait-counts.rds"))
 historical_locations <- readRDS(file.path("data-generated", "historical-locations.rds")) |>
   sf::st_drop_geometry() |>
-  dplyr::select(X, Y, uid, restricted)
-set_depths <- readRDS(file.path("data-generated", "spatial", "hbll-dem-survey-depths.rds")) |>
+  dplyr::select(X, Y, uid, restricted, fishing_event_id)
+set_depths <- readRDS(file.path("data-generated", "hbll-dem-survey-depths.rds")) |>
   mutate(dem_depth = mean(c(depth_start, depth_end), na.rm = TRUE))
 
 sp_dat0 <- readRDS(file.path(synopsis_cache, paste0(sp, ".rds")))$survey_sets |>
