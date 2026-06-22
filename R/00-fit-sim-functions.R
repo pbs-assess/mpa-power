@@ -41,7 +41,6 @@ prep_hbll_data <- function(dat, bait_counts, restricted_df) {
     left_join(bait_counts, by = c("year", "fishing_event_id", "ssid")) |>
     # Sort before distinct to ensure deterministic row selection across systems
     arrange(ssid, year, fishing_event_id) |>
-    distinct(ssid, fishing_event_id, year, .keep_all = TRUE) |>
     mutate(
       present = ifelse(catch_count > 0, 1, 0),
       count_bait_only = replace(count_bait_only, which(count_bait_only == 0), 1),
@@ -53,7 +52,8 @@ prep_hbll_data <- function(dat, bait_counts, restricted_df) {
       fyear = as.factor(year)
     ) |>
     sdmTMB::add_utm_columns() |>
-    left_join(restricted_df, by = c("X", "Y"))
+    left_join(restricted_df, by = c("X", "Y", "fishing_event_id")) |>
+    distinct(ssid, fishing_event_id, year, .keep_all = TRUE)
 }
 
 #' Validate HBLL survey data quality before model fitting
