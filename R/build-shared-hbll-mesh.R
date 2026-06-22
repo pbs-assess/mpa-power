@@ -22,8 +22,13 @@ bait_counts <- readRDS(file.path(synopsis_cache, "bait-counts.rds"))
 historical_locations <- readRDS(file.path("data-generated", "historical-locations.rds")) |>
   sf::st_drop_geometry() |>
   dplyr::select(X, Y, uid, restricted)
+set_depths <- readRDS(file.path("data-generated", "spatial", "hbll-dem-survey-depths.rds")) |>
+  mutate(dem_depth = mean(c(depth_start, depth_end), na.rm = TRUE))
 
-sp_dat0 <- readRDS(file.path(synopsis_cache, paste0(sp, ".rds")))$survey_sets
+sp_dat0 <- readRDS(file.path(synopsis_cache, paste0(sp, ".rds")))$survey_sets |>
+  distinct(survey_abbrev, fishing_event_id, .keep_all = TRUE) |> # duplicates from sample_id join
+  left_join(set_depths) |>
+  filter(!is.na(dem_depth))
 
 # Prepare historical HBLL data and reduce to unique coordinates for mesh building
 mesh_xy <- sp_dat0 |>

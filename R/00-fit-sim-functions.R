@@ -50,7 +50,6 @@ prep_hbll_data <- function(dat, bait_counts, restricted_df) {
       prop_removed = 1 - prop_bait_hooks,
       adjusted_hook_count = hook_count / hook_adjust_factor,
       offset = log(hook_count / hook_adjust_factor),
-      log_depth = log(depth_m),
       fyear = as.factor(year)
     ) |>
     sdmTMB::add_utm_columns() |>
