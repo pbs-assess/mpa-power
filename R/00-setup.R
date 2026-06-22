@@ -38,7 +38,8 @@ if (!file.exists(file.path("data-generated", "hbll-last-sampled-year.rds")) |
     filter(ssid != 40)
     saveRDS(hbll_last_sampled_year, file.path("data-generated", "hbll-last-sampled-year.rds"))
 
-# Really slow on remote server (I think because old RGEOS and RGDAL?)
+# Really slow on remote server (I think because old RGEOS and RGDAL?); save it
+# on local machine to prevent doing this on the server.
   historical_locations <- d0 |>
     filter(stringr::str_detect(survey_abbrev, "HBLL")) |>
     filter(survey_abbrev != "HBLL INS S") |> # may as well remove this up here
