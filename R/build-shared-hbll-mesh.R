@@ -11,7 +11,7 @@ survey_keep <- c("HBLL OUT N", "HBLL OUT S", "HBLL INS N")
 mesh_cutoff <- 10
 
 # Paths
-mesh_dir <- here::here("data-generated", "mesh-cache")
+mesh_dir
 dir.create(mesh_dir, recursive = TRUE, showWarnings = FALSE)
 
 sp <- sp_to_hyphens(species_name)

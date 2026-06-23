@@ -21,6 +21,17 @@ synopsis_cache <- set_synopsis_cache()
 # so that there is a place to put some of the data dependencies
 dir.create(here::here("data-generated", "spatial"), recursive = TRUE, showWarnings = FALSE)
 
+run_tag <- "-ms"  # set to "" for resdoc outputs
+mesh_dir <- here::here("data-generated", paste0("00-mesh-cache", run_tag))
+fit_dir    <- here::here("data-generated", paste0("01-fits", run_tag))
+cleaned_data_dir <- here::here("data-generated", paste0("01-cleaned-species-data", run_tag))
+sim_dir    <- here::here("data-generated", paste0("02-sim-data", run_tag))
+sample_dir <- here::here("data-generated", paste0("03-sampled-data", run_tag))
+results_dir <- here::here("data-generated", paste0("04-power-results", run_tag))
+
+fig_dir <- here::here("figures-ms")
+dir.create(fig_dir, showWarnings = FALSE, recursive = TRUE)
+
 hbll_ssids <- c(22, 36, 39, 40)
 syn_ssids <- c(1, 3, 4, 16)
 

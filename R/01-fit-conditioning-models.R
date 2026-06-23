@@ -30,12 +30,9 @@ if (Sys.info()['user'] == "jilliandunic") {
 }
 
 # Setup directories
-fit_dir <- here::here("data-generated", "fits")
 dir.create(fit_dir, recursive = TRUE, showWarnings = FALSE)
-cleaned_data_dir <- here::here("data-generated", "cleaned-species-data")
 dir.create(cleaned_data_dir, recursive = TRUE, showWarnings = FALSE)
-mesh_dir <- here::here("data-generated", "mesh-cache")
-dir.create(mesh_dir, recursive = TRUE, showWarnings = FALSE)
+
 shared_mesh_species <- "yelloweye rockfish"
 shared_mesh_file <- file.path(
   mesh_dir,
