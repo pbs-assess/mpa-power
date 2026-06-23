@@ -53,7 +53,7 @@ if (!file.exists(shared_mesh_file)) {
 hbll_allocations <- readRDS(here::here("data-generated", "hbll-allocations.rds"))
 bait_counts <- readRDS(file.path(synopsis_cache, "bait-counts.rds"))
 simple_mpa <- readRDS(here::here("data-generated", "spatial", "simple-mpa.rds"))
-survey_set_depths <- readRDS(here::here("data-generated", "spatial", "hbll-dem-survey-depths.rds")) |>
+survey_set_depths <- readRDS(here::here("data-generated", "hbll-dem-survey-depths.rds")) |>
   group_by(survey_abbrev, fishing_event_id) |>
   mutate(dem_depth = mean(c(depth_start, depth_end), na.rm = TRUE)) |>
   ungroup() |>
