@@ -409,7 +409,6 @@ simulate_hbll <- function(fit,
   survey_type <- unique(fit$data$survey_abbrev)
   species <- unique(fit$data$species_common_name)
 
-
   # Set up simulation input parameters  ---------------------------------------
   # Get the model parameters
   b <- get_model_pars(fit)
@@ -466,10 +465,10 @@ simulate_hbll <- function(fit,
     )
 
   # # TODO: make this more general
-  # if (any(grepl("log_depth", formula))) {
-  #   input_dat <- input_dat |>
-  #     filter(!(is.na(log_depth) | is.infinite(log_depth)))
-  # }
+  if (any(grepl("log_depth", formula))) {
+    input_dat <- input_dat |>
+      filter(!(is.na(log_depth) | is.infinite(log_depth)))
+  }
 
   input_mesh <- make_mesh(input_dat, xy_cols = c("X", "Y"), mesh = fit$spde$mesh)
 
@@ -497,16 +496,17 @@ simulate_hbll <- function(fit,
   print(restricted_value)
   if (is.null(B)) {
     B <- numeric(n_coef)
-    # Coefficients - @TODO: generalise this...
+    names(B) <- coef_names
+
     B[grep("(Intercept)", coef_names)] <- intercept_value
     # If simulating with year as factor, option to use random draws of year effects
-    B[grep("fyear", coef_names)] <- sample(b[grepl("fyear", b$term), "estimate"], #
+    B[grep("fyear", coef_names)] <- sample(b[grepl("fyear", b$term), "estimate"],
       size = length(B[grep("fyear", coef_names)]), replace = TRUE)
     B[coef_names %in% c("restricted", "restrictedTRUE")] <- restricted_value
-    B[grep("year_covariate$", coef_names)] <- 0 # Main effect (not interaction)
+    B[grep("^year_covariate$", coef_names)] <- 0 # Main effect not interaction
     B[grep("restricted:year_covariate", coef_names)] <- mpa_trend
-    # B[grep("poly(log_depth, 2)1", coef_names)] <- b$estimate[b$term == "poly(log_depth, 2)1"]
-    # B[grep("poly(log_depth, 2)2", coef_names)] <- b$estimate[b$term == "poly(log_depth, 2)2"]
+    B[grep("^log_depth", coef_names)] <- b$estimate[b$term == "log_depth"]
+    B[grep("I(log_depth^2)", coef_names, fixed = TRUE)] <- b$estimate[b$term == "I(log_depth^2)"]
   }
 
   # Generate offsets or weights using draws from original data
