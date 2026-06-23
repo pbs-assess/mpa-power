@@ -2,15 +2,8 @@ library(dplyr)
 library(sdmTMB)
 library(ggplot2)
 
+source(here::here("R", "00-setup.R"))
 source(here::here("R", "00-utils.R"))
-
-fig_dir <- here::here("figures")
-
-fit <- readRDS("data-generated/fits/north-pacific-spiny-dogfish-HBLL-OUT-N-betabinomial-on-iid-e40c7b759e26ff69.rds")
-fit <- readRDS("data-generated/fits/lingcod-HBLL-OUT-N-betabinomial-on-iid-2a49c4ed06e10dc5.rds")
-fit <- readRDS("data-generated/fits/yelloweye-rockfish-HBLL-OUT-N-betabinomial-on-iid-144f4b8c390be8df.rds")
-fit <- readRDS("data-generated/fits/quillback-rockfish-HBLL-OUT-N-betabinomial-on-iid-211d46c156192c75.rds")
-print(fit)
 
 one_sample_posterior <- function(object, use_names = TRUE) {
   tmp <- object$tmb_obj$env$MC(n = 1L, keep = TRUE, antithetic = FALSE)
@@ -25,6 +18,16 @@ one_sample_posterior <- function(object, use_names = TRUE) {
   p
 }
 
+# fit_file <- list.files(fit_dir, pattern = "^yelloweye-rockfish.*OUT-N.*rds$", full.names = TRUE)
+# fit_file <- list.files(fit_dir, pattern = "^lingcod.*OUT-N.*rds$", full.names = TRUE)
+# fit_file <- list.files(fit_dir, pattern = "^quillback-rockfish.*OUT-N.*rds$", full.names = TRUE)
+# fit_file <- list.files(fit_dir, pattern = "^north-pacific-spiny-dogfish.*OUT-N.*rds$", full.names = TRUE)
+fit_file <- list.files(fit_dir, pattern = "^north-pacific-spiny-dogfish.*OUT-S.*rds$", full.names = TRUE)
+# Note: dogfish seems to have less variation than expected in the simulated outputs
+# I can't remember what it looked like without depth.
+fit <- readRDS(fit_file)
+fit # I think it was segfaulting if I didn't print the model before working with it
+
 set.seed(1)
 osp <- one_sample_posterior(fit)
 omega_draw <- osp[grepl("omega_s", names(osp))]
@@ -37,11 +40,13 @@ restricted <- bf$estimate[bf$term == "restricted"]
 sigma_E <- b$estimate[b$term == "sigma_E"]
 phi <- b$estimate[b$term == "phi"]
 range_val <- b$estimate[b$term == "range"]
+b_log_depth <- bf$estimate[bf$term == "log_depth"]
+b_log_depth2 <- bf$estimate[bf$term == "I(log_depth^2)"]
 
 dat <- fit$data |>
   mutate(last_sampled_year = max(year), dataset = "Historical") |>
-  select(species = species_common_name, survey_abbrev, X, Y, restricted, year,
-         catch_count, hook_count, last_sampled_year, dataset)
+  select(species = species_common_name, survey_abbrev, X, Y, restricted, log_depth,
+         year, catch_count, hook_count, last_sampled_year, dataset)
 
 future_data <- purrr::map_dfr(seq(2, 25, by = 2), function(new_year) {
   sampled_year <- sample(unique(dat$year), size = 1)
@@ -57,7 +62,7 @@ mesh <- make_mesh(future_data, c("X", "Y"), mesh = fit$spde$mesh)
 
 out <- purrr::map_dfr(1:6, \(i) {
   sim_dat <- sdmTMB::simulate_new(
-    formula = ~ 1 + restricted,
+    formula = ~ 1 + restricted + log_depth + I(log_depth^2),
     data = future_data,
     mesh = mesh,
     family = fit$family,
@@ -66,7 +71,7 @@ out <- purrr::map_dfr(1:6, \(i) {
     phi = phi,
     range = range_val,
     fixed_re = list(omega_s = matrix(omega_draw), epsilon_st = NULL, zeta_s = NULL),
-    B = c(intercept, restricted),
+    B = c(intercept, restricted, b_log_depth, b_log_depth2),
     weights = future_data$hook_count,
     seed = i * 2
   )
