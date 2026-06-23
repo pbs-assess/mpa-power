@@ -8,9 +8,9 @@ SURVEY_ABBREV <- "HBLL OUT N"
 
 for (SPECIES in c("lingcod", "yelloweye rockfish", "quillback rockfish")) {
 
-  if (SPECIES == "lingcod") fit <- readRDS("data-generated/fits/lingcod-HBLL-OUT-N-betabinomial-on-iid-2a49c4ed06e10dc5.rds")
-  if (SPECIES == "yelloweye rockfish") fit <- readRDS("data-generated/fits/yelloweye-rockfish-HBLL-OUT-N-betabinomial-on-iid-144f4b8c390be8df.rds")
-  if (SPECIES == "quillback rockfish") fit <- readRDS("data-generated/fits/quillback-rockfish-HBLL-OUT-N-betabinomial-on-iid-211d46c156192c75.rds")
+  if (SPECIES == "lingcod") fit <- readRDS(file.path(fit_dir, "lingcod-HBLL-OUT-N-betabinomial-restricted-depth-on-iid-13b5638708a67147.rds"))
+  if (SPECIES == "yelloweye rockfish") fit <- readRDS(file.path(fit_dir, "yelloweye-rockfish-HBLL-OUT-N-betabinomial-restricted-depth-on-iid-5d7c2f4e2b7a5a0c.rds"))
+  if (SPECIES == "quillback rockfish") fit <- readRDS(file.path(fit_dir, "quillback-rockfish-HBLL-OUT-N-betabinomial-restricted-depth-on-iid-4ee1e6841eb55b7f.rds"))
   print(fit) # don't crash!
 
   one_sample_posterior <- function(object, use_names = TRUE) {
@@ -38,6 +38,8 @@ for (SPECIES in c("lingcod", "yelloweye rockfish", "quillback rockfish")) {
   sigma_E <- b$estimate[b$term == "sigma_E"]
   phi <- b$estimate[b$term == "phi"]
   range_val <- b$estimate[b$term == "range"]
+  b_log_depth <- bf$estimate[bf$term == "log_depth"]
+  b_log_depth2 <- bf$estimate[bf$term == "I(log_depth^2)"]
 
   dat <- fit$data
   lastdat <- filter(dat, year == 2023)
@@ -45,7 +47,7 @@ for (SPECIES in c("lingcod", "yelloweye rockfish", "quillback rockfish")) {
 
   out_list <- purrr::map(1:5, \(i) {
     sim_dat <- sdmTMB::simulate_new(
-      formula = ~ 1 + restricted,
+      formula = ~ 1 + restricted + log_depth + I(log_depth^2),
       data = lastdat,
       mesh = mesh,
       family = fit$family,
@@ -54,7 +56,7 @@ for (SPECIES in c("lingcod", "yelloweye rockfish", "quillback rockfish")) {
       phi = phi,
       range = range_val,
       fixed_re = list(omega_s = matrix(omega_draw), epsilon_st = NULL, zeta_s = NULL),
-      B = c(intercept, restricted),
+      B = c(intercept, restricted, b_log_depth, b_log_depth2),
       weights = lastdat$hook_count,
       seed = i * 2
     )
