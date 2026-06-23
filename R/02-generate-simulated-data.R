@@ -5,7 +5,6 @@
 # combinations. The simulations are cached for reuse in sampling experiments.
 
 source(here::here("R", "00-setup.R"))
-# source(here::here("R", "01-fit-conditioning-models.R"))
 source(here::here("R", "00-fit-sim-functions.R"))
 library(tidyr)
 
@@ -31,7 +30,6 @@ if (Sys.info()['user'] %in% c("jillian", "jilliandunic")) {
 }
 
 # Output directory
-sim_dir <- here::here("data-generated", "sim-data")
 dir.create(sim_dir, showWarnings = FALSE, recursive = TRUE)
 
 # Load and validate recovery rates
@@ -44,19 +42,16 @@ recovery_rates <- expand_grid(species = c("yelloweye rockfish", "quillback rockf
 
 message("Loaded recovery rates for ", length(unique(recovery_rates$species)), " species")
 
-ar1_parameters <- readRDS(here::here("data-generated", "ar1-parameters.rds"))
+ar1_parameters <- readRDS(here::here("data-generated", "ar1-parameters-depth.rds"))
 message("Loaded AR1 parameters for ", nrow(ar1_parameters), " species × survey combinations")
 
 # Grid for data simulation
 # ------------------------
 restricted_df <- readRDS(file.path("data-generated", "hbll-restricted-sf.rds")) |>
-  st_drop_geometry() |>
-  mutate(log_depth = log(depth_m))
+  st_drop_geometry()
 
 # Load allocations for status quo sampling
 hbll_last_sampled_year <- readRDS(file.path("data-generated", "hbll-last-sampled-year.rds"))
-hbll_grid <- gfdata::load_survey_blocks(type = "XY") |>
-  filter(stringr::str_detect(survey_abbrev, "HBLL"))
 
 #' Create parameter grid for simulations
 #'
@@ -73,7 +68,6 @@ create_sim_param_grid <- function(mpa_trend,
                                   time_scenarios,
                                   formula_scenarios,
                                   phi = c(NA),
-                                  start_seed = 42,
                                   nreps = 20) {
 
   # Create grid
@@ -211,16 +205,16 @@ get_hbll_future_base_year <- function(hbll_last_sampled_year) {
 #' @param fit_dir Directory containing cached model files
 #'
 #' @return List with survey_fits (list of survey configs) or NULL if no valid fits
-prepare_species_fits <- function(sp_name, fit_dir = here::here("data-generated", "fits")) {
+prepare_species_fits <- function(sp_name, fit_dir) {
   message("Loading fits for species: ", sp_name)
 
   sp <- sp_to_hyphens(sp_name)
 
   # Pattern for each survey's betabinomial models
   patterns <- c(
-    fit_ON = paste0(sp, "-HBLL-OUT-N-betabinomial-on-iid-"),
-    fit_OS = paste0(sp, "-HBLL-OUT-S-betabinomial-(restricted-)?on-iid-"),
-    fit_IN = paste0(sp, "-HBLL-INS-N-betabinomial-(restricted-)?on-iid-")
+    fit_ON = paste0(sp, "-HBLL-OUT-N-betabinomial-restricted-depth-"),
+    fit_OS = paste0(sp, "-HBLL-OUT-S-betabinomial-restricted-depth-"),
+    fit_IN = paste0(sp, "-HBLL-INS-N-betabinomial-restricted-depth-")
   )
 
   # Find fit files and check sanity
@@ -354,7 +348,6 @@ check_cache_and_prepare_tasks <- function(task_grid, sim_dir) {
 #' @param replicate_file_path Full path where to save this replicate
 #' @param sim_hash Hash for this parameter combination
 #' @param restricted_df Restricted dataframe for simulation
-#' @param hbll_grid HBLL grid for spatial joins
 #' @param hbll_last_sampled_year Last sampled year lookup used to derive a shared
 #'   HBLL future baseline year across surveys
 #'
@@ -367,7 +360,6 @@ run_single_replicate_simulation <- function(species,
                                            replicate_file_path,
                                            sim_hash,
                                            restricted_df,
-                                           hbll_grid,
                                            hbll_last_sampled_year) {
 
   survey_abbrev <- survey_config$abbrev
@@ -398,7 +390,7 @@ run_single_replicate_simulation <- function(species,
   # Add block_id and convert year to calendar year
   sim_dat <- survey_sim |>
     select(!contains("fyear")) |>
-    left_join(hbll_grid |> select(X, Y, block_id, grouping_code), by = c("X", "Y")) |>
+    left_join(restricted_df |> select(X, Y, block_id, grouping_code, log_depth), by = c("X", "Y")) |>
     mutate(
       year_counter = year,
       year = future_base_year + year,
@@ -498,7 +490,6 @@ create_summary_from_replicate_files <- function(sim_dir) {
 #' @param param_combo Single row from parameter combinations
 #' @param param_grid Full parameter grid (for getting replicates)
 #' @param restricted_df Restricted dataframe for simulation
-#' @param hbll_grid HBLL grid for spatial joins
 #' @param hbll_last_sampled_year Last sampled year lookup used to derive a shared
 #'   HBLL future baseline year across surveys
 #' @param sim_dir Directory to save simulated data
@@ -510,7 +501,6 @@ run_survey_simulation <- function(sp_name,
                                   param_combo,
                                   param_grid,
                                   restricted_df,
-                                  hbll_grid,
                                   hbll_last_sampled_year,
                                   sim_dir,
                                   check_cache = TRUE) {
@@ -584,7 +574,7 @@ run_survey_simulation <- function(sp_name,
     # Add block_id for spatial joins in sampling script
     survey_sim |>
       select(!contains("fyear")) |>
-      left_join(hbll_grid |> select(X, Y, block_id, grouping_code), by = c("X", "Y")) |>
+      left_join(restricted_df |> select(X, Y, block_id, grouping_code, log_depth), by = c("X", "Y")) |>
       mutate(
         year_counter = year,  # Store original simulation year
         year = future_base_year + year,  # Shared HBLL baseline year across surveys
@@ -628,10 +618,9 @@ run_survey_simulation <- function(sp_name,
 # =============================================================================
 # Defensive check: Test simulation validity
 # =============================================================================
-
 sp <- sp_to_hyphens("yelloweye rockfish")
-fit_files <- list.files(here::here("data-generated", "fits"),
-                        pattern = paste0("^", sp, "-HBLL-INS-N-betabinomial-on-iid-"),
+fit_files <- list.files(fit_dir,
+                        pattern = paste0("^", sp, "-HBLL-OUT-N-betabinomial-restricted-depth-"),
                         full.names = TRUE)
 if (length(fit_files) > 0) {
   fit <- readRDS(fit_files[1])
@@ -639,7 +628,7 @@ if (length(fit_files) > 0) {
 
   test_sim <- simulate_hbll(
     fit = readRDS(fit_files[1]), restricted_df = restricted_df, sim_dir = sim_dir,
-    check_cache = FALSE, save_sim = FALSE, formula = ~ 1 + restricted * year_covariate,
+    check_cache = FALSE, save_sim = FALSE, formula = ~ 1 + log_depth + I(log_depth^2) + restricted * year_covariate,
     seed = 999, year_covariate = 1:5, mpa_trend = log(1.01), use_fixed_spatial_field = TRUE
   )
 
@@ -727,7 +716,7 @@ time_scenarios <- tribble(
 # - Example with depth: tribble(~formula_scenario, ~formula, "with_depth", list(~ 1 + restricted * year_covariate + poly(log_depth, 2)))
 formula_scenarios <- tribble(
   ~formula_scenario, ~formula,
-  "standard", list(~ 1 + restricted * year_covariate)  # MPA × time interaction
+  "standard", list(~ 1 + log_depth + I(log_depth^2) + restricted * year_covariate)  # MPA × time interaction
 )
 
 # Note: Parameter grids are now created per-species using recovery rates
@@ -739,7 +728,7 @@ formula_scenarios <- tribble(
 
 message("\n=== Loading Species Fits ===")
 # Load fits for all species
-all_species_fits <- purrr::map(sp_list, prepare_species_fits)
+all_species_fits <- purrr::map(sp_list, prepare_species_fits, fit_dir = fit_dir)
 names(all_species_fits) <- sp_list
 
 # Remove species with no valid fits
@@ -841,7 +830,6 @@ if (nrow(micro_tasks) > 0) {
       micro_tasks,
       run_single_replicate_simulation,
       restricted_df = restricted_df,
-      hbll_grid = hbll_grid,
       hbll_last_sampled_year = hbll_last_sampled_year,
       .options = furrr::furrr_options(seed = TRUE, globals = TRUE)
     )
@@ -850,7 +838,6 @@ if (nrow(micro_tasks) > 0) {
       micro_tasks,
       run_single_replicate_simulation,
       restricted_df = restricted_df,
-      hbll_grid = hbll_grid,
       hbll_last_sampled_year = hbll_last_sampled_year
     )
   }

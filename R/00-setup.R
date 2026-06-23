@@ -80,13 +80,22 @@ if (!file.exists(here::here("data-generated", "spatial", "simple-mpa.rds"))) {
   simple_mpa <- readRDS(here::here("data-generated", "spatial", "simple-mpa.rds"))
 }
 
+if (!file.exists(file.path("data-generated", "hbll-dem-grid-depths.rds"))) {
+  stop("data-generated/hbll-dem-grid-depths.rds is missing; run R/dem-data.R first")
+}
+grid_dem_depths <- readRDS(file.path("data-generated", "hbll-dem-grid-depths.rds")) |>
+  select(survey_series_id, block_id, depth_m = depth_dem_mean) |>
+  mutate(log_depth = log(depth_m))
+
 if (!file.exists(file.path("data-generated", "hbll-restricted-sf.rds"))) {
   gfdata::load_survey_blocks(type = "XY") |>
-    filter(stringr::str_detect(survey_abbrev, "HBLL")) |>
     XY_to_sf(crs_to = 32609) |>
-    filter(stringr::str_detect(survey_abbrev, "HBLL")) %>%
-    st_join(., simple_mpa |> st_transform(crs = st_crs(.)), join = st_within) |>
+    filter(stringr::str_detect(survey_abbrev, "HBLL")) |>
+    st_join(simple_mpa |> st_transform(crs = 32609), join = st_within) |>
     mutate(restricted = ifelse(is.na(uid), 0, 1)) |>
+    select(-depth_m) |> # remove original depth and use DEM depth
+    left_join(grid_dem_depths, by = c("survey_series_id", "block_id")) |>
+    tidyr::drop_na(log_depth) |>
   saveRDS(file.path("data-generated", "hbll-restricted-sf.rds"))
 }
 
