@@ -165,11 +165,12 @@ fit_species <- function(sp_name, check_cache = FALSE, silent = FALSE,
   # Beta binomial ----------------------------------------------------------------
   sprf <- "on"
   strf <- "iid"
-  conditioning_formula <- catch_prop ~ 1 + fyear + restricted + poly(log_depth, 2)
+  # conditioning_formula <- catch_prop ~ 0 + fyear + restricted + log_depth + I(log_depth^2)
+  conditioning_formula <- catch_prop ~ 0 + fyear + restricted + log_depth + I(log_depth^2)
 
   fit_ON <- if (val_ON$passed) {
     fit_cached_sdmTMB(
-      model_tag = paste0(sp, "-HBLL-OUT-N-betabinomial-depth-", sprf, "-", strf),
+      model_tag = paste0(sp, "-HBLL-OUT-N-betabinomial-restricted-depth-", sprf, "-", strf),
       fit_dir = fit_dir,
       data = d_ON,
       formula = conditioning_formula,
@@ -194,7 +195,7 @@ fit_species <- function(sp_name, check_cache = FALSE, silent = FALSE,
 
   fit_OS <- if (val_OS$passed) {
     fit_cached_sdmTMB(
-      model_tag = paste0(sp, "-HBLL-OUT-S-betabinomial-depth-", sprf, "-", strf),
+      model_tag = paste0(sp, "-HBLL-OUT-S-betabinomial-restricted-depth-", sprf, "-", strf),
       fit_dir = fit_dir,
       data = d_OS,
       formula = conditioning_formula,
@@ -219,7 +220,7 @@ fit_species <- function(sp_name, check_cache = FALSE, silent = FALSE,
 
   fit_IN <- if (val_IN$passed) {
     fit_cached_sdmTMB(
-      model_tag = paste0(sp, "-HBLL-INS-N-betabinomial-depth-", sprf, "-", strf),
+      model_tag = paste0(sp, "-HBLL-INS-N-betabinomial-restricted-depth-", sprf, "-", strf),
       fit_dir = fit_dir,
       data = d_IN,
       formula = conditioning_formula,
@@ -297,7 +298,13 @@ assert_fits_have_omega_s <- function(all_fits_flat) {
 # Run fits
 # -----------------------------------------------------------------------------
 # Single species (for testing)
-# test_fit <- fit_species("north pacific spiny dogfish", save_cleaned_data = FALSE)
+# Dogfish OUT S had one year estimate not meet the gradient threshold but pretty close (gradien = 0.00381)
+# test_fit <- fit_species("north pacific spiny dogfish", save_cleaned_data = FALSE, check_cache = TRUE)
+# tibble::tibble(param = names(test_fit$fit_OS$model$par), gradient = test_fit$fit_OS$gradients) |>
+#   dplyr::arrange(dplyr::desc(abs(gradient)))
+
+# test_fit[[3]] |> sanity()
+# test_fit <- fit_species("yelloweye rockfish", save_cleaned_data = FALSE)
 
 # # look at new species fits:
 # test0 <- fit_species("yelloweye rockfish", save_cleaned_data = F, check_cache = TRUE)
