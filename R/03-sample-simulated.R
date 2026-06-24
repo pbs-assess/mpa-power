@@ -14,9 +14,6 @@ library(tidyr)
 # Configuration
 # =============================================================================
 
-sim_dir <- here::here("data-generated", "sim-data")
-sample_dir <- here::here("data-generated", "sampled-data")
-hist_clean_dir <- here::here("data-generated", "cleaned-species-data")
 dir.create(sample_dir, showWarnings = FALSE, recursive = TRUE)
 
 # Not used, but sometimes usefulf or me to see
@@ -34,10 +31,10 @@ sim_summary <- sim_summary0 |>
   # left_join(hbll_last_sampled_years, by = "survey_abbrev")
 
 # Load required spatial data
-hbll_allocations <- readRDS(here::here("data-generated", "hbll-allocations.rds")) |>
+hbll_allocations <- readRDS(hbll_allocations_file) |>
   as_tibble()
-hbll_grid <- gfdata::load_survey_blocks(type = "XY") |>
-  filter(stringr::str_detect(survey_abbrev, "HBLL"))
+# hbll_grid <- gfdata::load_survey_blocks(type = "XY") |>
+#   filter(stringr::str_detect(survey_abbrev, "HBLL"))
 
 
 # Not needed because it is included in the simulated data
@@ -52,11 +49,11 @@ hbll_grid <- gfdata::load_survey_blocks(type = "XY") |>
 #   grid_allocations <- readRDS(file.path("data-generated", "grid-allocations.rds"))
 # }
 
-historical_locations <- readRDS(file.path("data-generated", "historical-locations.rds")) |>
+historical_locations <- readRDS(historical_locations_file) |>
   tidyr::drop_na(block_id) # needed because there are lat/lon locations that were surveyed
   # but that are not in the simulation grid.
 
-fit_characteristics <- readRDS(here::here("data-generated", "fit_characteristics.rds")) |>
+fit_characteristics <- readRDS(fit_characteristics_file) |>
   rename(survey_abbrev = survey) |>
   select(species, survey_abbrev, phi) |>
   distinct()
@@ -223,7 +220,7 @@ load_sim_data <- function(species, survey_abbrev, mpa_trend, ar1_scenario,
   sim_dat <- sim_dat |>
     left_join(hbll_allocations, by = c("survey_abbrev", "grouping_code"))
 
-  historical_locations <- readRDS(file.path("data-generated", "historical-locations.rds")) |>
+  historical_locations <- readRDS(historical_locations_file) |>
     tidyr::drop_na(block_id) |>
     mutate(historical_location = 1) |>
     select(survey_abbrev, block_id, historical_location)
@@ -528,7 +525,7 @@ run_sampling <- function(sim_dat, species) {
   sampled_historical_bootstrap <- bootstrap_historical_survey_years(
     sim_dat = sim_dat,
     species = species,
-    hist_clean_dir = hist_clean_dir,
+    hist_clean_dir = cleaned_data_dir,
     seed = rep + 12000
   ) |>
     mutate(plan = "historical survey-year bootstrap", replicate = rep)
@@ -536,7 +533,7 @@ run_sampling <- function(sim_dat, species) {
   sampled_historical_bootstrap_outside_only <- bootstrap_historical_survey_years(
     sim_dat = sim_dat,
     species = species,
-    hist_clean_dir = hist_clean_dir,
+    hist_clean_dir = cleaned_data_dir,
     seed = rep + 13000,
     drop_restricted = TRUE
   ) |>

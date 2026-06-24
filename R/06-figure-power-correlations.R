@@ -10,8 +10,8 @@ theme_set(gfplot::theme_pbs())
 source("R/05-make-power-df.R")
 
 power_df <- readRDS("data-generated/power-results-df.rds")
-theta <- readRDS("data-generated/fit_characteristics.rds")
-ar1_theta <- readRDS("data-generated/ar1-parameters.rds") |>
+theta <- readRDS(fit_characteristics_file)
+ar1_theta <- readRDS(ar1_parameters_file) |>
   rename(survey = survey_abbrev)
 
 theta <- left_join(theta, ar1_theta, by = c("species", "survey"))

@@ -19,7 +19,7 @@ mesh_file <- file.path(mesh_dir, "HBLL-combined-mesh.rds")
 
 # Load inputs
 bait_counts <- readRDS(file.path(synopsis_cache, "bait-counts.rds"))
-historical_locations <- readRDS(file.path("data-generated", "historical-locations.rds")) |>
+historical_locations <- readRDS(historical_locations_file) |>
   sf::st_drop_geometry() |>
   dplyr::select(X, Y, uid, restricted, fishing_event_id)
 set_depths <- readRDS(file.path("data-generated", "hbll-dem-survey-depths.rds")) |>

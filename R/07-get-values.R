@@ -48,7 +48,7 @@ clean_species_name <- function(species) {
 # start with digits; avoid macros starting with `n` + letter (e.g. use Num* not
 # n*) because `\n` is a TeX newline command.
 path_hbll_sites <- here("data-generated", "overlays", "hbll-site-summary-table.rds")
-path_fit_char <- here("data-generated", "fit_characteristics.rds")
+path_fit_char <- fit_characteristics_file
 path_power_df <- here("data-generated", "power-df-historical-sampling.rds")
 
 if (all(file.exists(c(path_hbll_sites, path_fit_char, path_power_df)))) {

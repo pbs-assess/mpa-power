@@ -21,13 +21,27 @@ synopsis_cache <- set_synopsis_cache()
 # so that there is a place to put some of the data dependencies
 dir.create(here::here("data-generated", "spatial"), recursive = TRUE, showWarnings = FALSE)
 
-run_tag <- "-ms"  # set to "" for resdoc outputs
-mesh_dir <- here::here("data-generated", paste0("00-mesh-cache", run_tag))
-fit_dir    <- here::here("data-generated", paste0("01-fits", run_tag))
-cleaned_data_dir <- here::here("data-generated", paste0("01-cleaned-species-data", run_tag))
-sim_dir    <- here::here("data-generated", paste0("02-sim-data", run_tag))
-sample_dir <- here::here("data-generated", paste0("03-sampled-data", run_tag))
-results_dir <- here::here("data-generated", paste0("04-power-results", run_tag))
+run_tag <- "ms"  # set to "resdoc" for resdoc outputs
+ms_dir <- here::here("data-generated", run_tag)
+dir.create(ms_dir, recursive = TRUE, showWarnings = FALSE)
+
+mesh_dir         <- file.path(ms_dir, "00-mesh-cache")
+fit_dir          <- file.path(ms_dir, "01-fits")
+cleaned_data_dir <- file.path(ms_dir, "01-cleaned-species-data")
+sim_dir          <- file.path(ms_dir, "02-sim-data")
+sample_dir       <- file.path(ms_dir, "03-sampled-data")
+results_dir      <- file.path(ms_dir, "04-power-results")
+
+# ms-specific shared data files
+historical_locations_file   <- file.path(ms_dir, "historical-locations.rds")
+hbll_last_sampled_year_file <- file.path(ms_dir, "hbll-last-sampled-year.rds")
+hbll_restricted_sf_file     <- file.path(ms_dir, "hbll-restricted-sf.rds")
+hbll_allocations_file       <- file.path(ms_dir, "hbll-allocations.rds")
+ar1_parameters_file         <- file.path(ms_dir, "ar1-parameters.rds")
+fit_characteristics_file    <- file.path(ms_dir, "fit-characteristics.rds")
+# TODO: consolidate power-df-historical-sampling.rds and power-results-df.rds
+# (two filenames used across 06-figures-power-plots.R, 06-figure-power-correlations*.R,
+# and 07-get-values.R) and add a power_results_file path variable here
 
 fig_dir <- here::here("figures-ms")
 dir.create(fig_dir, showWarnings = FALSE, recursive = TRUE)
@@ -35,8 +49,8 @@ dir.create(fig_dir, showWarnings = FALSE, recursive = TRUE)
 hbll_ssids <- c(22, 36, 39, 40)
 syn_ssids <- c(1, 3, 4, 16)
 
-if (!file.exists(file.path("data-generated", "hbll-last-sampled-year.rds")) |
-    !file.exists(file.path("data-generated", "historical-locations.rds"))) {
+if (!file.exists(hbll_last_sampled_year_file) |
+    !file.exists(historical_locations_file)) {
   d0 <- readRDS(file.path(synopsis_cache, "yelloweye-rockfish.rds"))$survey_sets
   simple_mpa <- readRDS(file.path("data-generated", "spatial", "simple-mpa.rds"))
   hbll_grid_poly <- gfdata::load_survey_blocks(type = "polygon") |>
@@ -47,7 +61,7 @@ if (!file.exists(file.path("data-generated", "hbll-last-sampled-year.rds")) |
     slice(which.max(year)) |>
     select(ssid = survey_series_id.x, survey_abbrev, last_sampled_year = year) |>
     filter(ssid != 40)
-    saveRDS(hbll_last_sampled_year, file.path("data-generated", "hbll-last-sampled-year.rds"))
+    saveRDS(hbll_last_sampled_year, hbll_last_sampled_year_file)
 
 # Really slow on remote server (I think because old RGEOS and RGDAL?); save it
 # on local machine to prevent doing this on the server.
@@ -60,11 +74,8 @@ if (!file.exists(file.path("data-generated", "hbll-last-sampled-year.rds")) |
     mutate(restricted = ifelse(is.na(uid), 0, 1)) |>
     st_join(hbll_grid_poly |> select(block_id, grouping_code), join = st_within) |>
     st_drop_geometry() |>
-    # select(ssid = survey_series_id.x, survey_abbrev, year, fishing_event_id,
-    #   latitude, longitude, X, Y,block_id,
-    #   fe_grouping_code = grouping_code.x, grouping_code = grouping_code.y, restricted)
     distinct(survey_abbrev, block_id, uid, fishing_event_id, latitude, longitude, X, Y, restricted)
-  saveRDS(historical_locations, file.path("data-generated", "historical-locations.rds"))
+  saveRDS(historical_locations, historical_locations_file)
 }
 
 survey_lu <- tibble::tibble(
@@ -81,13 +92,13 @@ if (!file.exists(here::here("data-generated", "spatial", "simple-mpa.rds"))) {
 }
 
 if (!file.exists(file.path("data-generated", "hbll-dem-grid-depths.rds"))) {
-  stop("data-generated/hbll-dem-grid-depths.rds is missing; run R/dem-data.R first")
+  stop("data-generated/hbll-dem-grid-depths.rds is missing; run R/dem-data.R first; requires BC DEM raw file (large)")
 }
 grid_dem_depths <- readRDS(file.path("data-generated", "hbll-dem-grid-depths.rds")) |>
   select(survey_series_id, block_id, depth_m = depth_dem_mean) |>
   mutate(log_depth = log(depth_m))
 
-if (!file.exists(file.path("data-generated", "hbll-restricted-sf.rds"))) {
+if (!file.exists(hbll_restricted_sf_file)) {
   gfdata::load_survey_blocks(type = "XY") |>
     XY_to_sf(crs_to = 32609) |>
     filter(stringr::str_detect(survey_abbrev, "HBLL")) |>
@@ -96,11 +107,11 @@ if (!file.exists(file.path("data-generated", "hbll-restricted-sf.rds"))) {
     select(-depth_m) |> # remove original depth and use DEM depth
     left_join(grid_dem_depths, by = c("survey_series_id", "block_id")) |>
     tidyr::drop_na(log_depth) |>
-  saveRDS(file.path("data-generated", "hbll-restricted-sf.rds"))
+  saveRDS(hbll_restricted_sf_file)
 }
 
 # Setup allocations
-if (!file.exists(file.path("data-generated", "hbll-allocations.rds"))) {
+if (!file.exists(hbll_allocations_file)) {
   source(here::here("R", "prep-survey-allocations.R"))
 }
 

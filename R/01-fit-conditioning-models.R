@@ -50,7 +50,7 @@ if (!file.exists(shared_mesh_file)) {
 # -----------------------------------------------------------------------------
 # Prepare data
 # -----------------------------------------------------------------------------
-hbll_allocations <- readRDS(here::here("data-generated", "hbll-allocations.rds"))
+hbll_allocations <- readRDS(hbll_allocations_file)
 bait_counts <- readRDS(file.path(synopsis_cache, "bait-counts.rds"))
 simple_mpa <- readRDS(here::here("data-generated", "spatial", "simple-mpa.rds"))
 survey_set_depths <- readRDS(here::here("data-generated", "hbll-dem-survey-depths.rds")) |>
@@ -75,7 +75,7 @@ fit_species <- function(sp_name, check_cache = FALSE, silent = FALSE,
 
   # get_unscaled_rho <- function(rho_time) qlogis((rho_time + 1) / 2)
 
-  historical_locations <- readRDS(file.path("data-generated", "historical-locations.rds")) |>
+  historical_locations <- readRDS(historical_locations_file) |>
     st_drop_geometry() |>
     select(X, Y, uid, fishing_event_id, restricted)
 
@@ -420,7 +420,7 @@ ar1_estimates <- all_fits |>
            sigma_V = sqrt(afit$sigma2))
   })
 
-saveRDS(ar1_estimates, here::here("data-generated", "ar1-parameters-depth.rds"))
+saveRDS(ar1_estimates, ar1_parameters_file)
 message("Saved AR1 parameters for ", nrow(ar1_estimates), " species × survey combinations")
 
 # Summary of fitting outcomes
@@ -482,4 +482,4 @@ fit_characteristics <- purrr::map_dfr(all_fits_flat, \(x) {
     bind_cols(out, pw)
   }
 })
-saveRDS(fit_characteristics, here::here("data-generated", "fit_characteristics_depth.rds"))
+saveRDS(fit_characteristics, fit_characteristics_file)

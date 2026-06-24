@@ -145,4 +145,4 @@ hbll_allocations <- bind_rows(hbll_ins_allocation, hbll_out_allocations) |>
   left_join(survey_lu, by = "survey_series_id")
 
 # Save the allocations
-saveRDS(hbll_allocations, file.path("data-generated", "hbll-allocations.rds"))
+saveRDS(hbll_allocations, hbll_allocations_file)

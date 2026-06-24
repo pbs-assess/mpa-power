@@ -42,16 +42,16 @@ recovery_rates <- expand_grid(species = c("yelloweye rockfish", "quillback rockf
 
 message("Loaded recovery rates for ", length(unique(recovery_rates$species)), " species")
 
-ar1_parameters <- readRDS(here::here("data-generated", "ar1-parameters-depth.rds"))
+ar1_parameters <- readRDS(ar1_parameters_file)
 message("Loaded AR1 parameters for ", nrow(ar1_parameters), " species × survey combinations")
 
 # Grid for data simulation
 # ------------------------
-restricted_df <- readRDS(file.path("data-generated", "hbll-restricted-sf.rds")) |>
+restricted_df <- readRDS(hbll_restricted_sf_file) |>
   st_drop_geometry()
 
 # Load allocations for status quo sampling
-hbll_last_sampled_year <- readRDS(file.path("data-generated", "hbll-last-sampled-year.rds"))
+hbll_last_sampled_year <- readRDS(hbll_last_sampled_year_file)
 
 #' Create parameter grid for simulations
 #'

@@ -48,7 +48,7 @@ EVALUATION_YEARS <- c(2030, 2034, 2038, 2042, 2046)
 # EVALUATION_YEARS <- c(2046)
 # EVALUATION_YEARS <- c(2038)
 
-hbll_last_sampled_year <- readRDS(file.path("data-generated", "hbll-last-sampled-year.rds"))
+hbll_last_sampled_year <- readRDS(hbll_last_sampled_year_file)
 
 # =============================================================================
 # Testing/Debugging options

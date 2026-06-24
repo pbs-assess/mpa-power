@@ -136,7 +136,7 @@ prepare_power_fit_data <- function(dat) {
 
 #' Combine historical and simulated data
 combine_hist_sim_data <- function(sim_data, hist_data, eval_year) {
-  hbll_last_sampled_year <- readRDS(file.path("data-generated", "hbll-last-sampled-year.rds"))
+  hbll_last_sampled_year <- readRDS(hbll_last_sampled_year_file)
 
   sim_data_prep <- sim_data |>
     left_join(hbll_last_sampled_year, by = "survey_abbrev") |>

@@ -3,7 +3,7 @@ source(here::here("R", "00-setup.R"))
 fit_dir <- here::here("data-generated", "fits")
 target_terms <- c("restricted", "phi", "sigma_E", "sigma_O", "range")
 
-ar1_params <- readRDS(here::here("data-generated", "ar1-parameters.rds"))
+ar1_params <- readRDS(ar1_parameters_file)
 
 split_species_label <- function(x) {
   dplyr::if_else(
