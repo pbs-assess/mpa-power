@@ -155,7 +155,7 @@ combine_hist_sim_data <- function(sim_data, hist_data, eval_year) {
   combined_data <- bind_rows(hist_data_filtered, sim_data_prep) |>
     select(replicate, survey_abbrev, X, Y, block_id, restricted, historical,
            year, year_covariate, last_sampled_year,
-           catch_count, hook_count, offset,
+           catch_count, hook_count, offset, log_depth,
            plan, sim_mpa_trend, sim_ar1_scenario, sim_time_scenario) |>
     mutate(
       replicate = ifelse(historical, 0, replicate),
@@ -193,7 +193,7 @@ fit_simulation <- function(dat,
     offset <- dat$offset
   }
 
-  mesh_file <- here::here("data-generated", "mesh-cache", "HBLL-combined-mesh.rds")
+  mesh_file <- file.path(mesh_dir, "HBLL-combined-mesh.rds")
   if (!file.exists(mesh_file)) {
     stop("You must create HBLL-combined-mesh.rds first.", call. = FALSE)
   }

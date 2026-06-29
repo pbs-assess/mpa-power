@@ -12,51 +12,31 @@ library(progressr)
 # Configuration
 # =============================================================================
 
-hist_path <- here::here("data-generated", "cleaned-species-data")
-sample_dir <- here::here("data-generated", "sampled-data")
-results_dir <- here::here("data-generated", "power-results")
-# hist_path <- here::here("data-generated", "historical-data-processed")
+hist_path <- cleaned_data_dir  # set in 00-setup.R as data-generated/ms/01-cleaned-species-data
+# sample_dir, results_dir also set in 00-setup.R
 dir.create(results_dir, showWarnings = FALSE, recursive = TRUE)
 
-USE_PARALLEL <- TRUE
-N_WORKERS <- 8L #NULL
-N_REPLICATES <- 25
-
-if (Sys.info()['user'] %in% c("dunic", "anderson")) {
-  USE_PARALLEL <- TRUE
-  N_WORKERS <- 78
-  N_REPLICATES <- 10
-}
-
-if (Sys.info()['user'] %in% c("jillian", "jilliandunic")) {
-  USE_PARALLEL <- TRUE
-  N_WORKERS <- ifelse(Sys.info()['user'] == "jillian", 10, 8)
-  N_REPLICATES <- 100
-}
+### SETTINGS
+source(here::here("R", "sample-fit-config.R"))
 
 FORMULA <- catch_prop ~ 0 + fyear + restricted + year_covariate +
   # restricted:future_step +
-  restricted:future_year_covariate
+  restricted:future_year_covariate +
+  log_depth + I(log_depth^2)
 
 # FORMULA <- catch_prop ~ 0 + fyear + restricted + year_covariate +
 #   restricted:future_step + restricted:future_year_covariate
 
 TREND_PARAM <- "restricted:future_year_covariate"
-EVALUATION_YEARS <- c(2030, 2034, 2038, 2042, 2046)
-# EVALUATION_YEARS <- c(2030, 2038, 2046)
-
-# EVALUATION_YEARS <- c(2046)
-# EVALUATION_YEARS <- c(2038)
+# EVALUATION_YEARS now set in sample-fit-config.R
 
 hbll_last_sampled_year <- readRDS(hbll_last_sampled_year_file)
 
 # =============================================================================
 # Testing/Debugging options
 # =============================================================================
-RUN_DEFENSIVE_CHECKS <- FALSE  # Run defensive checks through execute_parallel_fitting
 SAVE_TEST_FITS <- TRUE  # Save test fit objects for inspection
 TEST_FITS_DIR <- here::here("data-generated", "test-fits")
-dir.create(TEST_FITS_DIR, showWarnings = FALSE, recursive = TRUE)
 
 # =============================================================================
 # # Testing
@@ -161,21 +141,23 @@ source(here::here("R", "00-fit-power-analysis-functions.R"))
 # =============================================================================
 if (RUN_DEFENSIVE_CHECKS) {
   message("\n=== Running Defensive Checks ===")
+  unlink(TEST_FITS_DIR, recursive = TRUE)
+  dir.create(TEST_FITS_DIR, showWarnings = FALSE, recursive = TRUE)
 
   # Load sampling summary early
   sampling_summary <- readRDS(file.path(sample_dir, "sampling-summary.rds"))
 
   # Create test task grid for specific species
-  test_species <- c("yelloweye rockfish", "silvergray rockfish")
+  test_species <- c("yelloweye rockfish")#, "silvergray rockfish")
 
   # Filter sampling summary FIRST
   test_sampling_summary <- sampling_summary |>
     filter(
       species %in% test_species,
       ar1_scenario == "fitted_AR1",
-      time_scenario == "twenty-five_years",
-      plan == "status quo",
-      mpa_trend %in% c(1.021, 1.018),
+      time_scenario == FILTER_TIME_SCENARIO[1],
+      plan == FILTER_PLAN[1],
+      mpa_trend %in% FILTER_MPA_TREND[1],
       replicate == 1  # Just test first replicate
     )
 
@@ -210,7 +192,7 @@ if (RUN_DEFENSIVE_CHECKS) {
   # Load and inspect saved results
   for (sp in test_species) {
     result_file <- list.files(
-      file.path(TEST_FITS_DIR, sp_to_hyphens(sp)),
+      file.path(TEST_FITS_DIR, sp_to_hyphens(FILTER_SPECIES[1])),
       pattern = "HBLL.*results\\.rds$",
       full.names = TRUE
     )
@@ -245,7 +227,7 @@ if (RUN_DEFENSIVE_CHECKS) {
   # Stop here if just testing
   stop("Defensive checks complete. Set RUN_DEFENSIVE_CHECKS <- FALSE to run full analysis.")
 }
-meep()
+# meep()
 
 # test_files <- list.files(
 #   file.path(TEST_FITS_DIR, sp_to_hyphens("silvergray rockfish")),
@@ -275,35 +257,6 @@ setup_parallel(USE_PARALLEL, N_WORKERS)
 sampling_summary <- readRDS(file.path(sample_dir, "sampling-summary.rds"))
 
 
-### SETTINGS
-# =============================================================================
-# Task grid filtering (set to NULL to use all available)
-# =============================================================================
-# FILTER_SPECIES <- "pacific halibut" #"silvergray rockfish"         # NULL = all species
-FILTER_SPECIES <- c(
-  "yelloweye rockfish",
-   "north pacific spiny dogfish",
-   "lingcod",
-  "quillback rockfish",
-  # "pacific halibut",
-   "canary rockfish",
-   "silvergray rockfish"
-)
-FILTER_SURVEY <- NULL          # NULL = all surveys
-FILTER_MPA_TREND <- NULL #1.018       # NULL = all MPA trends
-# FILTER_MPA_TREND <- 1.088 #1.018       # NULL = all MPA trends
-# FILTER_MPA_TREND <- 1.009 #1.018       # NULL = all MPA trends
-FILTER_AR1_SCENARIO <- "fitted_AR1"    # NULL = all AR1 scenarios
-# FILTER_TIME_SCENARIO <- "twenty-five_years"   # NULL = all time scenarios
-FILTER_TIME_SCENARIO <- NULL   # NULL = all time scenarios
-# FILTER_PLAN <- "status quo" #c("status quo", "MPAs every 4 years")  # NULL = all plans
-FILTER_PLAN <- c("historical survey-year bootstrap") #c("status quo", "MPAs every 4 years")  # NULL = all plans
-# FILTER_PLAN <- c("historical survey-year bootstrap - no MPA every 2nd survey")
-FILTER_TIME_SCENARIO <- "twenty-five_years"   # NULL = all time scenarios
-FILTER_REPLICATES <- 200:219    # NULL = all available replicates, e.g., 1:50
-FILTER_EVALUATION_YEARS <- NULL #c(2046)  # NULL = all evaluation years
-
-results_dir <- here::here("data-generated", "power-results")
 dir.create(results_dir, showWarnings = FALSE, recursive = TRUE)
 
 # Apply task grid filters

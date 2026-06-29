@@ -488,7 +488,7 @@ run_sampling <- function(sim_dat, species) {
 
   if (RUN_NON_BOOTSTRAP_PLANS) {
     # Case 1: Status quo sampling plan ------------------------
-
+# browser()
     sample_effort_status_quo <- sim_dat |>
       mutate(n_samps = allocation) |>
       select(survey_series_id, survey_abbrev,
@@ -651,7 +651,8 @@ load_sampled_data <- function(species, survey_abbrev, mpa_trend, ar1_scenario,
     pull(file_path) |>
     purrr::map_dfr(readRDS)
 }
-
+# stop()
+# source(here::here("R", "03-sample-simulated.R"))
 # =============================================================================
 # Defensive check: test sampling on yelloweye before main execution
 # =============================================================================
@@ -659,39 +660,42 @@ load_sampled_data <- function(species, survey_abbrev, mpa_trend, ar1_scenario,
 # ye_mpa_trend <- sim_summary |>
 #   filter(species == "yelloweye rockfish",
 #          ar1_scenario == "fitted_AR1",
-#          time_scenario == "twenty-five_years") |>
+#          time_scenario == "thirty_years") |>
 #   pull(mpa_trend) |>
 #   unique() |>
 #   first()
-#
+
 # if (is.na(ye_mpa_trend)) {
 #   message("ℹ Skipping yelloweye defensive checks (no data available)")
 # } else {
 #   message("Running defensive checks with yelloweye MPA trend: ", ye_mpa_trend)
-#
+
 #   ye_sim <- purrr::map_dfr(c("HBLL OUT N", "HBLL OUT S", "HBLL INS N"), ~{
-#     load_sim_data("yelloweye rockfish", .x, ye_mpa_trend, "fitted_AR1", "twenty-five_years", sim_summary, sim_dir, replicates = 1)
+#     load_sim_data(
+#       "yelloweye rockfish", .x, ye_mpa_trend, "fitted_AR1", "thirty_years",
+#       sim_summary, sim_dir, replicates = 1
+#     )
 #   })
-#
+
 #   unique(ye_sim$survey_abbrev)
-#
+
 #   ye_sampled <- run_sampling(ye_sim)
-#
+
 #   ggplot() +
 #     aes(X, Y, colour = observed, shape = factor(restricted)) +
 #     geom_point(data = ye_sampled |> filter(restricted == 0), shape = 21) +
 #     geom_point(data = ye_sampled |> filter(restricted == 1), shape = 19) +
 #     scale_colour_viridis_c(trans = "log10") +
 #     facet_grid(cols = vars(plan), rows = vars(year))
-#
+
 #   ye_sampled |>
 #     filter(plan == "status quo") |>
 #     janitor::tabyl(year, restricted, survey_abbrev)
-#
+
 #   ye_sampled |>
 #     filter(plan == "MPAs every 4 years") |>
 #     janitor::tabyl(year, restricted, survey_abbrev)
-#
+
 #   # Quick checks
 #   stopifnot("Odd years: HBLL INS N/OUT N" =
 #     all((ye_sampled |> filter(survey_abbrev %in% c("HBLL INS N", "HBLL OUT N")) |> pull(year)) %% 2 == 1))
@@ -708,11 +712,8 @@ load_sampled_data <- function(species, survey_abbrev, mpa_trend, ar1_scenario,
 # Main execution
 # =============================================================================
 
-USE_PARALLEL <- TRUE
-N_WORKERS <- 8L
-if (Sys.info()['user'] %in% c("jillian", "jilliandunic")) {
-  N_WORKERS <- ifelse(Sys.info()['user'] == "jillian", 10, 8)
-}
+### SETTINGS
+source(here::here("R", "sample-fit-config.R"))
 
 # Setup parallel processing
 if (USE_PARALLEL) {
@@ -763,24 +764,6 @@ if (USE_PARALLEL) {
 #   FILTER_AR1_SCENARIO: Character vector of AR1 scenario names
 #   FILTER_TIME_SCENARIO: Character vector of time scenario names
 #   FILTER_REPLICATES: Integer vector of replicate numbers
-
-### SETTINGS
-# RUN_NON_BOOTSTRAP_PLANS <- FALSE
-RUN_NON_BOOTSTRAP_PLANS <- TRUE
-FILTER_SPECIES <- c(
-  "yelloweye rockfish"
-  #  "north pacific spiny dogfish",
-  #  "lingcod",
-  # "quillback rockfish",
-  # # "pacific halibut",
-  #  "canary rockfish",
-  #  "silvergray rockfish"
-)
-FILTER_SURVEY <- NULL
-FILTER_MPA_TREND <- NULL
-FILTER_AR1_SCENARIO <- NULL#"fitted_AR1"
-FILTER_TIME_SCENARIO <- NULL
-FILTER_REPLICATES <- 1:3
 
 # Apply filters to simulation summary
 filter_config <- list(
@@ -1058,55 +1041,55 @@ meep()
 
 # Test scenario buildng:
 
-test <- load_sim_data(
-  species = "yelloweye rockfish",
-  survey_abbrev = "HBLL INS N",
-  mpa_trend = 1.009,
-  ar1_scenario = "fitted_AR1",
-  time_scenario = "twenty-five_years",
-  sim_summary = sim_summary,
-  sim_dir = sim_dir,
-  replicates = 1
-)
+# test <- load_sim_data(
+#   species = "yelloweye rockfish",
+#   survey_abbrev = "HBLL INS N",
+#   mpa_trend = 1.009,
+#   ar1_scenario = "fitted_AR1",
+#   time_scenario = "twenty-five_years",
+#   sim_summary = sim_summary,
+#   sim_dir = sim_dir,
+#   replicates = 1
+# )
 
-# display_mpa <- readRDS(here::here("data-generated", "spatial", "simple-mpa-500m.rds"))
-test2 <- run_sampling(test, species = "yelloweye rockfish") #|> XY_to_sf()
+# # display_mpa <- readRDS(here::here("data-generated", "spatial", "simple-mpa-500m.rds"))
+# test2 <- run_sampling(test, species = "yelloweye rockfish") #|> XY_to_sf()
 
-wide_test2 <- test2 |>
-  group_by(plan, year, restricted) |>
-  summarise(n = n(), .groups = "drop") |>
-  mutate(
-    plan_group = ifelse(plan %in% c("historical survey-year bootstrap", "status quo"), "status quo", "every 4 years"),
-    strategy = ifelse(grepl("bootstrap", plan), "bootstrap", "allocation")
-  ) |>
-  summarise(n = sum(n), .by = c(plan_group, year, restricted, strategy)) |>
-  pivot_wider(names_from = strategy, values_from = n)
+# wide_test2 <- test2 |>
+#   group_by(plan, year, restricted) |>
+#   summarise(n = n(), .groups = "drop") |>
+#   mutate(
+#     plan_group = ifelse(plan %in% c("historical survey-year bootstrap", "status quo"), "status quo", "every 4 years"),
+#     strategy = ifelse(grepl("bootstrap", plan), "bootstrap", "allocation")
+#   ) |>
+#   summarise(n = sum(n), .by = c(plan_group, year, restricted, strategy)) |>
+#   pivot_wider(names_from = strategy, values_from = n)
 
-wide_test2 |>
-  mutate(diff = bootstrap - allocation) |>
-  arrange(plan_group, restricted, year) |>
-  print(n = Inf)
+# wide_test2 |>
+#   mutate(diff = bootstrap - allocation) |>
+#   arrange(plan_group, restricted, year) |>
+#   print(n = Inf)
 
-# on average realised sampling is about 97% of the bootstrapped allocations
-wide_test2 |>
-  mutate(ratio = bootstrap / allocation) |>
-  pull(ratio) |>
-  mean(na.rm = TRUE)
+# # on average realised sampling is about 97% of the bootstrapped allocations
+# wide_test2 |>
+#   mutate(ratio = bootstrap / allocation) |>
+#   pull(ratio) |>
+#   mean(na.rm = TRUE)
 
-glimpse(test2)
-test2 |> filter(year %in% 2025:2030) |>
-ggplot(aes(X, Y, colour = factor(restricted))) +
-  geom_point() +
-  facet_grid(year~plan)
+# glimpse(test2)
+# test2 |> filter(year %in% 2025:2030) |>
+# ggplot(aes(X, Y, colour = factor(restricted))) +
+#   geom_point() +
+#   facet_grid(year~plan)
 
-test2 |>
-  group_by(plan, year, restricted) |>
-  summarise(n = n()) |>
-  mutate(plan_group = ifelse(plan %in% c("historical survey-year bootstrap", "status quo"), "status quo", "every 4 years")) |>
-  mutate(strategy = ifelse(grepl("bootstrap", plan), "boostrap", "allocation")) |>
-ggplot(aes(year, n, colour = factor(strategy))) +
-  geom_jitter(width = 0.1) +
-  facet_wrap(factor(restricted)~plan_group)
+# test2 |>
+#   group_by(plan, year, restricted) |>
+#   summarise(n = n()) |>
+#   mutate(plan_group = ifelse(plan %in% c("historical survey-year bootstrap", "status quo"), "status quo", "every 4 years")) |>
+#   mutate(strategy = ifelse(grepl("bootstrap", plan), "boostrap", "allocation")) |>
+# ggplot(aes(year, n, colour = factor(strategy))) +
+#   geom_jitter(width = 0.1) +
+#   facet_wrap(factor(restricted)~plan_group)
 
 # test2 |>
 #   ggplot(data = _) +
