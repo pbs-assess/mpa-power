@@ -250,7 +250,7 @@ sp_dat <- filter(sp_dat0, stringr::str_detect(survey_abbrev, "HBLL")) |>
   mutate(
     obs_id = factor(row_number()),
     catch_prop = catch_count / hook_count,
-    log_depth = log(depth_m)
+    log_depth = log(dem_depth)
   )
 
 historical <- sp_dat |>

@@ -23,9 +23,9 @@ fit_files <- list.files(fit_dir, pattern = paste0(paste0(spp_list, collapse = "|
 sp_fits <- purrr::map(fit_files, readRDS)
 
 # Spatial data for mapping and predictions
-hbll_restricted <- readRDS(file.path("data-generated", "hbll-restricted-sf.rds")) |>
+hbll_restricted <- readRDS(hbll_restricted_sf_file) |>
   sf::st_drop_geometry() |>
-  dplyr::select(survey_abbrev, block_id, X, Y, restricted)
+  dplyr::select(survey_abbrev, block_id, X, Y, restricted, log_depth)
 
 hbll_sf <- gfdata::load_survey_blocks(type = "polygon") |>
   filter(survey_abbrev %in% c("HBLL OUT N", "HBLL OUT S", "HBLL INS N"))

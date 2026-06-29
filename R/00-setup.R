@@ -49,6 +49,21 @@ dir.create(fig_dir, showWarnings = FALSE, recursive = TRUE)
 hbll_ssids <- c(22, 36, 39, 40)
 syn_ssids <- c(1, 3, 4, 16)
 
+survey_lu <- tibble::tibble(
+  survey_abbrev = c("SYN QCS", "SYN HS", "SYN WCVI", "SYN WCHG",
+                    "HBLL OUT N", "HBLL OUT S",
+                    "HBLL INS N", "HBLL INS S"),
+  survey_series_id = c(1, 3, 4, 16, 22, 36, 39, 40)
+)
+
+if (!file.exists(file.path("data-generated", "hbll-dem-grid-depths.rds"))) {
+  stop("data-generated/hbll-dem-grid-depths.rds is missing; run R/dem-data.R first; requires BC DEM raw file (large)")
+}
+grid_dem_depths <- readRDS(file.path("data-generated", "hbll-dem-grid-depths.rds")) |>
+  left_join(survey_lu, by = "survey_series_id") |>
+  select(survey_abbrev, block_id, dem_depth = depth_dem_mean) |>
+  mutate(log_depth = log(dem_depth))
+
 if (!file.exists(hbll_last_sampled_year_file) |
     !file.exists(historical_locations_file)) {
   d0 <- readRDS(file.path(synopsis_cache, "yelloweye-rockfish.rds"))$survey_sets
@@ -61,7 +76,7 @@ if (!file.exists(hbll_last_sampled_year_file) |
     slice(which.max(year)) |>
     select(ssid = survey_series_id.x, survey_abbrev, last_sampled_year = year) |>
     filter(ssid != 40)
-    saveRDS(hbll_last_sampled_year, hbll_last_sampled_year_file)
+  saveRDS(hbll_last_sampled_year, hbll_last_sampled_year_file)
 
 # Really slow on remote server (I think because old RGEOS and RGDAL?); save it
 # on local machine to prevent doing this on the server.
@@ -74,29 +89,19 @@ if (!file.exists(hbll_last_sampled_year_file) |
     mutate(restricted = ifelse(is.na(uid), 0, 1)) |>
     st_join(hbll_grid_poly |> select(block_id, grouping_code), join = st_within) |>
     st_drop_geometry() |>
-    distinct(survey_abbrev, block_id, uid, fishing_event_id, latitude, longitude, X, Y, restricted)
+    left_join(grid_dem_depths) |>
+    distinct(survey_abbrev, block_id, uid, fishing_event_id, latitude, longitude, X, Y, year, restricted, dem_depth, log_depth)
   saveRDS(historical_locations, historical_locations_file)
 }
-
-survey_lu <- tibble::tibble(
-  survey_abbrev = c("SYN QCS", "SYN HS", "SYN WCVI", "SYN WCHG",
-                    "HBLL OUT N", "HBLL OUT S",
-                    "HBLL INS N", "HBLL INS S"),
-  survey_series_id = c(1, 3, 4, 16, 22, 36, 39, 40)
-)
 
 if (!file.exists(here::here("data-generated", "spatial", "simple-mpa.rds"))) {
   source(here::here("R", "01-prepare-spatial-data.R"))
 } else {
   simple_mpa <- readRDS(here::here("data-generated", "spatial", "simple-mpa.rds"))
+  display_mpa <- readRDS(file.path("data-generated", "spatial", "simple-mpa-500m.rds"))
 }
 
-if (!file.exists(file.path("data-generated", "hbll-dem-grid-depths.rds"))) {
-  stop("data-generated/hbll-dem-grid-depths.rds is missing; run R/dem-data.R first; requires BC DEM raw file (large)")
-}
-grid_dem_depths <- readRDS(file.path("data-generated", "hbll-dem-grid-depths.rds")) |>
-  select(survey_series_id, block_id, depth_m = depth_dem_mean) |>
-  mutate(log_depth = log(depth_m))
+
 
 if (!file.exists(hbll_restricted_sf_file)) {
   gfdata::load_survey_blocks(type = "XY") |>
@@ -105,7 +110,7 @@ if (!file.exists(hbll_restricted_sf_file)) {
     st_join(simple_mpa |> st_transform(crs = 32609), join = st_within) |>
     mutate(restricted = ifelse(is.na(uid), 0, 1)) |>
     select(-depth_m) |> # remove original depth and use DEM depth
-    left_join(grid_dem_depths, by = c("survey_series_id", "block_id")) |>
+    left_join(grid_dem_depths) |>
     tidyr::drop_na(log_depth) |>
   saveRDS(hbll_restricted_sf_file)
 }
