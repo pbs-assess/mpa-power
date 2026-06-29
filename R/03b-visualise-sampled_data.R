@@ -1,31 +1,40 @@
-sample_dir <- here::here("data-generated", "sampled-data")
-ye_samps <- readRDS(file.path(sample_dir, "yelloweye-rockfish-all-sampled.rds"))
+source(here::here("R", "00-setup.R"))
 
-# stash historical data here for now
-sp_dat0 <- readRDS(file.path(synopsis_cache, paste0(sp, ".rds")))$survey_sets
-sp_dat <- filter(sp_dat0, stringr::str_detect(survey_abbrev, "HBLL")) |>
-  filter(survey_abbrev != "HBLL INS S") |> # may as well remove this up here
-  prep_hbll_data(bait_counts = bait_counts) |>
-  mutate(
-    obs_id = factor(row_number()),
-    catch_prop = catch_count / hook_count,
-    log_depth = log(depth_m)
-  )
-# Prepare historical data for comparison and future modelling
-historical <- sp_dat |>
-  XY_to_sf(crs_to = 32609) |>
-  st_join(simple_mpa |> st_transform(crs = 32609), join = st_within) |>
-  mutate(restricted = ifelse(is.na(uid), 0, 1)) |>
-  st_join(hbll_grid_poly |> select(block_id, grouping_code), join = st_within) |>
-  st_drop_geometry() |>
-  select(ssid, survey_abbrev, year, fishing_event_id, latitude, longitude, X, Y,
-    block_id, fe_grouping_code = grouping_code.x, grouping_code = grouping_code.y,
-    depth_m, offset, hook_count,
-    catch_count, restricted) |>
-  mutate(after = 0) |>
-  left_join(hbll_allocations,
-    by = c("survey_abbrev", "grouping_code", "ssid" = "survey_series_id")) |>
-  mutate(observed = catch_count, replicate = 0, d = "historical") |>
-  group_by(survey_abbrev) |>
-  mutate(year_counter = year - min(year) + 1) |>
-  ungroup()
+sample_files <- list.files(file.path(sample_dir, "yelloweye-rockfish"), full.names = TRUE)
+ye_samps <- purrr::map_dfr(sample_files, readRDS)
+
+# Double check that allocations look correct
+ye_samps |> filter(replicate == 1) |>
+  filter(sim_mpa_trend == 1.009) |>
+  filter(year %in% 2025:2026) |>
+  group_by(survey_abbrev, plan) |>
+  summarise(n = n(), .groups = "drop")
+
+
+ye_samps |> filter(replicate == 1) |>
+  filter(sim_mpa_trend == 1.009) |>
+  filter(year %in% 2025:2026) |>
+  group_by(survey_abbrev, plan, restricted) |>
+  summarise(n = n(), .groups = "drop") |>
+  tidyr::pivot_wider(names_from = restricted, values_from = n, values_fill = 0) |>
+  mutate(prop_inside = `1` / (`0` + `1`))
+
+distinct(ye_samps, plan)
+
+test <- ye_samps |>
+  filter(replicate == 1) |>
+  # filter(plan == "status quo") |>
+  # visual check to make sure historical bootstrapping looks like allocation-based sampling
+  filter(plan %in% c("historical survey-year bootstrap - no MPA every 2nd survey", "MPAs every 4 years")) |> # uses allocations - NOT bootstrapped
+  filter(sim_mpa_trend == 1.009) |>
+  filter(year %in% 2025:2030) |>
+  XY_to_sf() |>
+  rotate_sf()
+ggplot() +
+  geom_sf(data = pacea::bc_coast |> rotate_sf(), fill = "grey94", colour = "grey90") +
+  geom_sf(data = display_mpa |> rotate_sf(), fill = "#0072B2", colour = NA, alpha = 0.3) +
+  geom_sf(data = test, aes(shape = factor(restricted))) +
+  scale_shape_manual(name = "Restricted", values = c(`0` = 21, `1` = 19)) +
+  facet_grid(plan ~ year) +
+  theme(axis.text = element_blank()) +
+  gfplot::coord_sf_auto(test)
