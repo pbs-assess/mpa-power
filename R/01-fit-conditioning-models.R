@@ -60,7 +60,7 @@ survey_set_depths <- readRDS(here::here("data-generated", "hbll-dem-survey-depth
   select(survey_abbrev, fishing_event_id, dem_depth)
 
 # Fitting parameters
-check_cache <- FALSE
+check_cache <- TRUE
 silent <- FALSE
 
 # get_unscaled_rho <- function(rho_time) qlogis((rho_time + 1) / 2)
@@ -330,9 +330,9 @@ assert_fits_have_omega_s <- function(all_fits_flat) {
 # - We used sigma_V = gamma_cv(0.2, 0.5) prior for yelloweye and lingcod INS N.
 #   Parameterisation: gamma_cv(mean, CV); CV = sd / mean, which seems reasonable
 #   given the original post hoc arima model estimates:
-og_ar_estimates <- readRDS(here::here("data-generated", "ar1-parameters-resdoc-nodepth.rds"))
-og_ar_estimates
-og_ar_estimates |> filter(species %in% c("yelloweye rockfish", "lingcod"), survey_abbrev == "HBLL INS N")
+# og_ar_estimates <- readRDS(here::here("data-generated", "ar1-parameters-resdoc-nodepth.rds"))
+# og_ar_estimates
+# og_ar_estimates |> filter(species %in% c("yelloweye rockfish", "lingcod"), survey_abbrev == "HBLL INS N")
 # - In the case of yelloweye HBLL INS N, the rho_time was unidentifiable even
 #   with a sigma_V prior, meaning there was little/no temporal variation for the
 #   model to estimate autocorrelation from. The post-hoc rho for YE was -0.08
