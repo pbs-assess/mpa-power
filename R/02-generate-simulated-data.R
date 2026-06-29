@@ -390,7 +390,7 @@ run_single_replicate_simulation <- function(species,
   # Add block_id and convert year to calendar year
   sim_dat <- survey_sim |>
     select(!contains("fyear")) |>
-    left_join(restricted_df |> select(X, Y, block_id, grouping_code, log_depth), by = c("X", "Y")) |>
+    left_join(restricted_df |> select(X, Y, block_id, grouping_code), by = c("X", "Y")) |>
     mutate(
       year_counter = year,
       year = future_base_year + year,
@@ -574,7 +574,7 @@ run_survey_simulation <- function(sp_name,
     # Add block_id for spatial joins in sampling script
     survey_sim |>
       select(!contains("fyear")) |>
-      left_join(restricted_df |> select(X, Y, block_id, grouping_code, log_depth), by = c("X", "Y")) |>
+      left_join(restricted_df |> select(X, Y, block_id, grouping_code), by = c("X", "Y")) |>
       mutate(
         year_counter = year,  # Store original simulation year
         year = future_base_year + year,  # Shared HBLL baseline year across surveys
@@ -652,19 +652,19 @@ if (length(fit_files) > 0) {
 ### SETTINGS
 # Define species list
 sp_list <- c(
-#  "yelloweye rockfish",
-   # "north pacific spiny dogfish",
-   # "lingcod",
-  "quillback rockfish"
-  # "pacific halibut",
-   # "canary rockfish",
-   # "silvergray rockfish"
+ "yelloweye rockfish",
+  "north pacific spiny dogfish",
+  "lingcod",
+  "quillback rockfish",
+  "pacific halibut",
+  "canary rockfish",
+  "silvergray rockfish"
 )
-nreps <- 100
+# nreps <- 1
+# replicates <- 1
 
 # Change what number value of replicates to run
-nreps <- 220 # this is dumb but I didn't want to change the create_sim_param_grid function now
-# Filter task_grid to only include replicates 200-219
+nreps <- 220 # set this to max number of replicates of the batch you want to run
 replicates <- 1:100
 
 # Filter to species with recovery rates
@@ -708,7 +708,8 @@ ar1_scenarios <- tribble(
 # - Example with multiple: tribble(~time_scenario, ~year_covariate, "short", list(1:11), "long", list(1:21))
 time_scenarios <- tribble(
   ~time_scenario, ~year_covariate,
-  "twenty-five_years", list(1:25)                      # 25 years of simulated data
+  # "twenty-five_years", list(1:25)                      # 25 years of simulated data
+  "thirty_years", list(1:30)
 )
 
 # Formula scenarios
