@@ -6,6 +6,7 @@
 
 source(here::here("R", "00-setup.R"))
 source(here::here("R", "00-fit-sim-functions.R"))
+source(here::here("R", "sample-fit-config.R"))
 library(tidyr)
 
 # Make sure we are using latest recovery rates
@@ -13,21 +14,6 @@ library(tidyr)
 # # Source the newly created R script to run all code in the console
 # source(here::here("R", "recovery-rates-clean.R"))
 #
-# =============================================================================
-# Configuration
-# =============================================================================
-USE_PARALLEL <- T
-N_WORKERS <- 8
-
-if (Sys.info()['user'] %in% c("dunic", "anderson")) {
-  USE_PARALLEL <- TRUE
-  N_WORKERS <- 80 #NULL
-}
-
-if (Sys.info()['user'] %in% c("jillian", "jilliandunic")) {
-  USE_PARALLEL <- TRUE
-  N_WORKERS <- ifelse(Sys.info()['user'] == "jillian", 10, 8)
-}
 
 # Output directory
 dir.create(sim_dir, showWarnings = FALSE, recursive = TRUE)
@@ -211,9 +197,9 @@ prepare_species_fits <- function(sp_name, fit_dir) {
 
   # Pattern for each survey's betabinomial models
   patterns <- c(
-    fit_ON = paste0(sp, "-HBLL-OUT-N-betabinomial-restricted-depth-"),
-    fit_OS = paste0(sp, "-HBLL-OUT-S-betabinomial-restricted-depth-"),
-    fit_IN = paste0(sp, "-HBLL-INS-N-betabinomial-restricted-depth-")
+    fit_ON = paste0(sp, "-HBLL-OUT-N-betabinomial-", CONDITIONING_FORMULA_TAG, "-"),
+    fit_OS = paste0(sp, "-HBLL-OUT-S-betabinomial-", CONDITIONING_FORMULA_TAG, "-"),
+    fit_IN = paste0(sp, "-HBLL-INS-N-betabinomial-", CONDITIONING_FORMULA_TAG, "-")
   )
 
   # Find fit files and check sanity
@@ -619,7 +605,7 @@ run_survey_simulation <- function(sp_name,
 # =============================================================================
 sp <- sp_to_hyphens("yelloweye rockfish")
 fit_files <- list.files(fit_dir,
-                        pattern = paste0("^", sp, "-HBLL-OUT-N-betabinomial-restricted-depth-"),
+                        pattern = paste0("^", sp, "-HBLL-OUT-N-betabinomial-", CONDITIONING_FORMULA_TAG, "-"),
                         full.names = TRUE)
 if (length(fit_files) > 0) {
   fit <- readRDS(fit_files[1])
@@ -627,7 +613,8 @@ if (length(fit_files) > 0) {
 
   test_sim <- simulate_hbll(
     fit = readRDS(fit_files[1]), restricted_df = restricted_df, sim_dir = sim_dir,
-    check_cache = FALSE, save_sim = FALSE, formula = ~ 1 + log_depth + I(log_depth^2) + restricted * year_covariate,
+    check_cache = FALSE, save_sim = FALSE, #formula = ~ 1 + log_depth + I(log_depth^2) + restricted * year_covariate,
+    formula = SIM_FORMULA_SCENARIOS$formula[[1]][[1]],
     seed = 999, year_covariate = 1:5, mpa_trend = log(1.01), use_fixed_spatial_field = TRUE
   )
 
@@ -648,23 +635,10 @@ if (length(fit_files) > 0) {
 # Main execution
 # =============================================================================
 
-### SETTINGS
-# Define species list
-sp_list <- c(
- "yelloweye rockfish",
-  "north pacific spiny dogfish",
-  "lingcod",
-  "quillback rockfish",
-  "pacific halibut",
-  "canary rockfish",
-  "silvergray rockfish"
-)
-# nreps <- 1
-# replicates <- 1
-
-# Change what number value of replicates to run
-nreps <- 220 # set this to max number of replicates of the batch you want to run
-replicates <- 1:100
+### SETTINGS (edit in sample-fit-config.R)
+sp_list    <- SIM_SP_LIST
+nreps      <- SIM_NREPS
+replicates <- SIM_REPLICATES
 
 # Filter to species with recovery rates
 missing_rates <- setdiff(sp_list, unique(recovery_rates$species))
@@ -711,13 +685,8 @@ time_scenarios <- tribble(
   "thirty_years", list(1:30)
 )
 
-# Formula scenarios
-# - formula must be a list column
-# - Example with depth: tribble(~formula_scenario, ~formula, "with_depth", list(~ 1 + restricted * year_covariate + poly(log_depth, 2)))
-formula_scenarios <- tribble(
-  ~formula_scenario, ~formula,
-  "standard", list(~ 1 + log_depth + I(log_depth^2) + restricted * year_covariate)  # MPA × time interaction
-)
+# Formula scenarios (edit in sample-fit-config.R)
+formula_scenarios <- SIM_FORMULA_SCENARIOS
 
 # Note: Parameter grids are now created per-species using recovery rates
 # See task grid creation below for species-specific implementation

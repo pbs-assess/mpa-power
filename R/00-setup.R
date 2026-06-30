@@ -16,12 +16,12 @@ conflict_prefer("lag", "dplyr")
 theme_set(gfplot::theme_pbs())
 
 source(here::here("R", "00-utils.R"))
+source(here::here("R", "sample-fit-config.R"))
 
 synopsis_cache <- set_synopsis_cache()
 # so that there is a place to put some of the data dependencies
 dir.create(here::here("data-generated", "spatial"), recursive = TRUE, showWarnings = FALSE)
 
-run_tag <- "ms"  # set to "resdoc" for resdoc outputs
 ms_dir <- here::here("data-generated", run_tag)
 dir.create(ms_dir, recursive = TRUE, showWarnings = FALSE)
 

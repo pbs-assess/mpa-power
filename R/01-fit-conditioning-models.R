@@ -5,6 +5,7 @@
 # Load setup and functions
 source(here::here("R", "00-setup.R"))
 source(here::here("R", "00-fit-sim-functions.R"))
+source(here::here("R", "sample-fit-config.R"))
 
 # devtools::load_all("~/R_DFO/sdmTMB") # need betabinomial branch
 
@@ -12,22 +13,6 @@ library(tidyr)
 library(patchwork)
 library(digest)
 library(purrr)
-
-# =============================================================================
-# Configuration
-# =============================================================================
-USE_PARALLEL <- TRUE
-N_WORKERS <- 8
-
-if (Sys.info()['user'] %in% c("dunic", "anderson")) {
-  USE_PARALLEL <- TRUE
-  N_WORKERS <- 40 #NULL
-}
-
-if (Sys.info()['user'] == "jilliandunic") {
-  USE_PARALLEL <- TRUE
-  N_WORKERS <- 8
-}
 
 # Setup directories
 dir.create(fit_dir, recursive = TRUE, showWarnings = FALSE)
@@ -165,12 +150,12 @@ fit_species <- function(sp_name, check_cache = FALSE, silent = FALSE,
   # Beta binomial ----------------------------------------------------------------
   sprf <- "on"
   strf <- "iid"
-  # conditioning_formula <- catch_prop ~ 0 + fyear + restricted + log_depth + I(log_depth^2)
-  conditioning_formula <- catch_prop ~ 0 + fyear + restricted + log_depth + I(log_depth^2)
+  conditioning_formula <- CONDITIONING_FORMULA
+  formula_tag <- CONDITIONING_FORMULA_TAG
 
   fit_ON <- if (val_ON$passed) {
     fit_cached_sdmTMB(
-      model_tag = paste0(sp, "-HBLL-OUT-N-betabinomial-restricted-depth-", sprf, "-", strf),
+      model_tag = paste0(sp, "-HBLL-OUT-N-betabinomial-", formula_tag, "-", sprf, "-", strf),
       fit_dir = fit_dir,
       data = d_ON,
       formula = conditioning_formula,
@@ -195,7 +180,7 @@ fit_species <- function(sp_name, check_cache = FALSE, silent = FALSE,
 
   fit_OS <- if (val_OS$passed) {
     fit_cached_sdmTMB(
-      model_tag = paste0(sp, "-HBLL-OUT-S-betabinomial-restricted-depth-", sprf, "-", strf),
+      model_tag = paste0(sp, "-HBLL-OUT-S-betabinomial-", formula_tag, "-", sprf, "-", strf),
       fit_dir = fit_dir,
       data = d_OS,
       formula = conditioning_formula,
@@ -220,7 +205,7 @@ fit_species <- function(sp_name, check_cache = FALSE, silent = FALSE,
 
   fit_IN <- if (val_IN$passed) {
     fit_cached_sdmTMB(
-      model_tag = paste0(sp, "-HBLL-INS-N-betabinomial-restricted-depth-", sprf, "-", strf),
+      model_tag = paste0(sp, "-HBLL-INS-N-betabinomial-", formula_tag, "-", sprf, "-", strf),
       fit_dir = fit_dir,
       data = d_IN,
       formula = conditioning_formula,

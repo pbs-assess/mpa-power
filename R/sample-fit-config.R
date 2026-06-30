@@ -1,24 +1,55 @@
 # =============================================================================
-# Shared run configuration for stages 03 (sample) and 04 (fit)
-# Edit here; both scripts source this file.
+# Shared run configuration for stages 01–04
+# Edit here; all scripts source this file.
 # =============================================================================
+
+# --- Run tag (determines ms_dir in 00-setup.R) --------------------------------
+run_tag <- "no-depth"
+# run_tag <- "ms"       # resdoc outputs
 
 # --- Parallelism --------------------------------------------------------------
 USE_PARALLEL <- TRUE
 N_WORKERS    <- 8L
 
-if (Sys.info()['user'] %in% c("dunic", "anderson")) N_WORKERS <- 50L
+if (Sys.info()['user'] %in% c("dunic", "anderson")) N_WORKERS <- 20L
 if (Sys.info()['user'] == "jilliandunic")           N_WORKERS <- 8L
 # Add server username here, e.g.:
 # if (Sys.info()['user'] == "server_user")          N_WORKERS <- 40L
 
+
+# --- Stage 01 (01-fit-conditioning-models.R) ----------------------------------
+CONDITIONING_FORMULA     <- catch_prop ~ 0 + fyear + restricted
+CONDITIONING_FORMULA_TAG <- "fyear-restricted"
+# CONDITIONING_FORMULA     <- catch_prop ~ 0 + fyear + restricted + log_depth + I(log_depth^2)
+# CONDITIONING_FORMULA_TAG <- "fyear-restricted-depth"
+
+# --- Stage 02 (02-generate-simulated-data.R) ----------------------------------
+SIM_SP_LIST <- c(
+  "yelloweye rockfish",
+  # "north pacific spiny dogfish",
+  "lingcod"
+  # "quillback rockfish",
+  # "pacific halibut",
+  # "canary rockfish",
+  # "silvergray rockfish"
+)
+SIM_NREPS      <- 220L
+SIM_REPLICATES <- 1:50
+
+SIM_FORMULA_SCENARIOS <- tribble(
+  ~formula_scenario, ~formula,
+  # "standard", list(~ 1 + log_depth + I(log_depth^2) + restricted * year_covariate)
+  "no_depth", list(~ 1 + restricted * year_covariate)
+)
+
+
 # --- Shared filters (used in both 03 and 04) ---------------------------------
-FILTER_SPECIES       <- "yelloweye rockfish"
+FILTER_SPECIES       <- "lingcod"
 FILTER_SURVEY        <- NULL
 FILTER_MPA_TREND     <- 1.009    # 25% recovery; use 1.0164 for 50%
 FILTER_AR1_SCENARIO  <- "fitted_AR1"
 FILTER_TIME_SCENARIO <- "thirty_years"
-FILTER_REPLICATES    <- 1:100
+FILTER_REPLICATES    <- 1:20
 
 # --- Stage 03 (03-sample-simulated.R) ----------------------------------------
 RUN_NON_BOOTSTRAP_PLANS <- TRUE
