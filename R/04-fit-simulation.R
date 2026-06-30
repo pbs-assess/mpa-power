@@ -11,32 +11,12 @@ library(progressr)
 # =============================================================================
 # Configuration
 # =============================================================================
-
-hist_path <- cleaned_data_dir  # set in 00-setup.R as data-generated/ms/01-cleaned-species-data
-# sample_dir, results_dir also set in 00-setup.R
 dir.create(results_dir, showWarnings = FALSE, recursive = TRUE)
 
 ### SETTINGS
 source(here::here("R", "sample-fit-config.R"))
 
-FORMULA <- catch_prop ~ 0 + fyear + restricted + year_covariate +
-  # restricted:future_step +
-  restricted:future_year_covariate +
-  log_depth + I(log_depth^2)
-
-# FORMULA <- catch_prop ~ 0 + fyear + restricted + year_covariate +
-#   restricted:future_step + restricted:future_year_covariate
-
-TREND_PARAM <- "restricted:future_year_covariate"
-# EVALUATION_YEARS now set in sample-fit-config.R
-
 hbll_last_sampled_year <- readRDS(hbll_last_sampled_year_file)
-
-# =============================================================================
-# Testing/Debugging options
-# =============================================================================
-SAVE_TEST_FITS <- TRUE  # Save test fit objects for inspection
-TEST_FITS_DIR <- here::here("data-generated", "test-fits")
 
 # =============================================================================
 # # Testing
@@ -70,7 +50,7 @@ TEST_FITS_DIR <- here::here("data-generated", "test-fits")
 #     get_hist_data(
 #     species = species,
 #     survey_abbrev = survey_abbrev,  # or whatever survey you're testing
-#     hist_path = hist_path,
+#     hist_path = cleaned_data_dir,
 #     cache_env = hist_cache
 #   )
 # })
@@ -174,7 +154,7 @@ if (RUN_DEFENSIVE_CHECKS) {
   test_results <- execute_parallel_fitting(
     task_grid = test_task_grid,
     results_dir = TEST_FITS_DIR,  # Save to test directory
-    hist_path = hist_path,
+    hist_path = cleaned_data_dir,
     sample_dir = sample_dir,
     sampling_summary = test_sampling_summary,  # Use filtered version
     replicate_filter = 1,  # Just first replicate
@@ -316,7 +296,7 @@ message("\n=== Executing Parallel Fitting ===")
 summary_stats <- execute_parallel_fitting(
   task_grid = task_grid,
   results_dir = results_dir,
-  hist_path = hist_path,
+  hist_path = cleaned_data_dir,
   sample_dir = sample_dir,
   sampling_summary = sampling_summary_filtered,
   replicate_filter = FILTER_REPLICATES,

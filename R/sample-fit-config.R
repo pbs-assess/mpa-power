@@ -24,7 +24,18 @@ FILTER_REPLICATES    <- 1:100
 RUN_NON_BOOTSTRAP_PLANS <- TRUE
 
 # --- Stage 04 (04-fit-simulation.R) ------------------------------------------
+FORMULA <- catch_prop ~ 0 + fyear + restricted + year_covariate +
+  restricted:future_year_covariate +
+  log_depth + I(log_depth^2)
+TREND_PARAM <- "restricted:future_year_covariate"
+
 FILTER_PLAN             <- "status quo"
 EVALUATION_YEARS        <- c(2030, 2034, 2038, 2042, 2046)
 FILTER_EVALUATION_YEARS <- NULL   # NULL = all; subset e.g. c(2038, 2046) to narrow
-RUN_DEFENSIVE_CHECKS <- TRUE
+RUN_DEFENSIVE_CHECKS <- FALSE #TRUE # if TRUE
+
+# =============================================================================
+# Testing/Debugging options
+# =============================================================================
+SAVE_TEST_FITS <- TRUE  # Save test fit objects for inspection (if RUN_DEFENSIVE_CHECKS)
+TEST_FITS_DIR <- here::here("data-generated", "test-fits")
