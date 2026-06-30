@@ -16,14 +16,6 @@ library(tidyr)
 
 dir.create(sample_dir, showWarnings = FALSE, recursive = TRUE)
 
-# Not used, but sometimes usefulf or me to see
-# hbll_last_sampled_years <- tribble(
-#   ~survey_abbrev, ~last_sampled_year, ~start_year,
-#   "HBLL OUT N", 2024, 2026,
-#   "HBLL OUT S", 2025, 2027,
-#   "HBLL INS N", 2024, 2026
-# )
-
 # Load simulation summary
 sim_summary0 <- readRDS(file.path(sim_dir, "simulation-summary.rds"))
 sim_summary <- sim_summary0 |>
