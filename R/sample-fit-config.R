@@ -18,21 +18,31 @@ if (Sys.info()['user'] == "jilliandunic")           N_WORKERS <- 8L
 
 
 # --- Stage 01 (01-fit-conditioning-models.R) ----------------------------------
+# Fitting parameters
+check_cache <- FALSE
+silent <- FALSE
+
 CONDITIONING_FORMULA     <- catch_prop ~ 0 + fyear + restricted
 CONDITIONING_FORMULA_TAG <- "fyear-restricted"
 # CONDITIONING_FORMULA     <- catch_prop ~ 0 + fyear + restricted + log_depth + I(log_depth^2)
 # CONDITIONING_FORMULA_TAG <- "fyear-restricted-depth"
 
-# --- Stage 02 (02-generate-simulated-data.R) ----------------------------------
-SIM_SP_LIST <- c(
+ALL_SPECIES <- c(
   "yelloweye rockfish",
-  # "north pacific spiny dogfish",
-  "lingcod"
-  # "quillback rockfish",
-  # "pacific halibut",
-  # "canary rockfish",
-  # "silvergray rockfish"
+  "north pacific spiny dogfish",
+  "lingcod",
+  "quillback rockfish",
+  "pacific halibut",
+  "canary rockfish",
+  "silvergray rockfish"
 )
+
+FIT_SP_LIST <- ALL_SPECIES
+# FIT_SP_LIST <- c("lingcod") # Set to ALL_SPECIES to run all species
+
+# --- Stage 02 (02-generate-simulated-data.R) ----------------------------------
+SIM_SP_LIST <- ALL_SPECIES
+# SIM_SP_LIST <- c("yelloweye rockfish", "lingcod") # Set to ALL_SPECIES to run all species
 SIM_NREPS      <- 220L
 SIM_REPLICATES <- 1:50
 
@@ -49,7 +59,7 @@ FILTER_SURVEY        <- NULL
 FILTER_MPA_TREND     <- 1.009    # 25% recovery; use 1.0164 for 50%
 FILTER_AR1_SCENARIO  <- "fitted_AR1"
 FILTER_TIME_SCENARIO <- "thirty_years"
-FILTER_REPLICATES    <- 1:20
+FILTER_REPLICATES    <- 1:1
 
 # --- Stage 03 (03-sample-simulated.R) ----------------------------------------
 RUN_NON_BOOTSTRAP_PLANS <- TRUE

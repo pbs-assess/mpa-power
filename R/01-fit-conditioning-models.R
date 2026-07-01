@@ -44,10 +44,6 @@ survey_set_depths <- readRDS(here::here("data-generated", "hbll-dem-survey-depth
   ungroup() |>
   select(survey_abbrev, fishing_event_id, dem_depth)
 
-# Fitting parameters
-check_cache <- TRUE
-silent <- FALSE
-
 # get_unscaled_rho <- function(rho_time) qlogis((rho_time + 1) / 2)
 # get_unscaled_rho(0.2)
 
@@ -349,17 +345,6 @@ assert_fits_have_omega_s <- function(all_fits_flat) {
 # can <- fit_species("canary rockfish", save_cleaned_data = TRUE)
 # sil <- fit_species("silvergray rockfish", save_cleaned_data = TRUE)
 
-# Species list (needed for the assert omega)
-sp_list <- c(
-  "yelloweye rockfish",
-  "north pacific spiny dogfish",
-  "lingcod",
-  "quillback rockfish",
-  "pacific halibut",
-  "canary rockfish",
-  "silvergray rockfish"
-)
-
 # readRDS(file.path(overlay_dir, "hbll-spp-encounter-rate.rds")) |>
 #   select(species_common_name, pos_sets) |>
 #   slice(1:20)
@@ -369,13 +354,13 @@ sp_list <- c(
 map_fn <- setup_parallel(USE_PARALLEL, N_WORKERS)
 # Fit all species
 if (USE_PARALLEL) {
-  all_fits <- map_fn(sp_list, fit_species,
+  all_fits <- map_fn(FIT_SP_LIST, fit_species,
                      check_cache = check_cache,
                      silent = silent,
                      save_cleaned_data = TRUE,
                      .options = furrr::furrr_options(seed = TRUE))
 } else {
-  all_fits <- map_fn(sp_list, fit_species,
+  all_fits <- map_fn(FIT_SP_LIST, fit_species,
                      check_cache = check_cache,
                      silent = silent,
                      save_cleaned_data = TRUE)
@@ -410,7 +395,7 @@ message("Saved AR1 parameters for ", nrow(ar1_estimates), " species × survey co
 
 # Summary of fitting outcomes
 all_fits_flat <- all_fits |> purrr::flatten()
-n_fits_attempted <- length(sp_list) * 3  # 3 surveys per species
+n_fits_attempted <- length(FIT_SP_LIST) * 3  # 3 surveys per species
 n_fits_succeeded <- sum(purrr::map_lgl(all_fits_flat, ~!is.null(.x) && inherits(.x, "sdmTMB")))
 n_fits_failed <- n_fits_attempted - n_fits_succeeded
 
@@ -422,7 +407,7 @@ message(sprintf("Failed: %d", n_fits_failed))
 if (n_fits_failed > 0) {
   message("\nFailed combinations:")
   for (i in seq_along(all_fits)) {
-    sp <- sp_list[i]
+    sp <- FIT_[i]
     fits <- all_fits[[i]]
     for (survey in c("fit_ON", "fit_OS", "fit_IN")) {
       if (is.null(fits[[survey]])) {
