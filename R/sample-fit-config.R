@@ -43,6 +43,7 @@ FIT_SP_LIST <- ALL_SPECIES
 SIM_SP_LIST <- c("yelloweye rockfish", "lingcod") # Set to ALL_SPECIES to run all species
 SIM_NREPS      <- 220L
 SIM_REPLICATES <- 1:1
+SIM_TOTAL_INCREASES <- NULL   # NULL = all (1.05, 1.10, 1.25, 1.5); subset e.g. c(1.25) to narrow
 
 SIM_FORMULA_SCENARIOS <- tribble(
   ~formula_scenario, ~formula,
