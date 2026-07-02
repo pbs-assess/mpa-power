@@ -7,6 +7,9 @@
 source(here::here("R", "00-fit-sim-functions.R"))
 source(here::here("R", "00-setup.R"))
 
+message("Using simulation directory: ", sim_dir)
+message("Sample directory: ", sample_dir)
+
 library(purrr)
 library(tidyr)
 

@@ -7,6 +7,11 @@
 source(here::here("R", "00-setup.R"))
 source(here::here("R", "00-fit-sim-functions.R"))
 source(here::here("R", "sample-fit-config.R"))
+
+message("Run tag: ", run_tag)
+message("Using conditioning formula: ", CONDITIONING_FORMULA_TAG)
+message("Using simulation formula: ", SIM_FORMULA_SCENARIOS$formula[[1]])
+
 library(tidyr)
 
 # Make sure we are using latest recovery rates

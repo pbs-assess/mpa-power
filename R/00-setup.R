@@ -26,6 +26,8 @@ dir.create(here::here("data-generated", "spatial"), recursive = TRUE, showWarnin
 ms_dir <- here::here("data-generated", run_tag)
 dir.create(ms_dir, recursive = TRUE, showWarnings = FALSE)
 
+message("Data generated directory: ", ms_dir)
+
 mesh_dir         <- file.path(ms_dir, "00-mesh-cache")
 fit_dir          <- file.path(ms_dir, "01-fits")
 cleaned_data_dir <- file.path(ms_dir, "01-cleaned-species-data")

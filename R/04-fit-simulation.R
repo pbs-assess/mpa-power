@@ -5,6 +5,10 @@
 source(here::here("R", "00-fit-sim-functions.R"))
 source(here::here("R", "00-setup.R"))
 
+message("Using simulation directory: ", sim_dir)
+message("Sample directory: ", sample_dir)
+message("Results directory: ", results_dir)
+
 library(purrr)
 library(progressr)
 
@@ -12,9 +16,6 @@ library(progressr)
 # Configuration
 # =============================================================================
 dir.create(results_dir, showWarnings = FALSE, recursive = TRUE)
-
-### SETTINGS
-source(here::here("R", "sample-fit-config.R"))
 
 hbll_last_sampled_year <- readRDS(hbll_last_sampled_year_file)
 
