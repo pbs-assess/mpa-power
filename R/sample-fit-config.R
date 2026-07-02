@@ -4,28 +4,26 @@
 # =============================================================================
 
 # --- Run tag (determines ms_dir in 00-setup.R) --------------------------------
-run_tag <- "no-depth"
-# run_tag <- "ms"       # resdoc outputs
+# run_tag <- "no-depth"
+run_tag <- "ms"       # resdoc outputs
 
 # --- Parallelism --------------------------------------------------------------
-USE_PARALLEL <- TRUE
+USE_PARALLEL <- TRUE#TRUE
 N_WORKERS    <- 8L
 
 if (Sys.info()['user'] %in% c("dunic", "anderson")) N_WORKERS <- 20L
 if (Sys.info()['user'] == "jilliandunic")           N_WORKERS <- 8L
-# Add server username here, e.g.:
-# if (Sys.info()['user'] == "server_user")          N_WORKERS <- 40L
 
 
 # --- Stage 01 (01-fit-conditioning-models.R) ----------------------------------
-# Fitting parameters
-check_cache <- FALSE
+# Fitting parameters -- these don't work right now
+check_cache <- TRUE
 silent <- FALSE
 
-CONDITIONING_FORMULA     <- catch_prop ~ 0 + fyear + restricted
-CONDITIONING_FORMULA_TAG <- "fyear-restricted"
-# CONDITIONING_FORMULA     <- catch_prop ~ 0 + fyear + restricted + log_depth + I(log_depth^2)
-# CONDITIONING_FORMULA_TAG <- "fyear-restricted-depth"
+# CONDITIONING_FORMULA     <- catch_prop ~ 0 + fyear + restricted
+# CONDITIONING_FORMULA_TAG <- "fyear-restricted"
+CONDITIONING_FORMULA     <- catch_prop ~ 0 + fyear + restricted + log_depth + I(log_depth^2)
+CONDITIONING_FORMULA_TAG <- "fyear-restricted-depth"
 
 ALL_SPECIES <- c(
   "yelloweye rockfish",
@@ -41,15 +39,15 @@ FIT_SP_LIST <- ALL_SPECIES
 # FIT_SP_LIST <- c("lingcod") # Set to ALL_SPECIES to run all species
 
 # --- Stage 02 (02-generate-simulated-data.R) ----------------------------------
-SIM_SP_LIST <- ALL_SPECIES
-# SIM_SP_LIST <- c("yelloweye rockfish", "lingcod") # Set to ALL_SPECIES to run all species
+# SIM_SP_LIST <- ALL_SPECIES
+SIM_SP_LIST <- c("yelloweye rockfish", "lingcod") # Set to ALL_SPECIES to run all species
 SIM_NREPS      <- 220L
-SIM_REPLICATES <- 1:50
+SIM_REPLICATES <- 1:1
 
 SIM_FORMULA_SCENARIOS <- tribble(
   ~formula_scenario, ~formula,
-  # "standard", list(~ 1 + log_depth + I(log_depth^2) + restricted * year_covariate)
-  "no_depth", list(~ 1 + restricted * year_covariate)
+  "standard", list(~ 1 + log_depth + I(log_depth^2) + restricted * year_covariate)
+  # "no_depth", list(~ 1 + restricted * year_covariate)
 )
 
 
