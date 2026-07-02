@@ -1,5 +1,6 @@
 # Core libraries
-library(sdmTMB) # pak::pak("tidyverse/dplyr@778e413
+library(sdmTMB) # pak::pak("sdmTMB/sdmTMB@6e9e7de") --> I think this is what is needed for the resdoc???
+# sdmTMB     0.8.1.9001 → 1.0.0.9015 👷🔧 (GitHub: 6e9e7de), unless I updated since then????
 library(ggplot2)
 # library(here)
 library(sf)
