@@ -251,3 +251,24 @@ depth_summaries_sf |>
   # scale_y_continuous(trans = ggsidekick::fourth_root_power_trans()) +
   labs(x = "Grid depth_m", y = "DEM mean depth", colour = NULL) +
   facet_wrap(~ survey_series_id, ncol = 2)
+
+# Compare centroids and other grid summaries:
+dem_centroids <- readRDS(here::here("data-generated", "hbll-dem-grid-centroid-depths.rds"))
+
+depth_summaries_sf |>
+  st_drop_geometry() |>
+  left_join(dem_centroids |> st_drop_geometry() |> select(block_id, depth_centroid), by = "block_id") |>
+  select(survey_abbrev, strata_depth_label, depth_m, depth_dem_mean, depth_centroid) |>
+  tidyr::pivot_longer(c(depth_m, depth_dem_mean, depth_centroid),
+    names_to = "source", values_to = "depth") |>
+  mutate(source = recode(source,
+    depth_m        = "Original grid",
+    depth_dem_mean = "DEM polygon mean",
+    depth_centroid = "DEM centroid")) |>
+  ggplot(aes(x = strata_depth_label, y = depth, fill = source)) +
+  geom_boxplot(outlier.alpha = 0.2) +
+  geom_hline(data = strata_ranges, aes(yintercept = strata_min), linetype = "dashed") +
+  geom_hline(data = strata_ranges, aes(yintercept = strata_max), linetype = "dashed") +
+  scale_fill_viridis_d(option = "turbo", begin = 0.15, end = 0.85) +
+  facet_wrap(~ survey_abbrev, scales = "free") +
+  labs(x = "Depth stratum", y = "Depth (m)", fill = NULL)

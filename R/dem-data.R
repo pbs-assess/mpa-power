@@ -141,6 +141,12 @@ meep()
   depth_summaries <- readRDS(here::here("data-generated", "hbll-dem-grid-depths.rds"))
 }
 
+
+dem_centroids <- hbll_grid_poly_transformed |> st_centroid() |> st_transform(crs = terra::crs(dem))
+dem_centroids$depth_centroid <- terra::extract(dem, terra::vect(centroids))[, 2]
+glimpse(dem_centroids)
+saveRDS(dem_centroids, here::here("data-generated", "hbll-dem-grid-centroid-depths.rds"))
+
 # Option 2.
 # Code to filter to depths only within the designated block stratum
 # dem_hbll0 <- all_extracts |>
