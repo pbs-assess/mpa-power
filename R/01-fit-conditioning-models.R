@@ -407,7 +407,7 @@ message(sprintf("Failed: %d", n_fits_failed))
 if (n_fits_failed > 0) {
   message("\nFailed combinations:")
   for (i in seq_along(all_fits)) {
-    sp <- FIT_[i]
+    sp <- FIT_SP_LIST[i]
     fits <- all_fits[[i]]
     for (survey in c("fit_ON", "fit_OS", "fit_IN")) {
       if (is.null(fits[[survey]])) {
