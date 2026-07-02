@@ -37,7 +37,7 @@ knitr::include_graphics(here::here("figures/type-m-error-plot.png"))
 knitr::include_graphics(here::here("figures/power-correlations-25pct.png"))
 ```
 
-(ref:sampling-scenario-power-comparison-caption) Power and magnitude errors for the three species with the highest power under an alternative sampling scenario where the MPA sites are only sampled every fourth year (instead of the usual biennial sampling). Survey effort was then redistributed to the non-MPA sites in those years.
+(ref:sampling-scenario-power-comparison-caption) Power and magnitude errors for three example species (lingcod, quillback rockfish, and yelloweye rockfish) that approached target power under the 25% abundance increase over 25 years scenario. Solid lines show power under the status quo sampling design in 2042 and 2046; dashed lines with open points show power under an alternative design where the MPA sites are only sampled every fourth year (instead of the usual biennial sampling). Survey effort was redistributed to the non-MPA sites in the intervening years. Compared to the status quo design, reallocating survey effort delayed expected detection by approximately four years.
 
 ```{r sampling-scenario-power-comparison, fig.cap='(ref:sampling-scenario-power-comparison-caption)', fig.asp=get_asp(here::here("figures/multispecies-power-bootstrap-vs-no-mpa-every-2nd-survey-25pct.png")), out.width="80%"}
 knitr::include_graphics(here::here("figures/multispecies-power-bootstrap-vs-no-mpa-every-2nd-survey-25pct.png"))
