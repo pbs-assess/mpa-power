@@ -202,6 +202,26 @@ if (RUN_DEFENSIVE_CHECKS) {
     }
   }
 
+# code to let me run and look at verbose sdmTMB output
+  # if (length(fit_files) > 0) {
+  #   test <- readRDS(fit_files[1])
+  #   test_dat <- test$data
+  #   test_mesh <- make_mesh(test_dat, xy_cols = c("X", "Y"), mesh = test$fit$spde$mesh)
+
+  #   test_fit <- sdmTMB(data = test_dat,
+  #     formula = catch_prop ~ 0 + fyear + restricted + year_covariate +
+  #       restricted:future_year_covariate + scale(log_depth) + I(scale(log_depth)^2),
+  #     mesh = test_mesh,
+  #     family = betabinomial(link = "cloglog"),
+  #     spatial = "on",
+  #     spatiotemporal = "iid",
+  #     time = "year",
+  #     weights = test_dat$hook_count,
+  #     control = sdmTMBcontrol(collapse_spatial_variance = TRUE),
+  #     silent = FALSE
+  #   )
+  # }
+
   message("\n✓ Defensive checks complete")
   message("Results saved to: ", TEST_FITS_DIR)
 
