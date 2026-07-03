@@ -6,6 +6,13 @@
 # --- Run tag (determines ms_dir in 00-setup.R) --------------------------------
 # run_tag <- "no-depth"
 run_tag <- "ms"       # resdoc outputs
+# run_tag <- "0-phi=1000"  # minimize observation error
+
+# Set to NULL for canonical run_tags ("ms", "no-depth") that build everything
+# from scratch. Set to an existing run_tag to symlink its Stage 1 outputs
+# (mesh, conditioning fits, core geography/depth files) into a new diagnostic
+# run_tag instead of regenerating them -- see R/link-run-tag.R.
+BASE_RUN_TAG <- "ms"
 
 # --- Parallelism --------------------------------------------------------------
 USE_PARALLEL <- TRUE#TRUE
