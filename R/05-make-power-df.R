@@ -4,8 +4,7 @@ library(purrr)
 library(tidyr)
 library(ggrepel)
 
-theme_set(gfplot::theme_pbs())
-
+source(here::here("R", "00-setup.R"))
 source(here::here("R", "00-fit-power-analysis-functions.R"))
 
 # FIXME: missing!
@@ -14,12 +13,12 @@ source(here::here("R", "00-fit-power-analysis-functions.R"))
 
 presentation <- FALSE
 if (presentation) {
-  fig_dir <- here::here("figures", "presentations", "2026-03-10-survey-design-workshop")
+  output_fig_dir <- here::here("figures", "presentations", "2026-03-10-survey-design-workshop")
 } else {
-  fig_dir <- here::here("figures")
+  output_fig_dir <- fig_dir  # from 00-setup.R: figures-ms
 }
 
-supp_dir <- here::here("figures", "supplementary")
+supp_dir <- file.path(output_fig_dir, "supplementary")
 dir.create(supp_dir, showWarnings = FALSE, recursive = TRUE)
 
 # Gelman and Carlin 2014
@@ -71,9 +70,6 @@ summarise_power <- function(power_df,
 
 # Load results
 # ------------------------------------------------------------------------------
-# results_dir <- here::here("data-generated", "no-hc-power-results")
-
-results_dir <- here::here("data-generated", "power-results")
 combined_results <- combine_all_results(results_dir)
 
 all_fitted_results0 <- readRDS(file.path(results_dir, "all-fitted-results.rds")) #|>
@@ -97,7 +93,8 @@ rates_lu <- data.frame(
 
 
 all_fitted_results <- all_fitted_results0 |>
-  filter(sampling_plan == "historical survey-year bootstrap") |>
+  # filter(sampling_plan == "historical survey-year bootstrap") |>
+  filter(sampling_plan == "status quo") |>
   # filter(species == "yelloweye rockfish") |>
   # filter(species != "yelloweye rockfish" |
   #  (species == "yelloweye rockfish" & sim_mpa_trend %in% out_ye_rates)) |>
@@ -135,6 +132,7 @@ table(all_fitted_results$sanity)
 # Calculate replicate-level metrics
 # ----------------------------------
 power_df0 <- all_fitted_results |>
+  group_by(species, survey_abbrev, sim_mpa_trend, sim_ar1_scenario, sampling_plan, eval_year) |>
   mutate(
     true_effect = log(sim_mpa_trend),
     significant = !(ci_lower < 0 & ci_upper > 0), # Significance: CI doesn't include 0
@@ -240,7 +238,7 @@ power_summary <- dat |>
   mutate(year_80pct_power = replace_na(as.character(year_80pct_power), ">2046")) |>
   arrange(species, mpa_effect_label)
 
-saveRDS(dat, here::here("data-generated", "power-results-df.rds"))
+saveRDS(dat, file.path(ms_dir, "power-results-df.rds"))
 
 # Power plot ------
 # g <- dat |>

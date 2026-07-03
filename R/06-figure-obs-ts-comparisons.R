@@ -7,14 +7,14 @@ library(ggplot2)
 library(purrr)
 library(tidyr)
 
-hist_path <- here::here("data-generated", "cleaned-species-data")
-sample_dir <- here::here("data-generated", "sampled-data")
+hist_path <- cleaned_data_dir
 sampling_summary <- readRDS(file.path(sample_dir, "sampling-summary.rds"))
 
 survey_abbrev <- "HBLL OUT N"
-plan <- "historical survey-year bootstrap"
+# plan <- "historical survey-year bootstrap"
+plan <- "status quo"
 ar1_scenario <- "fitted_AR1"
-time_scenario <- "twenty-five_years"
+time_scenario <- "thirty_years"
 eval_years <- c(2030, 2034, 2038, 2042, 2046)
 
 species_to_plot <- sampling_summary |>
@@ -77,11 +77,12 @@ build_obs_ts_plot_data <- function(species,
                                    mpa_trend,
                                    replicate,
                                    ar1_scenario = "fitted_AR1",
-                                   time_scenario = "twenty-five_years",
-                                   plan = "historical survey-year bootstrap",
+                                   time_scenario = "thirty_years",
+                                  #  plan = "historical survey-year bootstrap",
+                                   plan = "status quo",
                                    eval_years = c(2030, 2034, 2038, 2042, 2046),
-                                   hist_path = here::here("data-generated", "cleaned-species-data"),
-                                   sample_dir = here::here("data-generated", "sampled-data"),
+                                   hist_path = cleaned_data_dir,
+                                   sample_dir = sample_dir,
                                    sampling_summary = readRDS(file.path(sample_dir, "sampling-summary.rds")),
                                    hist_cache = new.env(parent = emptyenv())) {
 
@@ -184,7 +185,7 @@ ggplot(
   ) +
   theme(legend.position = "top")
 
-ggsave("figures/mean-observed-ts-eg.png", width = 7, height = 8)
+ggsave(file.path(fig_dir, "mean-observed-ts-eg.png"), width = 7, height = 8)
 
 # Next step: expand `example_grid`, for example:
 # example_grid <- tidyr::expand_grid(

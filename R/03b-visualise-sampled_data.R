@@ -1,6 +1,8 @@
 source(here::here("R", "00-setup.R"))
 
 sample_files <- list.files(file.path(sample_dir, "yelloweye-rockfish"), full.names = TRUE)
+sample_files <- sample_files[grepl(sample_files, pattern = "rep001|rep002|rep003")]
+sample_files <- sample_files[grepl(sample_files, pattern = "1.009")]
 ye_samps <- purrr::map_dfr(sample_files, readRDS)
 
 # Double check that allocations look correct

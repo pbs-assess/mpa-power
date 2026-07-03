@@ -3,10 +3,9 @@ library(ggplot2)
 
 theme_set(gfplot::theme_pbs())
 
+source(here::here("R", "00-setup.R"))
 source(here::here("R", "00-utils.R"))
 source(here::here("R", "00-fit-power-analysis-functions.R"))
-
-fig_dir <- here::here("figures")
 
 summarise_power <- function(power_df,
   by = c("species", "survey_abbrev", "mpa_effect_label", "eval_year")) {
@@ -36,10 +35,9 @@ summarise_power <- function(power_df,
 
 
 # Load power results
-results_dir <- here::here("data-generated", "power-results")
-combined_results <- combine_all_results(results_dir)
+# combined_results <- combine_all_results(results_dir)
 
-all_fitted_results0 <- readRDS(file.path(results_dir, "all-fitted-results.rds")) #|>
+all_fitted_results0 <- readRDS(file.path(results_dir, "all-fitted-results.rds"))
 
 rates <- unique(all_fitted_results0$sim_mpa_trend)
 rate_percents <- c("5%", "10%", "25%", "50%")
@@ -49,11 +47,15 @@ rates_lu <- data.frame(
   true_effect = log(c(1.05, 1.10, 1.25, 1.5)) / 25
 )
 
+filter(all_fitted_results0, is.na(sanity)) |> glimpse()
+
 all_fitted_results <- all_fitted_results0 |>
   mutate(species = replace(species, species == "north pacific spiny dogfish", "pacific spiny dogfish")) |>
-  mutate(converged = ifelse(sanity == "ok", TRUE, FALSE)) |>
-  left_join(rates_lu) |>
-  filter(sampling_plan == "historical survey-year bootstrap")
+  mutate(
+    sanity = ifelse(is.na(sanity) & !is.na(error_msg), error_msg, sanity),
+    converged = !is.na(sanity) & sanity == "ok"
+  ) |>
+  left_join(rates_lu)
 
 all_fitted_results |> glimpse()
 filter(all_fitted_results, !converged) |>
@@ -75,7 +77,7 @@ power_df0 <- all_fitted_results |>
 
 # Calculate scenario-level metrics
 # ------------------------------------------------------------------------------
-combo <- c("species", "mpa_effect_label", "eval_year")
+combo <- c("species", "mpa_effect_label", "sampling_plan", "eval_year")
 
 power_df <- summarise_power(power_df0, by = combo)
 spp_levels <- power_df |>
@@ -87,7 +89,9 @@ spp_levels <- power_df |>
 # Order species by increasing max power at 25% MPA effect size
 power_df <- power_df |> mutate(species = factor(species, levels = spp_levels))
 
-saveRDS(power_df, here::here('data-generated', 'power-df-historical-sampling.rds'))
+saveRDS(power_df, file.path(ms_dir, "power-df-all-scenarios.rds"))
+
+# saveRDS(power_df, here::here('data-generated', 'power-df-historical-sampling.rds'))
 
 # d <- filter(power_df, species == "yelloweye rockfish", mpa_effect_label == "10%", eval_year == "2030")
 # # names(d)
@@ -115,12 +119,12 @@ saveRDS(power_df, here::here('data-generated', 'power-df-historical-sampling.rds
 
 # ------------------------------------------------------------------------------
 # Main power plot
-year_threshold <- power_df |>
-  filter(power >= 0.8) |>
-  group_by(species, eval_year, mpa_effect_label) |>
-  slice_min(eval_year, n = 1) |>
-  select(species, mpa_effect_label, year_80pct_power = eval_year) |>
-  ungroup()
+# year_threshold <- power_df |>
+#   filter(power >= 0.8) |>
+#   group_by(species, eval_year, mpa_effect_label) |>
+#   slice_min(eval_year, n = 1) |>
+#   select(species, mpa_effect_label, year_80pct_power = eval_year) |>
+#   ungroup()
 
 # Power plot ------
 power_df |>
@@ -134,14 +138,15 @@ power_df |>
   scale_colour_viridis_d(option = "plasma", end = 0.85) +
   scale_x_continuous(breaks = unique(power_df$eval_year)) +
   labs(colour = "Abundance increase\nover 25 years") +
-  theme(legend.position = "inside",
-    legend.position.inside = c(0.9, 0.2),
-        panel.spacing = unit(1, "lines"),
+  theme(
+      # legend.position = "inside",
+      legend.position.inside = c(0.9, 0.2),
+      panel.spacing = unit(1, "lines"),
       panel.grid.major = element_line(colour = "grey92", linewidth = 0.4)) +
   guides(colour = guide_legend(reverse = TRUE)) +
   labs(x = "Evaluation year", y = "Correctly signed power") +
   scale_y_continuous(limits = c(-0.005, 1.005), expand = expansion(mult = c(0, 0)), breaks = seq(0, 1, 0.2))
-ggsave(file.path(fig_dir, "main-power-plot.png"), width = 7.4, height = 4.4)
+# ggsave(file.path(fig_dir, "main-power-plot.png"), width = 7.4, height = 4.4)
 
 # Type M error plot ------------------------------------------------------------
 type_m_all_species <- power_df |>
@@ -154,7 +159,8 @@ type_m_all_species <- power_df |>
   scale_colour_viridis_d(option = "plasma", end = 0.85) +
   scale_x_continuous(breaks = unique(power_df$eval_year)) +
   labs(colour = "Abundance increase\nover 25 years") +
-  theme(legend.position = "inside",
+  theme(
+    # legend.position = "inside",
     legend.position.inside = c(0.9, 0.2),
         panel.spacing = unit(1, "lines"),
       panel.grid.major = element_line(colour = "grey92", linewidth = 0.4)) +
@@ -162,7 +168,7 @@ type_m_all_species <- power_df |>
   scale_y_log10(limits = c(0.97, NA), expand = expansion(mult = c(0, 0.05)), breaks = c(1, 2, 5, 10, 30)) +
   labs(x = "Evaluation year", y = "Multiplicative magnitude error\non the 25-year percent increase")
 type_m_all_species
-ggsave(file.path(fig_dir, "type-m-error-plot-all-species.png"), width = 7.4, height = 4.4)
+# ggsave(file.path(fig_dir, "type-m-error-plot-all-species.png"), width = 7.4, height = 4.4)
 
 type_m_all_species +
  (power_df |> filter(species %in% c("yelloweye rockfish", "lingcod", "quillback rockfish"))) +
