@@ -43,12 +43,13 @@ FIT_SP_LIST <- ALL_SPECIES
 SIM_SP_LIST <- c("yelloweye rockfish", "lingcod") # Set to ALL_SPECIES to run all species
 SIM_NREPS      <- 220L
 SIM_REPLICATES <- 1:1
-SIM_TOTAL_INCREASES <- NULL   # NULL = all (1.05, 1.10, 1.25, 1.5); subset e.g. c(1.25) to narrow
+# SIM_TOTAL_INCREASES <- NULL   # NULL = all (1.05, 1.10, 1.25, 1.5); subset e.g. c(1.25) to narrow
+SIM_TOTAL_INCREASES <- c(1.25)
 
 SIM_FORMULA_SCENARIOS <- tribble(
   ~formula_scenario, ~formula,
-  "standard", list(~ 1 + log_depth + I(log_depth^2) + restricted * year_covariate)
-  # "no_depth", list(~ 1 + restricted * year_covariate)
+  # "standard", list(~ 1 + log_depth + I(log_depth^2) + restricted * year_covariate)
+  "no_depth", list(~ 1 + restricted * year_covariate)
 )
 
 
@@ -64,9 +65,11 @@ FILTER_REPLICATES    <- 1:1
 RUN_NON_BOOTSTRAP_PLANS <- TRUE
 
 # --- Stage 04 (04-fit-simulation.R) ------------------------------------------
+# FORMULA <- catch_prop ~ 0 + fyear + restricted + year_covariate +
+#   restricted:future_year_covariate +
+#   log_depth + I(log_depth^2)
 FORMULA <- catch_prop ~ 0 + fyear + restricted + year_covariate +
-  restricted:future_year_covariate +
-  log_depth + I(log_depth^2)
+  restricted:future_year_covariate
 TREND_PARAM <- "restricted:future_year_covariate"
 
 FILTER_PLAN             <- "status quo"
