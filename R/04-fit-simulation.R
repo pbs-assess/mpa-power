@@ -339,6 +339,7 @@ message("Combos processed: ", nrow(summary_stats))
 message("Total new fits: ", sum(summary_stats$n_new))
 message("Total errors: ", sum(summary_stats$n_errors))
 message("\nResults saved to: ", results_dir)
+write_run_info(results_dir)
 
 future::plan(future::sequential)
 tictoc::toc()

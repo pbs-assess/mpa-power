@@ -453,3 +453,4 @@ fit_characteristics <- purrr::map_dfr(all_fits_flat, \(x) {
   }
 })
 saveRDS(fit_characteristics, fit_characteristics_file)
+write_run_info(fit_dir)

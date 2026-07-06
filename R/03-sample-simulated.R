@@ -1010,6 +1010,7 @@ message("\n=== All sampling complete ===")
 message("Files saved to: ", sample_dir)
 message("Summary saved to: ", summary_file)
 message("Total files created: ", nrow(sampling_summary))
+write_run_info(sample_dir)
 
 # Reset to sequential processing
 future::plan(future::sequential)

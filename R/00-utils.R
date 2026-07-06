@@ -368,6 +368,62 @@ setup_parallel <- function(use_parallel, n_workers = NULL) {
   }
 }
 
+#' Write a snapshot of run configuration and git state
+#'
+#' Captures the resolved values in sample-fit-config.R, the current git commit,
+#' and a diff of any uncommitted changes under R/, so outputs in a run_tag
+#' directory can be traced back to the exact config and code that produced them.
+#'
+#' @param dir Directory to write run-info.txt and run-info.diff into
+#' @param config_path Path to the config file to snapshot
+write_run_info <- function(dir, config_path = here::here("R", "sample-fit-config.R")) {
+  config_env <- new.env()
+  sys.source(config_path, envir = config_env)
+
+  dirty <- length(system("git status --porcelain -- R/", intern = TRUE)) > 0
+
+  # Walk the config file's own top-level expressions (via srcref) so its
+  # section headers, comments, and blank lines carry over into run-info.txt.
+  # Only lines that are actual assignments get swapped for their resolved
+  # value; everything else (headers, commented-out alternatives, if-guarded
+  # overrides) is copied verbatim from the source.
+  raw_lines <- readLines(config_path)
+  exprs <- parse(config_path, keep.source = TRUE)
+  srcrefs <- attr(exprs, "srcref")
+
+  config_lines <- character(0)
+  cursor <- 1L
+  for (i in seq_along(exprs)) {
+    ref <- as.integer(srcrefs[[i]])
+    start_line <- ref[1]
+    end_line <- ref[3]
+
+    if (start_line > cursor) config_lines <- c(config_lines, raw_lines[cursor:(start_line - 1)])
+
+    e <- exprs[[i]]
+    if (is.call(e) && identical(as.character(e[[1]]), "<-") && is.symbol(e[[2]])) {
+      nm <- as.character(e[[2]])
+      config_lines <- c(config_lines, paste0(nm, " <- ", deparse1(get(nm, envir = config_env))))
+    } else {
+      config_lines <- c(config_lines, raw_lines[start_line:end_line])
+    }
+    cursor <- end_line + 1L
+  }
+  if (cursor <= length(raw_lines)) config_lines <- c(config_lines, raw_lines[cursor:length(raw_lines)])
+
+  info <- c(
+    paste("timestamp:", Sys.time()),
+    paste("git_commit:", system("git rev-parse HEAD", intern = TRUE)),
+    paste("uncommitted changes:", if (dirty) "see run-info.diff" else "none"),
+    "",
+    "# sample-fit-config.R values",
+    "",
+    config_lines
+  )
+  writeLines(info, file.path(dir, "run-info.txt"))
+  writeLines(system("git diff -- R/", intern = TRUE), file.path(dir, "run-info.diff"))
+}
+
 clean_family_name <- function(fit) {
     if (!is.null(fit$family$delta)) {
       # Delta model - sdmTMB style: "Delta family1(link1), family2(link2)"
