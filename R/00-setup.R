@@ -51,7 +51,7 @@ fit_characteristics_file    <- file.path(ms_dir, "fit-characteristics.rds")
 # (two filenames used across 06-figures-power-plots.R, 06-figure-power-correlations*.R,
 # and 07-get-values.R) and add a power_results_file path variable here
 
-fig_dir <- here::here("figures-ms")
+fig_dir <- file.path(ms_dir, "figures")
 dir.create(fig_dir, showWarnings = FALSE, recursive = TRUE)
 
 hbll_ssids <- c(22, 36, 39, 40)

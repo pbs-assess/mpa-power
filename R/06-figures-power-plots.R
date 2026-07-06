@@ -7,6 +7,12 @@ source(here::here("R", "00-setup.R"))
 source(here::here("R", "00-utils.R"))
 source(here::here("R", "00-fit-power-analysis-functions.R"))
 
+message("--------------------------------", "\n",
+  "  Running power plots for run_tag: ", run_tag, "\n",
+  "--------------------------------")
+
+run_label <- sub("^0-", "", run_tag)
+
 summarise_power <- function(power_df,
   by = c("species", "survey_abbrev", "mpa_effect_label", "eval_year")) {
   power_df |>
@@ -127,13 +133,13 @@ saveRDS(power_df, file.path(ms_dir, "power-df-all-scenarios.rds"))
 #   ungroup()
 
 # Power plot ------
-power_df |>
+power_plot <- power_df |>
   ggplot() +
   aes(x = eval_year, y = power_signed, colour = mpa_effect_label) +
   geom_hline(yintercept = 0.8, linetype = "dashed", colour = "grey50") +
   geom_line() +
   geom_point() +
-  facet_wrap(~ species, labeller = as_labeller(stringr::str_to_title),
+  facet_wrap(sampling_plan~ species, labeller = as_labeller(stringr::str_to_title),
     nrow = 2) +
   scale_colour_viridis_d(option = "plasma", end = 0.85) +
   scale_x_continuous(breaks = unique(power_df$eval_year)) +
@@ -144,9 +150,12 @@ power_df |>
       panel.spacing = unit(1, "lines"),
       panel.grid.major = element_line(colour = "grey92", linewidth = 0.4)) +
   guides(colour = guide_legend(reverse = TRUE)) +
+  guides(colour = "none") +
   labs(x = "Evaluation year", y = "Correctly signed power") +
-  scale_y_continuous(limits = c(-0.005, 1.005), expand = expansion(mult = c(0, 0)), breaks = seq(0, 1, 0.2))
-# ggsave(file.path(fig_dir, "main-power-plot.png"), width = 7.4, height = 4.4)
+  scale_y_continuous(limits = c(-0.005, 1.005), expand = expansion(mult = c(0, 0)), breaks = seq(0, 1, 0.2)) +
+  ggtitle(run_label)
+power_plot
+ggsave(file.path(fig_dir, "main-power-plot.png"), width = 7.4, height = 4.4)
 
 # Type M error plot ------------------------------------------------------------
 type_m_all_species <- power_df |>
@@ -154,7 +163,7 @@ type_m_all_species <- power_df |>
   aes(x = eval_year, y = type_m_error, colour = mpa_effect_label) +
   geom_point() +
   geom_line() +
-  facet_wrap(~ species, labeller = as_labeller(stringr::str_to_title),
+  facet_wrap(sampling_plan ~ species, labeller = as_labeller(stringr::str_to_title),
     nrow = 2) +
   scale_colour_viridis_d(option = "plasma", end = 0.85) +
   scale_x_continuous(breaks = unique(power_df$eval_year)) +
@@ -168,14 +177,14 @@ type_m_all_species <- power_df |>
   scale_y_log10(limits = c(0.97, NA), expand = expansion(mult = c(0, 0.05)), breaks = c(1, 2, 5, 10, 30)) +
   labs(x = "Evaluation year", y = "Multiplicative magnitude error\non the 25-year percent increase")
 type_m_all_species
-# ggsave(file.path(fig_dir, "type-m-error-plot-all-species.png"), width = 7.4, height = 4.4)
+ggsave(file.path(fig_dir, "type-m-error-plot-all-species.png"), width = 7.4, height = 4.4)
 
-type_m_all_species +
- (power_df |> filter(species %in% c("yelloweye rockfish", "lingcod", "quillback rockfish"))) +
- facet_wrap(~ species, labeller = as_labeller(stringr::str_to_title), nrow = 1) +
- theme(legend.position = "bottom") +
- labs(colour = "Abundance increase over 25 years")
-ggsave(file.path(fig_dir, "type-m-error-plot.png"), width = 7, height = 3.3)
+# type_m_all_species +
+#  (power_df |> filter(species %in% c("yelloweye rockfish", "lingcod", "quillback rockfish"))) +
+#  facet_wrap(~ species, labeller = as_labeller(stringr::str_to_title), nrow = 1) +
+#  theme(legend.position = "bottom") +
+#  labs(colour = "Abundance increase over 25 years")
+# ggsave(file.path(fig_dir, "type-m-error-plot.png"), width = 7, height = 3.3)
 
 
 # Type S error plot ------------------------------------------------------------
@@ -200,7 +209,7 @@ power_df |>
       axis.text.x = element_text(angle = 45, hjust = 1, size = 7),
       panel.spacing = unit(0.5, "lines"), legend.position = "top"
     )
-ggsave(file.path(fig_dir, "type-s-error-plot.png"), width = 8.2, height = 5.5)
+# ggsave(file.path(fig_dir, "type-s-error-plot.png"), width = 8.2, height = 5.5)
 
 
 # ------------------------------------------------------------------------------
@@ -211,7 +220,7 @@ filter_species <- c("yelloweye rockfish")
 filter_species <- c("lingcod")
 
 # Bias check on estimate -------------------------------------------------------
-power_df0 |>
+bias_plot <- power_df0 |>
   # filter(species %in% filter_species) |>
   mutate(species = stringr::str_to_title(species)) |>
   filter(mpa_effect_label == "25%") |>
@@ -222,13 +231,19 @@ power_df0 |>
   ggplot() +
   geom_point(aes(x = id, y = estimate), alpha = 0.2) +
   geom_hline(aes(yintercept = true_effect), colour = "red") +
-  facet_grid(rows = vars(species), cols = vars(eval_year),
+  facet_grid(rows = vars(species, sampling_plan), cols = vars(eval_year),
     labeller = labeller(species = function(x) stringr::str_replace(x, " ", "\n"))) +
   labs(x = "Replicate", y = "Estimate") +
-  ggtitle(paste0("25% abundance increase over 25 years"))
+  # ggtitle(paste0("25% abundance increase over 25 years"))
+  ggtitle(run_label)
+bias_plot
 ggsave(file.path(fig_dir, paste0("bias-check-on-estimate.png")),
   width = 6.2, height = 6.6)
 # ggsave(file.path(supp_dir, "bias-check-on-estimate-lingcod.png"), width = 9, height = 6.5)
+
+library(patchwork)
+bias_plot / power_plot
+ggsave(file.path(fig_dir, paste0("bias-power-", run_label, ".png")), width = 8.9, height = 10.9)
 
 # Cumulative power plot - to check stability of power analysis results ---------
 # Add replicate count per combo so we only sample up to each combo's n_reps
