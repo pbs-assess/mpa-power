@@ -121,6 +121,18 @@ validate_hbll_data <- function(data, species_name, survey_abbrev,
 fit_cached_sdmTMB <- function(fit_dir, check_cache = TRUE, update_from = NULL,
                               model_tag = NULL, debug = FALSE, ...) {
 
+  if (Sys.info()[["user"]] %in% c("dunic", "anderson")) {
+    stop(
+      "fit_cached_sdmTMB() must not run on the server -- cache-hit detection is ",
+      "unreliable there (something about the server environment changes the model ",
+      "hash, so it silently refits instead of reusing your cached fits). Fit ",
+      "conditioning models locally on your Mac, then rsync ",
+      "data-generated/<run_tag>/01-fits, ar1-parameters.rds, and ",
+      "fit-characteristics.rds to the server.",
+      call. = FALSE
+    )
+  }
+
   if (!is.null(update_from)) {
     # For model updates: merge base parameters with new ones
     base_params <- extract_model_params(update_from)
