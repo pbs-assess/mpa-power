@@ -376,7 +376,7 @@ run_single_replicate_simulation <- function(species,
     rho_V = if (is.na(param_combo$rho_V)) NULL else param_combo$rho_V,
     sigma_V = if (is.na(param_combo$sigma_V)) NULL else param_combo$sigma_V,
     use_fixed_spatial_field = TRUE,
-    sigma_E = 0,
+    sigma_E = NULL,
     phi = if (is.na(param_combo$phi)) NULL else param_combo$phi,
     tag = paste0(survey_config$tag_prefix, "-rep", replicate)
   )
@@ -760,8 +760,7 @@ task_grid <- purrr::map_dfr(names(all_species_fits), function(sp_name) {
       ar1_scenarios = ar1_scenarios_survey,  # Survey-specific AR1 values
       time_scenarios = time_scenarios,
       formula_scenarios = formula_scenarios,
-      nreps = nreps,
-      phi = 1000
+      nreps = nreps
     )
 
     # Get unique parameter combinations (excluding replicate)
