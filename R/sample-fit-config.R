@@ -6,11 +6,11 @@
 # --- Run tag (determines ms_dir in 00-setup.R) --------------------------------
 # run_tag <- "no-depth"
 # run_tag <- "ms"       # resdoc outputs
-# run_tag <- "0-sim-no-depth-fit-no-depth"
 # run_tag <- "0-phi=1000-sigmaE=0"  # minimize observation error
 # run_tag <- "0-sim-depth-fit-no-depth" # these are run on understanding-depth branch
 # run_tag <- "0-sim-no-depth-fit-depth" # these are run on understanding-depth branch
-run_tag <- "0-sim-no-depth-fit-no-depth" # these are run on understanding-depth branch
+# run_tag <- "0-sim-no-depth-fit-no-depth"
+run_tag <- "0-sim-depth-fit-depth"
 
 # Set to NULL for canonical run_tags ("ms", "no-depth") that build everything
 # from scratch. Set to an existing run_tag to symlink its Stage 1 outputs
@@ -31,10 +31,10 @@ if (Sys.info()['user'] == "jilliandunic")           N_WORKERS <- 8L
 check_cache <- TRUE
 silent <- FALSE
 
-CONDITIONING_FORMULA     <- catch_prop ~ 0 + fyear + restricted
-CONDITIONING_FORMULA_TAG <- "fyear-restricted"
-# CONDITIONING_FORMULA     <- catch_prop ~ 0 + fyear + restricted + log_depth + I(log_depth^2)
-# CONDITIONING_FORMULA_TAG <- "fyear-restricted-depth"
+# CONDITIONING_FORMULA     <- catch_prop ~ 0 + fyear + restricted
+# CONDITIONING_FORMULA_TAG <- "fyear-restricted"
+CONDITIONING_FORMULA     <- catch_prop ~ 0 + fyear + restricted + log_depth + I(log_depth^2)
+CONDITIONING_FORMULA_TAG <- "fyear-restricted-depth"
 
 ALL_SPECIES <- c(
   "yelloweye rockfish",
@@ -59,8 +59,8 @@ SIM_TOTAL_INCREASES <- c(1.25)
 
 SIM_FORMULA_SCENARIOS <- tribble(
   ~formula_scenario, ~formula,
-  # "standard", list(~ 1 + log_depth + I(log_depth^2) + restricted * year_covariate)
-  "no_depth", list(~ 1 + restricted * year_covariate)
+  "standard", list(~ 1 + log_depth + I(log_depth^2) + restricted * year_covariate)
+  # "no_depth", list(~ 1 + restricted * year_covariate)
 )
 
 
@@ -76,11 +76,11 @@ FILTER_REPLICATES    <- 1:30
 RUN_NON_BOOTSTRAP_PLANS <- TRUE
 
 # --- Stage 04 (04-fit-simulation.R) ------------------------------------------
-# FORMULA <- catch_prop ~ 0 + fyear + restricted + year_covariate +
-#   restricted:future_year_covariate +
-#   log_depth + I(log_depth^2)
 FORMULA <- catch_prop ~ 0 + fyear + restricted + year_covariate +
-  restricted:future_year_covariate
+  restricted:future_year_covariate +
+  log_depth + I(log_depth^2)
+# FORMULA <- catch_prop ~ 0 + fyear + restricted + year_covariate +
+#   restricted:future_year_covariate
 TREND_PARAM <- "restricted:future_year_covariate"
 
 FILTER_PLAN             <- c("status quo", "historical survey-year bootstrap")
