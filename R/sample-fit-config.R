@@ -5,12 +5,12 @@
 
 # --- Run tag (determines ms_dir in 00-setup.R) --------------------------------
 # run_tag <- "no-depth"
-# run_tag <- "ms"       # resdoc outputs
-# run_tag <- "0-phi=1000-sigmaE=0"  # minimize observation error
+# run_tag <- "ms"
+run_tag <- "0-sim-depth-fit-depth-phi=1000-sigmaE=0"  # minimize observation error
 # run_tag <- "0-sim-depth-fit-no-depth" # these are run on understanding-depth branch
 # run_tag <- "0-sim-no-depth-fit-depth" # these are run on understanding-depth branch
 # run_tag <- "0-sim-no-depth-fit-no-depth"
-run_tag <- "0-sim-depth-fit-depth"
+# run_tag <- "0-sim-depth-fit-depth"
 
 # Set to NULL for canonical run_tags ("ms", "no-depth") that build everything
 # from scratch. Set to an existing run_tag to symlink its Stage 1 outputs
