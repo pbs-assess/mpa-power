@@ -11,7 +11,8 @@
 # run_tag <- "0-sim-no-depth-fit-depth" # these are run on understanding-depth branch
 # run_tag <- "0-sim-no-depth-fit-no-depth"
 # run_tag <- "0-sim-depth-fit-depth"
-run_tag <- "0-sim-depth-fit-depth-region-restricted"
+# run_tag <- "0-sim-depth-fit-depth-region-restricted"
+run_tag <- "0-sim-depth-fit-depth-by-before-after"
 
 # Set to NULL for canonical run_tags ("ms", "no-depth") that build everything
 # from scratch. Set to an existing run_tag to symlink its Stage 1 outputs
@@ -54,7 +55,7 @@ FIT_SP_LIST <- c("yelloweye rockfish") # Set to ALL_SPECIES to run all species
 # SIM_SP_LIST <- ALL_SPECIES
 SIM_SP_LIST <- c("yelloweye rockfish") # Set to ALL_SPECIES to run all species
 SIM_NREPS      <- 220L
-SIM_REPLICATES <- 1:1
+SIM_REPLICATES <- 1:30
 # SIM_TOTAL_INCREASES <- NULL   # NULL = all (1.05, 1.10, 1.25, 1.5); subset e.g. c(1.25) to narrow
 SIM_TOTAL_INCREASES <- c(1.25)
 
@@ -71,15 +72,15 @@ FILTER_SURVEY        <- NULL
 FILTER_MPA_TREND     <- 1.009    # 25% recovery; use 1.0164 for 50%
 FILTER_AR1_SCENARIO  <- "fitted_AR1"
 FILTER_TIME_SCENARIO <- "thirty_years"
-FILTER_REPLICATES    <- 1:1
+FILTER_REPLICATES    <- 1:30
 
 # --- Stage 03 (03-sample-simulated.R) ----------------------------------------
 RUN_NON_BOOTSTRAP_PLANS <- TRUE
 
 # --- Stage 04 (04-fit-simulation.R) ------------------------------------------
-FORMULA <- catch_prop ~ 0 + fyear + region + region:restricted + year_covariate +
+FORMULA <- catch_prop ~ 0 + fyear + region + restricted + year_covariate +
   restricted:future_year_covariate +
-  log_depth + I(log_depth^2)
+  log_depth:future_step + I(log_depth^2):future_step
 # FORMULA <- catch_prop ~ 0 + fyear + restricted + year_covariate +
 #   restricted:future_year_covariate
 TREND_PARAM <- "restricted:future_year_covariate"
@@ -87,7 +88,7 @@ TREND_PARAM <- "restricted:future_year_covariate"
 FILTER_PLAN             <- c("status quo")#c("status quo", "historical survey-year bootstrap")
 EVALUATION_YEARS        <- c(2030, 2034, 2038, 2042, 2046)
 FILTER_EVALUATION_YEARS <- NULL   # NULL = all; subset e.g. c(2038, 2046) to narrow
-RUN_DEFENSIVE_CHECKS <- TRUE #TRUE # if TRUE
+RUN_DEFENSIVE_CHECKS <- FALSE #TRUE # if TRUE
 
 # =============================================================================
 # Testing/Debugging options
