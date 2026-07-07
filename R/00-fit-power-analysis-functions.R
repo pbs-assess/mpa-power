@@ -420,7 +420,8 @@ fit_single_replicate <- function(combo,
 
   new_results <- purrr::map_dfr(eval_years_to_fit, function(eval_year) {
     tryCatch({
-      combined_data <- combine_hist_sim_data(sampled_data_rep, hist_data, eval_year)
+      combined_data <- combine_hist_sim_data(sampled_data_rep, hist_data, eval_year) |>
+        mutate(region = factor(survey_abbrev))
 
       if (!is.null(component_surveys)) {
         combined_data <- combined_data |> mutate(survey_abbrev = combo$survey_abbrev)
