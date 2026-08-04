@@ -53,6 +53,40 @@ fit_characteristics <- readRDS(fit_characteristics_file) |>
   select(species, survey_abbrev, phi) |>
   distinct()
 
+# Fixed station locations for the "fixed stations" sampling plan -------------
+# Held constant across all simulated years and replicates: the inside-MPA
+# blocks sampled in each survey's most recent historical year.
+hbll_last_sampled_year <- readRDS(hbll_last_sampled_year_file) |> ungroup()
+
+# block_id -> grouping_code lookup (hbll_allocations is stratum-level only and
+# has no block_id; the block-level grouping_code mapping lives in the
+# restricted grid instead, as in R/fixed-stations.R's `restricted_df`).
+block_grouping_code_lu <- readRDS(hbll_restricted_sf_file) |>
+  st_drop_geometry() |>
+  distinct(survey_abbrev, block_id, grouping_code)
+
+fixed_station_blocks <- historical_locations |>
+  filter(restricted == 1) |>
+  inner_join(hbll_last_sampled_year |> select(survey_abbrev, year = last_sampled_year),
+             by = c("survey_abbrev", "year")) |>
+  distinct(survey_abbrev, block_id) |>
+  left_join(block_grouping_code_lu, by = c("survey_abbrev", "block_id")) |>
+  tidyr::drop_na(grouping_code)
+
+# Number of fixed stations per stratum, used to reduce the outside allocation
+# so total stratum effort stays consistent with the historical design
+n_fixed_by_stratum <- fixed_station_blocks |>
+  count(survey_abbrev, grouping_code, name = "n_fixed")
+
+# How are the fixed stations distributed?
+# ggplot(data = fixed_stations_sf) +
+#   geom_sf(data = grid_poly, linewidth = 0.02) +
+#   geom_sf(data = pacea::bc_coast) +
+#   geom_sf(data = display_mpa, fill = "#0072B2", alpha = 0.3, colour = NA) +
+#   geom_sf(size = 0.5, aes(shape = factor(restricted))) +
+#   scale_shape_manual(values = c("0" = 19, "1" = 21)) +
+#   guides(colour = "none", fill = "none", shape = "none") +
+#   gfplot::coord_sf_auto(fixed_stations_sf)
 
 # =============================================================================
 # Helper Functions
@@ -512,9 +546,40 @@ run_sampling <- function(sim_dat, species) {
       seed = rep + 6000
     ) |>
       mutate(plan = "MPAs every 4 years", replicate = rep)
+
+    # Case 3: Fixed inside-MPA stations, resampled every survey year; outside
+    # sampled at status quo allocation minus the fixed-station count for that
+    # stratum, so total stratum effort matches the historical design.
+    sample_effort_fixed_stations <- sample_effort_status_quo |>
+      left_join(
+        fixed_station_blocks |> transmute(survey_abbrev, block_id, is_fixed_station = TRUE),
+        by = c("survey_abbrev", "block_id")
+      ) |>
+      mutate(is_fixed_station = coalesce(is_fixed_station, FALSE)) |>
+      left_join(n_fixed_by_stratum, by = c("survey_abbrev", "grouping_code")) |>
+      mutate(n_fixed = coalesce(n_fixed, 0L)) |>
+      group_by(survey_abbrev, year, grouping_code) |>
+      mutate(
+        n_samps = case_when(
+          is_fixed_station ~ sum(is_fixed_station),
+          restricted == 1 ~ 0L, # no random inside sampling once stations are fixed
+          TRUE ~ pmax(allocation - n_fixed, 0)
+        )
+      ) |>
+      ungroup() |>
+      filter(n_samps > 0)
+
+    sampled_fixed_stations <- sample_by_plan(
+      sim_dat = sim_dat,
+      sampling_effort = sample_effort_fixed_stations,
+      grouping_vars = c("survey_abbrev", "year", "grouping_code", "is_fixed_station"),
+      seed = rep + 7000
+    ) |>
+      mutate(plan = "fixed stations", replicate = rep)
   } else {
     sampled_status_quo <- tibble()
     sampled_mpas_5_years <- tibble()
+    sampled_fixed_stations <- tibble()
   }
 
   sampled_historical_bootstrap <- bootstrap_historical_survey_years(
@@ -588,6 +653,7 @@ run_sampling <- function(sim_dat, species) {
     # sampled_status_quo_1.4,
     # sampled_status_quo_5_year,
     sampled_mpas_5_years,
+    sampled_fixed_stations,
     sampled_historical_bootstrap,
     sampled_historical_bootstrap_outside_only
   )
@@ -867,7 +933,8 @@ sampling_summary <- purrr::map_dfr(species_list, function(sp) {
       if (RUN_NON_BOOTSTRAP_PLANS) c(
         # "historical locations only",
         "status quo",
-        "MPAs every 4 years"
+        "MPAs every 4 years",
+        "fixed stations"
       ),
       "historical survey-year bootstrap",
       "historical survey-year bootstrap - no MPA every 2nd survey"
