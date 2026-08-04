@@ -9,11 +9,12 @@
 # run_tag <- "0-sim-depth-fit-depth-phi=1000-sigmaE=0"  # minimize observation error
 # run_tag <- "0-sim-depth-fit-no-depth" # these are run on understanding-depth branch
 # run_tag <- "0-sim-no-depth-fit-depth" # these are run on understanding-depth branch
-# run_tag <- "0-sim-no-depth-fit-no-depth"
+run_tag <- "0-sim-no-depth-fit-no-depth"
 # run_tag <- "0-sim-depth-fit-depth"
 # run_tag <- "0-sim-depth-fit-depth-region-restricted"
 # run_tag <- "0-sim-depth-fit-depth-by-before-after"
-run_tag <- "0-sim-depth-fit-no-depth"
+# run_tag <- "0-sim-depth-fit-no-depth"
+# run_tag <- "0-sim-depth-fit-depth-by-region-before-after"
 
 # Set to NULL for canonical run_tags ("ms", "no-depth") that build everything
 # from scratch. Set to an existing run_tag to symlink its Stage 1 outputs
@@ -49,14 +50,14 @@ ALL_SPECIES <- c(
   "silvergray rockfish"
 )
 
-# FIT_SP_LIST <- ALL_SPECIES
-FIT_SP_LIST <- c("yelloweye rockfish") # Set to ALL_SPECIES to run all species
+FIT_SP_LIST <- ALL_SPECIES
+# FIT_SP_LIST <- c("yelloweye rockfish", "lingcod") # Set to ALL_SPECIES to run all species
 
 # --- Stage 02 (02-generate-simulated-data.R) ----------------------------------
 # SIM_SP_LIST <- ALL_SPECIES
 SIM_SP_LIST <- c("yelloweye rockfish") # Set to ALL_SPECIES to run all species
 SIM_NREPS      <- 220L
-SIM_REPLICATES <- 1:30
+SIM_REPLICATES <- 1:50
 # SIM_TOTAL_INCREASES <- NULL   # NULL = all (1.05, 1.10, 1.25, 1.5); subset e.g. c(1.25) to narrow
 SIM_TOTAL_INCREASES <- c(1.25)
 
@@ -73,16 +74,26 @@ FILTER_SURVEY        <- NULL
 FILTER_MPA_TREND     <- 1.009    # 25% recovery; use 1.0164 for 50%
 FILTER_AR1_SCENARIO  <- "fitted_AR1"
 FILTER_TIME_SCENARIO <- "thirty_years"
-FILTER_REPLICATES    <- 1:30
+FILTER_REPLICATES    <- 1:50
 
 # --- Stage 03 (03-sample-simulated.R) ----------------------------------------
 RUN_NON_BOOTSTRAP_PLANS <- TRUE
 
 # --- Stage 04 (04-fit-simulation.R) ------------------------------------------
-FORMULA <- catch_prop ~ 0 + fyear + restricted + year_covariate +
-  restricted:future_year_covariate
 # FORMULA <- catch_prop ~ 0 + fyear + restricted + year_covariate +
 #   restricted:future_year_covariate
+
+# FORMULA <- catch_prop ~ 0 + fyear + restricted + year_covariate +
+#   restricted:future_year_covariate +
+#   region
+
+FORMULA <- catch_prop ~ 0 + fyear + restricted + year_covariate + restricted:future_year_covariate +
+  region +
+  log_depth + I(log_depth^2) +
+  log_depth:region + I(log_depth^2):region +
+  log_depth:future_step + I(log_depth^2):future_step +
+  log_depth:region:future_step + I(log_depth^2):region:future_step
+
 TREND_PARAM <- "restricted:future_year_covariate"
 
 FILTER_PLAN             <- c("status quo")#c("status quo", "historical survey-year bootstrap")
