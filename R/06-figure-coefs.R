@@ -105,7 +105,6 @@ term_lu <- tibble(
 )
 
 fit_coef_summary <- fit_coef_df |>
-  filter(species != "pacific halibut") |>
   left_join(term_lu, by = "term") |>
   mutate(
     survey = factor(

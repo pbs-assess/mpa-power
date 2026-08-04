@@ -768,13 +768,13 @@ if (USE_PARALLEL) {
 ### SETTINGS
 RUN_NON_BOOTSTRAP_PLANS <- FALSE
 FILTER_SPECIES <- c(
-  "yelloweye rockfish"
-  #  "north pacific spiny dogfish",
-  #  "lingcod",
-  # "quillback rockfish",
-  # # "pacific halibut",
-  #  "canary rockfish",
-  #  "silvergray rockfish"
+  "yelloweye rockfish",
+   "north pacific spiny dogfish",
+   "lingcod",
+  "quillback rockfish",
+  "pacific halibut",
+   "canary rockfish",
+   "silvergray rockfish"
 )
 FILTER_SURVEY <- NULL
 FILTER_MPA_TREND <- NULL
