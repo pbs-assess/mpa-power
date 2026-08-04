@@ -178,7 +178,7 @@ ggplot(
   gfplot::theme_pbs() +
   scale_colour_manual(
     values = c(
-      "Outside MPA" = "grey60",
+      "Outside MPA" = "grey50",
       "Inside MPA" = RColorBrewer::brewer.pal(5, "Set2")[2]
     )
   ) +
