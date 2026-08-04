@@ -1,5 +1,5 @@
 # Core libraries
-library(sdmTMB) # pak::pak("tidyverse/dplyr@778e413
+library(sdmTMB) # pak::pak("sdmTMB/sdmTMB@778e413")
 library(ggplot2)
 # library(here)
 library(sf)
