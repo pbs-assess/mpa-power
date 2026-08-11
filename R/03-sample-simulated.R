@@ -576,10 +576,28 @@ run_sampling <- function(sim_dat, species) {
       seed = rep + 7000
     ) |>
       mutate(plan = "fixed stations", replicate = rep)
+
+    # Case 4: For first 5 sets of biennial sampling events - MPA delayed, effort
+    # reallocated to outside MPAs. Status quo sampling resumes after ~10 years
+    n_delay_occasions <- 5  # skip first 5 biennial occasions (~10 years) before MPA sampling starts
+
+    sampled_mpas_delayed_start <- sample_by_plan(
+      sim_dat = sim_dat,
+      sampling_effort = sample_effort_status_quo |>
+        group_by(survey_abbrev) |>
+        mutate(occasion = dense_rank(year)) |>
+        ungroup() |>
+        filter(restricted == 0 | occasion > n_delay_occasions) |>
+        select(-occasion),
+      grouping_vars = c("survey_abbrev", "year", "grouping_code"),
+      seed = rep + 8000
+    ) |>
+      mutate(plan = "MPAs delayed 10 years", replicate = rep)
   } else {
     sampled_status_quo <- tibble()
     sampled_mpas_5_years <- tibble()
     sampled_fixed_stations <- tibble()
+    sampled_mpas_delayed_start <- tibble()
   }
 
   sampled_historical_bootstrap <- bootstrap_historical_survey_years(
@@ -648,14 +666,11 @@ run_sampling <- function(sim_dat, species) {
   bind_rows(
     # sampled_historical,
     sampled_status_quo,
-    # sampled_status_quo_1.1,
-    # sampled_status_quo_1.2,
-    # sampled_status_quo_1.4,
-    # sampled_status_quo_5_year,
     sampled_mpas_5_years,
     sampled_fixed_stations,
-    sampled_historical_bootstrap,
-    sampled_historical_bootstrap_outside_only
+    sampled_mpas_delayed_start,
+    sampled_historical_bootstrap
+    # sampled_historical_bootstrap_outside_only
   )
 }
 
@@ -934,7 +949,8 @@ sampling_summary <- purrr::map_dfr(species_list, function(sp) {
         # "historical locations only",
         "status quo",
         "MPAs every 4 years",
-        "fixed stations"
+        "fixed stations",
+        "MPAs delayed 10 years"
       ),
       "historical survey-year bootstrap",
       "historical survey-year bootstrap - no MPA every 2nd survey"

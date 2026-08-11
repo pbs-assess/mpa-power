@@ -419,6 +419,12 @@ fit_single_replicate <- function(combo,
   }
 
   new_results <- purrr::map_dfr(eval_years_to_fit, function(eval_year) {
+    # Skip eval years before any simulated inside-MPA sampling has occurred
+    # (needed for the delayed inside MPA sampling design)
+    if (!any(sampled_data_rep$restricted == 1 & sampled_data_rep$year <= eval_year)) {
+      return(NULL)
+    }
+
     tryCatch({
       combined_data <- combine_hist_sim_data(sampled_data_rep, hist_data, eval_year) |>
         mutate(region = factor(survey_abbrev))
