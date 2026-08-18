@@ -490,12 +490,15 @@ bootstrap_historical_survey_years <- function(sim_dat, species, hist_clean_dir,
     select(-replacement_draw, -phi)
 }
 
-run_sampling <- function(sim_dat, species) {
+run_sampling <- function(sim_dat, species, plans = NULL) {
   # Verify sim_dat contains single replicate
   rep <- unique(sim_dat$replicate)
   if (length(rep) != 1) {
     stop("sim_dat must contain exactly one replicate, found: ", length(rep))
   }
+
+  # plans = NULL means "compute every plan" (default / backward-compatible)
+  want <- function(plan_name) is.null(plans) || plan_name %in% plans
 
   # Historical location sampling plan ------------------------
   # This was useful for testing accuracy of simulated data
@@ -525,74 +528,83 @@ run_sampling <- function(sim_dat, species) {
         restricted, allocation, n_samps) |>
       filter_hbll_survey_years()
 
-    sampled_status_quo <- sample_by_plan(
-      sim_dat = sim_dat,
-      sampling_effort = sample_effort_status_quo,
-      grouping_vars = c("survey_abbrev", "year", "grouping_code"),
-      seed = rep
-    ) |>
-      mutate(plan = "status quo", replicate = rep)
+    sampled_status_quo <- if (want("status quo")) {
+      sample_by_plan(
+        sim_dat = sim_dat,
+        sampling_effort = sample_effort_status_quo,
+        grouping_vars = c("survey_abbrev", "year", "grouping_code"),
+        seed = rep
+      ) |>
+        mutate(plan = "status quo", replicate = rep)
+    } else tibble()
     # ggplot(sampled_status_quo, aes(X, Y, colour = factor(restricted))) + geom_point() + facet_wrap(~year)
+
     # Case 2: MPA sampling every 5 years; Status quo reallocated outside MPAs in off years
-    sampled_mpas_5_years <- sample_by_plan(
-      sim_dat = sim_dat,
-      sampling_effort = sample_effort_status_quo |>
-        group_by(survey_abbrev) |>
-        mutate(first_year = min(year)) |>
-        filter(restricted == 0 | (year - first_year) %% 4 == 0) |>
-        select(-first_year) |>
-        ungroup(),
-      grouping_vars = c("survey_abbrev", "year", "grouping_code"),
-      seed = rep + 6000
-    ) |>
-      mutate(plan = "MPAs every 4 years", replicate = rep)
+    sampled_mpas_5_years <- if (want("MPAs every 4 years")) {
+      sample_by_plan(
+        sim_dat = sim_dat,
+        sampling_effort = sample_effort_status_quo |>
+          group_by(survey_abbrev) |>
+          mutate(first_year = min(year)) |>
+          filter(restricted == 0 | (year - first_year) %% 4 == 0) |>
+          select(-first_year) |>
+          ungroup(),
+        grouping_vars = c("survey_abbrev", "year", "grouping_code"),
+        seed = rep + 6000
+      ) |>
+        mutate(plan = "MPAs every 4 years", replicate = rep)
+    } else tibble()
 
     # Case 3: Fixed inside-MPA stations, resampled every survey year; outside
     # sampled at status quo allocation minus the fixed-station count for that
     # stratum, so total stratum effort matches the historical design.
-    sample_effort_fixed_stations <- sample_effort_status_quo |>
-      left_join(
-        fixed_station_blocks |> transmute(survey_abbrev, block_id, is_fixed_station = TRUE),
-        by = c("survey_abbrev", "block_id")
-      ) |>
-      mutate(is_fixed_station = coalesce(is_fixed_station, FALSE)) |>
-      left_join(n_fixed_by_stratum, by = c("survey_abbrev", "grouping_code")) |>
-      mutate(n_fixed = coalesce(n_fixed, 0L)) |>
-      group_by(survey_abbrev, year, grouping_code) |>
-      mutate(
-        n_samps = case_when(
-          is_fixed_station ~ sum(is_fixed_station),
-          restricted == 1 ~ 0L, # no random inside sampling once stations are fixed
-          TRUE ~ pmax(allocation - n_fixed, 0)
-        )
-      ) |>
-      ungroup() |>
-      filter(n_samps > 0)
+    sampled_fixed_stations <- if (want("fixed stations")) {
+      sample_effort_fixed_stations <- sample_effort_status_quo |>
+        left_join(
+          fixed_station_blocks |> transmute(survey_abbrev, block_id, is_fixed_station = TRUE),
+          by = c("survey_abbrev", "block_id")
+        ) |>
+        mutate(is_fixed_station = coalesce(is_fixed_station, FALSE)) |>
+        left_join(n_fixed_by_stratum, by = c("survey_abbrev", "grouping_code")) |>
+        mutate(n_fixed = coalesce(n_fixed, 0L)) |>
+        group_by(survey_abbrev, year, grouping_code) |>
+        mutate(
+          n_samps = case_when(
+            is_fixed_station ~ sum(is_fixed_station),
+            restricted == 1 ~ 0L, # no random inside sampling once stations are fixed
+            TRUE ~ pmax(allocation - n_fixed, 0)
+          )
+        ) |>
+        ungroup() |>
+        filter(n_samps > 0)
 
-    sampled_fixed_stations <- sample_by_plan(
-      sim_dat = sim_dat,
-      sampling_effort = sample_effort_fixed_stations,
-      grouping_vars = c("survey_abbrev", "year", "grouping_code", "is_fixed_station"),
-      seed = rep + 7000
-    ) |>
-      mutate(plan = "fixed stations", replicate = rep)
+      sample_by_plan(
+        sim_dat = sim_dat,
+        sampling_effort = sample_effort_fixed_stations,
+        grouping_vars = c("survey_abbrev", "year", "grouping_code", "is_fixed_station"),
+        seed = rep + 7000
+      ) |>
+        mutate(plan = "fixed stations", replicate = rep)
+    } else tibble()
 
     # Case 4: For first 5 sets of biennial sampling events - MPA delayed, effort
     # reallocated to outside MPAs. Status quo sampling resumes after ~10 years
-    n_delay_occasions <- 5  # skip first 5 biennial occasions (~10 years) before MPA sampling starts
+    sampled_mpas_delayed_start <- if (want("MPAs delayed 10 years")) {
+      n_delay_occasions <- 5  # skip first 5 biennial occasions (~10 years) before MPA sampling starts
 
-    sampled_mpas_delayed_start <- sample_by_plan(
-      sim_dat = sim_dat,
-      sampling_effort = sample_effort_status_quo |>
-        group_by(survey_abbrev) |>
-        mutate(occasion = dense_rank(year)) |>
-        ungroup() |>
-        filter(restricted == 0 | occasion > n_delay_occasions) |>
-        select(-occasion),
-      grouping_vars = c("survey_abbrev", "year", "grouping_code"),
-      seed = rep + 8000
-    ) |>
-      mutate(plan = "MPAs delayed 10 years", replicate = rep)
+      sample_by_plan(
+        sim_dat = sim_dat,
+        sampling_effort = sample_effort_status_quo |>
+          group_by(survey_abbrev) |>
+          mutate(occasion = dense_rank(year)) |>
+          ungroup() |>
+          filter(restricted == 0 | occasion > n_delay_occasions) |>
+          select(-occasion),
+        grouping_vars = c("survey_abbrev", "year", "grouping_code"),
+        seed = rep + 8000
+      ) |>
+        mutate(plan = "MPAs delayed 10 years", replicate = rep)
+    } else tibble()
   } else {
     sampled_status_quo <- tibble()
     sampled_mpas_5_years <- tibble()
@@ -600,22 +612,26 @@ run_sampling <- function(sim_dat, species) {
     sampled_mpas_delayed_start <- tibble()
   }
 
-  sampled_historical_bootstrap <- bootstrap_historical_survey_years(
-    sim_dat = sim_dat,
-    species = species,
-    hist_clean_dir = cleaned_data_dir,
-    seed = rep + 12000
-  ) |>
-    mutate(plan = "historical survey-year bootstrap", replicate = rep)
+  sampled_historical_bootstrap <- if (want("historical survey-year bootstrap")) {
+    bootstrap_historical_survey_years(
+      sim_dat = sim_dat,
+      species = species,
+      hist_clean_dir = cleaned_data_dir,
+      seed = rep + 12000
+    ) |>
+      mutate(plan = "historical survey-year bootstrap", replicate = rep)
+  } else tibble()
 
-  sampled_historical_bootstrap_outside_only <- bootstrap_historical_survey_years(
-    sim_dat = sim_dat,
-    species = species,
-    hist_clean_dir = cleaned_data_dir,
-    seed = rep + 13000,
-    drop_restricted = TRUE
-  ) |>
-    mutate(plan = "historical survey-year bootstrap - no MPA every 2nd survey", replicate = rep)
+  sampled_historical_bootstrap_outside_only <- if (want("historical survey-year bootstrap - no MPA every 2nd survey")) {
+    bootstrap_historical_survey_years(
+      sim_dat = sim_dat,
+      species = species,
+      hist_clean_dir = cleaned_data_dir,
+      seed = rep + 13000,
+      drop_restricted = TRUE
+    ) |>
+      mutate(plan = "historical survey-year bootstrap - no MPA every 2nd survey", replicate = rep)
+  } else tibble()
 
   # Case 3: Status quo + 20% effort ------------------------
   # For low power species, does increasing sampling make a difference to power?
@@ -669,8 +685,8 @@ run_sampling <- function(sim_dat, species) {
     sampled_mpas_5_years,
     sampled_fixed_stations,
     sampled_mpas_delayed_start,
-    sampled_historical_bootstrap
-    # sampled_historical_bootstrap_outside_only
+    sampled_historical_bootstrap,
+    sampled_historical_bootstrap_outside_only
   )
 }
 
@@ -961,7 +977,7 @@ sampling_summary <- purrr::map_dfr(species_list, function(sp) {
     # Process each replicate (filtered if applicable)
     replicate_metadata <- purrr::map_dfr(replicates_to_process, function(rep_num) {
 
-      # Check if all plan files exist for this replicate
+      # Per-plan file paths and cache status for this replicate
       expected_files <- sapply(plan_names, function(plan) {
         fname <- generate_sample_filename(
           species = sp_clean,
@@ -976,15 +992,14 @@ sampling_summary <- purrr::map_dfr(species_list, function(sp) {
       })
 
       sim_created_date <- if ("created_date" %in% names(row)) as.POSIXct(row$created_date) else NA
-      sampled_files_current <- all(file.exists(expected_files)) &&
-        (is.na(sim_created_date) || all(file.mtime(expected_files) >= sim_created_date))
+      plan_current <- file.exists(expected_files) &
+        (is.na(sim_created_date) | file.mtime(expected_files) >= sim_created_date)
 
-      # If all files exist for this replicate and are newer than the source simulations, skip and load metadata
-      if (sampled_files_current) {
+      # If every plan's file is current, skip sampling entirely and load metadata
+      if (all(plan_current)) {
         message("  Cache hit: survey=", row$survey_abbrev, ", mpa=", row$mpa_trend,
                 ", ar1=", row$ar1_scenario, ", time=", row$time_scenario, ", rep=", rep_num)
 
-        # Load metadata from existing files
         file_metadata <- purrr::map_dfr(seq_along(expected_files), function(i) {
           existing_data <- readRDS(expected_files[i])
           tibble(
@@ -1002,14 +1017,10 @@ sampling_summary <- purrr::map_dfr(species_list, function(sp) {
         return(file_metadata)
       }
 
-      if (all(file.exists(expected_files)) && !sampled_files_current) {
-        message("  Cache stale: resampling survey=", row$survey_abbrev, ", mpa=", row$mpa_trend,
-                ", ar1=", row$ar1_scenario, ", time=", row$time_scenario, ", rep=", rep_num)
-      }
-
-      # At least one file missing - proceed with sampling this replicate
+      stale_plans <- plan_names[!plan_current]
       message("  - survey=", row$survey_abbrev, ", mpa=", row$mpa_trend,
-              ", ar1=", row$ar1_scenario, ", time=", row$time_scenario, ", rep=", rep_num)
+              ", ar1=", row$ar1_scenario, ", time=", row$time_scenario, ", rep=", rep_num,
+              ": (re)computing ", paste(stale_plans, collapse = ", "))
 
       # Load single replicate
       sim_dat <- load_sim_data(
@@ -1025,8 +1036,8 @@ sampling_summary <- purrr::map_dfr(species_list, function(sp) {
         file_pattern = row$file
       )
 
-      # Apply all sampling designs to this replicate
-      sampled <- run_sampling(sim_dat = sim_dat, species = row$species)
+      # Only compute the plans that are actually missing/stale
+      sampled <- run_sampling(sim_dat = sim_dat, species = row$species, plans = stale_plans)
 
       # Add simulation metadata
       sampled <- sampled |>
@@ -1038,42 +1049,28 @@ sampling_summary <- purrr::map_dfr(species_list, function(sp) {
           sim_time_scenario = row$time_scenario
         )
 
-      # Split by plan and save separately
-      file_metadata <- sampled |>
-        group_by(plan) |>
-        group_split() |>
-        purrr::map_dfr(function(plan_data) {
-          plan_name <- unique(plan_data$plan)
+      # Save only the stale plans; reuse already-current files untouched so
+      # unrelated plans don't get needlessly rewritten (and re-synced)
+      file_metadata <- purrr::map_dfr(plan_names, function(plan_name) {
+        fpath <- expected_files[[plan_name]]
 
-          # Generate filename
-          fname <- generate_sample_filename(
-            species = sp_clean,
-            survey_abbrev = row$survey_abbrev,
-            mpa_trend = row$mpa_trend,
-            ar1_scenario = row$ar1_scenario,
-            time_scenario = row$time_scenario,
-            plan = plan_name,
-            replicate = rep_num
-          )
-
-          fpath <- file.path(sp_dir, fname)
-
-          # Save this plan × replicate
+        if (plan_name %in% stale_plans) {
+          plan_data <- sampled |> filter(plan == plan_name)
           saveRDS(plan_data, fpath)
-          message("    Saved: ", fname)
+          message("    Saved: ", basename(fpath))
+        }
 
-          # Return metadata for summary
-          tibble(
-            species = row$species,
-            survey_abbrev = row$survey_abbrev,
-            mpa_trend = row$mpa_trend,
-            ar1_scenario = row$ar1_scenario,
-            time_scenario = row$time_scenario,
-            plan = plan_name,
-            replicate = rep_num,
-            file = file.path(sp_clean, fname)
-          )
-        })
+        tibble(
+          species = row$species,
+          survey_abbrev = row$survey_abbrev,
+          mpa_trend = row$mpa_trend,
+          ar1_scenario = row$ar1_scenario,
+          time_scenario = row$time_scenario,
+          plan = plan_name,
+          replicate = rep_num,
+          file = file.path(sp_clean, basename(fpath))
+        )
+      })
 
       return(file_metadata)
     })
