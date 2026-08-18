@@ -76,15 +76,14 @@ FILTER_SURVEY        <- NULL
 FILTER_MPA_TREND     <- NULL
 FILTER_AR1_SCENARIO  <- "fitted_AR1"
 FILTER_TIME_SCENARIO <- "thirty_years"
-FILTER_REPLICATES    <- 1:100
+FILTER_REPLICATES    <- 1:60
 
 # --- Stage 03 (03-sample-simulated.R) ----------------------------------------
 RUN_NON_BOOTSTRAP_PLANS <- TRUE
 
 # --- Stage 04 (04-fit-simulation.R) ------------------------------------------
 # FORMULA <- catch_prop ~ 0 + fyear + restricted + year_covariate +
-#   restricted:future_year_covariate
-
+#   restricted:future_year_covariatea
 # FORMULA <- catch_prop ~ 0 + fyear + restricted + year_covariate +
 #   restricted:future_year_covariate +
 #   region
@@ -98,7 +97,7 @@ FORMULA <- catch_prop ~ 0 + fyear + restricted + year_covariate + restricted:fut
 
 TREND_PARAM <- "restricted:future_year_covariate"
 
-FILTER_PLAN             <- c("status quo", "fixed stations", "historical survey-year bootstrap", "MPAs delayed 10 years")
+FILTER_PLAN             <- c("status quo", "MPAs every 4 years", "fixed stations", "MPAs delayed 10 years")
 EVALUATION_YEARS        <- c(2030, 2034, 2038, 2042, 2046, 2050)
 FILTER_EVALUATION_YEARS <- NULL   # NULL = all; subset e.g. c(2038, 2046) to narrow
 RUN_DEFENSIVE_CHECKS <- FALSE #TRUE # if TRUE
